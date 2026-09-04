@@ -17,6 +17,11 @@ const DEMO_ACCOUNT: MockAccount = {
   createdAt: '2026-01-01T00:00:00.000Z',
 }
 
+export const MOCK_LOGIN_DEFAULTS = {
+  email: DEMO_ACCOUNT.email,
+  password: DEMO_ACCOUNT.password,
+} as const
+
 const GOOGLE_ACCOUNT: MockAccount = {
   id: 'user_google_001',
   email: 'gary.google@sportsbuddy.app',
