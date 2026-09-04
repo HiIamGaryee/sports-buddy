@@ -4,6 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
+import { MatchingReasons } from '@/features/discover/components/matching-reasons'
 import { getInitials } from '@/lib/initials'
 import {
   formatAvailability,
@@ -14,22 +16,32 @@ import {
   getSkillLabel,
   getSportName,
 } from '@/lib/profile-format'
+import { cn } from '@/lib/utils'
 import { buddyProfilePath } from '@/routes/routes'
-import type { DiscoveryProfile } from '@/types/discovery-profile'
+import { getTopMatchingReasons } from '@/services/matching/matching-service'
+import type { RankedBuddy } from '@/types/matching'
 
 const MAX_SPORTS_SHOWN = 3
 const MAX_SLOTS_SHOWN = 2
 
 /**
- * Discovery-safe candidate card. It accepts `DiscoveryProfile` only, so no
- * private field can reach it. STEP 7 adds a compatibility block above the
- * sports list without changing this contract.
+ * Discovery-safe candidate card. It takes a `RankedBuddy` — the projection
+ * plus the viewer's derived compatibility — so no private field can reach it
+ * and no score is ever read from the document.
  */
-export function BuddyCard({ candidate }: { candidate: DiscoveryProfile }) {
-  const sports = candidate.sports.slice(0, MAX_SPORTS_SHOWN)
-  const hiddenSports = candidate.sports.length - sports.length
+export function BuddyCard({ buddy }: { buddy: RankedBuddy }) {
+  const { profile: candidate, compatibility } = buddy
+  const shared = compatibility.sharedSports
+  // Shared sports first: the reason someone is here belongs at the top.
+  const ordered = [
+    ...candidate.sports.filter((sport) => shared.includes(sport.sportId)),
+    ...candidate.sports.filter((sport) => !shared.includes(sport.sportId)),
+  ]
+  const sports = ordered.slice(0, MAX_SPORTS_SHOWN)
+  const hiddenSports = ordered.length - sports.length
   const slots = formatAvailability(candidate.availability)
   const shownSlots = slots.slice(0, MAX_SLOTS_SHOWN)
+  const reasons = getTopMatchingReasons(compatibility)
 
   return (
     <Card>
@@ -51,13 +63,22 @@ export function BuddyCard({ candidate }: { candidate: DiscoveryProfile }) {
               {getAreaName(candidate.area)}
             </span>
           </div>
+          <CompatibilityScore
+            score={compatibility.score}
+            label={compatibility.label}
+          />
         </div>
+
+        <MatchingReasons reasons={reasons} />
 
         <div className="flex flex-col gap-1.5">
           {sports.map(({ sportId, skillLevel }) => (
             <div
               key={sportId}
-              className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-3 py-2"
+              className={cn(
+                'flex items-center justify-between gap-3 rounded-xl px-3 py-2',
+                shared.includes(sportId) ? 'bg-primary/10' : 'bg-muted/50',
+              )}
             >
               <span className="text-body text-card-foreground">
                 {getSportName(sportId)}

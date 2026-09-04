@@ -18,6 +18,7 @@ None of those features exist yet. Only the foundation does (STEP 1).
 | Styling | Tailwind CSS v4 (`@tailwindcss/vite`, CSS-first config) |
 | Components | shadcn/ui (`radix-nova` style, `radix-ui` primitives, `lucide-react` icons) |
 | Mobile shell | Capacitor 8 (config only, no native folders yet) |
+| Tests | Vitest (`npm test`) — unit tests for the pure matching engine |
 | Backend | Firebase (planned — not installed yet) |
 
 Planned Firebase services: Auth, Firestore, Cloud Messaging, Analytics,
@@ -174,11 +175,75 @@ users/{uid} (PRIVATE) → toDiscoveryProfile() → publicProfiles/{uid}
   written back, applied client-side so changing one costs no reads. Reset
   returns to the saved preferences.
 - `hasAvailabilityOverlap()` (`src/lib/availability.ts`) is shared with the
-  future compatibility engine — do not write a second version.
-- Deliberately absent in STEP 6: compatibility scores, Connect, distance.
-  There are no coordinates yet, so nothing may display "4 km away"; area is
-  the stand-in. Ranking is recency, not recommendation.
+  compatibility engine — do not write a second version.
+- Deliberately absent: Connect and distance. There are no coordinates yet, so
+  nothing may display "4 km away"; area is the stand-in. Ranking became
+  compatibility-based in STEP 7; `updatedAt` is only retrieval order.
 - Full walkthrough: `docs/discover.md`.
+
+### Compatibility + matching (STEP 7)
+
+```
+publicProfiles batch
+        ↓  isVisibleCandidate()   self + discoverable  → HARD exclusion
+        ↓  matchesFilters()       active Discover filters → HARD exclusion
+        ↓  calculateCompatibility()   per viewer, at runtime
+        ↓  rankBuddies()          score desc, deterministic tie-breaks
+RankedBuddy[] → BuddyCard / /discover/:userId
+```
+
+- Responsibilities stay split: `DiscoverRepository` retrieves candidates,
+  the **matching engine** scores them, `discoverService` filters and ranks.
+  No scoring in a page, a card or a Firestore query.
+- `src/services/matching/` is the engine and it is **pure** — no Firebase, no
+  storage, no React, no `Date.now()`, no `Math.random()`. The same pair always
+  produces the same score.
+  - `matching-constants.ts` — **every** weight, threshold and label band.
+  - `matching-factors.ts` — the five pure calculators
+    (`calculateSportCompatibility`, `calculateSkillCompatibility`,
+    `calculateAvailabilityCompatibility`,
+    `calculateLocationCompatibility`, `calculateBudgetCompatibility`) plus
+    `getSharedSports`, `getBestSportMatch`, `getSkillScore`.
+  - `matching-service.ts` — `toMatchingSubject`, `calculateCompatibility`,
+    `getTopMatchingReasons`, `getCompatibilityLabel`, `rankBuddies`.
+- Types (`src/types/matching.ts`): `MatchingSubject` (all the engine may know
+  about the viewer), `CompatibilityFactor`, `CompatibilityResult`,
+  `MatchingReason`, `RankedBuddy` (`{ profile, compatibility }` — the
+  projection is never mutated, so STEP 8 adds connection state *beside*
+  compatibility).
+
+| Factor | Weight | Rule |
+| --- | --- | --- |
+| Sports overlap | 35 | 0.70 first shared sport (0.50 if not a preferred sport), +0.15 each extra, 0 with none |
+| Skill | 20 | best shared sport only; rank distance 0/1/2/3 → 1.0/0.8/0.4/0.1 |
+| Availability | 20 | shared periods 0/1/2/3+ → 0/0.6/0.8/1.0 |
+| Location | 15 | same area 1.0, same region 0.6, different 0.2, missing 0 |
+| Budget | 10 | real overlap 1.0, touching 0.6, gap ≤ RM10 0.4, else 0 |
+
+Weights total 100 (asserted by a test). Every factor normalizes to 0–1, then
+weights are applied, so the breakdown always sums to the headline score.
+
+- **Score is derived, never persisted.** No `compatibilityScore` field, no
+  `matches/{id}` collection, no stored reasons — a score depends on who is
+  looking. Computed from data already in the batch: no extra reads, no N+1.
+- **Filtering ≠ ranking.** Hard filters run first and an excluded candidate
+  is never scored; a low score never hides anyone.
+- **Location is approximate area only.** No coordinates exist, so nothing may
+  render a distance. Areas declare a coarse `AreaRegion`
+  (`src/constants/areas.ts`) documented as *not* travel distance, and
+  `calculateLocationCompatibility()` is the single function a real distance
+  provider will replace. `maxDistanceKm` is stored but cannot be enforced.
+- Reasons are typed (`MatchingReason`) and deterministic: only factors with
+  something positive to say (`strength ≥ 0.5`), ordered by contribution
+  (`strength × weight`) with `REASON_PRIORITY` as the tie-break, and the
+  sports reason dropped when a single shared sport makes the skill reason say
+  it already.
+- `hasAvailabilityOverlap` / `getSharedAvailability` / `countSharedPeriods`
+  live once in `src/lib/availability.ts` and are shared with Discover
+  filtering. Never write a second version.
+- Tests: `npm test` (Vitest) — `src/services/matching/matching-service.test.ts`
+  and `src/lib/discover-filters.test.ts`.
+- Full walkthrough: `docs/matching.md`.
 
 ### Profile editing and settings (STEP 5)
 
@@ -289,7 +354,8 @@ src/
                 password-input, google-sign-in-button),
                 pages/ (login-page, register-page), validation.ts
     discover/   components/ (buddy-card, discover-filter-sheet,
-                active-filter-chips), pages/ (discover-page,
+                active-filter-chips, compatibility-score, matching-reasons,
+                compatibility-breakdown), pages/ (discover-page,
                 buddy-profile-page), use-discover.ts
     profile/    components/ (profile-hero, profile-completeness-card,
                 profile-section, sport-skill-list, availability-summary,
@@ -308,7 +374,7 @@ src/
                 storage.ts, validation.ts, profile-format.ts,
                 profile-draft.ts (shared reducer), preferences.ts,
                 profile-completeness.ts, discovery-profile.ts,
-                discover-filters.ts, availability.ts
+                discover-filters.ts (+ .test.ts), availability.ts
   pages/        home-page.tsx, activities-page.tsx, messages-page.tsx
                 (auth, onboarding, profile, settings and discover live
                 under features/)
@@ -332,11 +398,13 @@ src/
     auth/       auth-service.ts, auth-error.ts
     profile/    profile-service.ts, profile-validation.ts
     discover/   discover-service.ts
+    matching/   matching-constants.ts, matching-factors.ts,
+                matching-service.ts (+ matching-service.test.ts)
     firebase/   config.ts (env + validation), client.ts (app/auth/db)
   styles/       theme.css — ONLY file with raw color values
   types/        theme.ts, auth.ts, user.ts, sports-profile.ts,
                 preferences.ts, discovery-profile.ts, discover.ts,
-                data-source.ts
+                matching.ts, data-source.ts
   index.css     Tailwind + shadcn + theme imports, base layer
 ```
 
@@ -596,7 +664,15 @@ it. Feature logic never leaks into `components/ui/`.
   blocked users, policy links, a Connect button before STEP 8).
 - Read `users/{uid}` for anything about another member, or widen its rules to
   make Discover easier — project through `publicProfiles/{uid}` instead.
-- Display a distance, a compatibility percentage or any invented metric.
+- Display a distance, a fake compatibility percentage or any invented metric.
+- Persist a compatibility score, reason or factor breakdown anywhere — it is
+  derived per viewer and recomputed at runtime.
+- Put a matching formula, weight or threshold outside
+  `src/services/matching/matching-constants.ts`.
+- Use AI, embeddings, a remote model or randomness to score or explain a
+  match — the engine is rule-based and deterministic.
+- Touch Firebase, storage, React or the clock inside the matching engine.
+- Hide a candidate because their score is low; only active filters exclude.
 - Attach a realtime listener to `publicProfiles`.
 - Add dependencies that nothing uses yet.
 - Create empty placeholder files/folders or single-implementation
@@ -671,12 +747,49 @@ app open; a skill edit propagating to the projection with no second action;
 and switching discovery off deleting the projection (`[]`) and back on
 restoring it.
 
+STEP 7 — Compatibility + Matching Engine:
+
+- Pure, deterministic, rule-based engine in `src/services/matching/`
+  (constants / factors / service) with `src/types/matching.ts`. No AI, no
+  embeddings, no randomness, no Firebase or React inside it.
+- Weights sports 35 / skill 20 / availability 20 / location 15 / budget 10,
+  totalling 100 (asserted by a test); every factor normalizes to 0–1 before
+  weighting, so the breakdown sums to the headline score.
+- `CompatibilityResult` carries the 0–100 integer score, a band label, a
+  five-factor breakdown (normalized, weighted points, qualitative label,
+  human detail, matched flag), typed reasons, shared sports and the best
+  matching sport. `RankedBuddy` pairs it with the untouched projection.
+- Location is **approximate area compatibility only** — same area / same
+  coarse `AreaRegion` / different — and no surface renders a distance.
+  `maxDistanceKm` remains unenforceable until coordinates exist.
+- `discoverService.getRankedCandidates()` applies hard exclusions and active
+  filters, then scores and ranks; `rankCandidate()` serves the detail page.
+  Nothing is persisted and no extra reads are made.
+- `BuddyCard` shows the real score, band and up to three strongest reasons,
+  with shared sports listed first; `/discover/:userId` adds a compatibility
+  card with the reasons and the full factor breakdown.
+- Vitest added (`npm test`): 41 tests over the engine and the hard filters.
+- Mock feed gained one open-ended-budget (RM60+) candidate, so the seed set
+  spans strong, medium and weak matches plus every "no overlap" case.
+- Full walkthrough: `docs/matching.md`.
+
+Verified in mock mode by running the engine over the whole seeded candidate
+set: scores spread 81 → 7 with a sensible order (two strong badminton /
+climbing matches, then a same-area weeknight player with no availability
+overlap, down to candidates with no shared sport), each card's reasons leading
+with the sport or skill fact, no "km" wording anywhere, and the breakdown
+adding up to the printed score in every case. 41 unit tests, `tsc -b`, oxlint
+and the production build all pass. **A visual browser pass (dark/light at
+390px and 430px) was not automated in this environment** — no headless browser
+is installed — so the UI is verified by types, build and the dev server
+serving every new module, not by screenshots.
+
 **Live Firebase verification is still outstanding** — no project credentials
 exist in this environment. The firebase-mode paths (auth, profile,
 preferences, projection writes and Discover reads) are implemented and typed
 but have not run against a real project.
 
-Not done (by design): compatibility scoring, Connect and mutual connections,
+Not done (by design): Connect and mutual connections,
 chat, activity planning, maps and precise distance, calendar, notification
 delivery, subscriptions, analytics, native platforms, account deletion,
 photo upload.
@@ -709,7 +822,8 @@ STEP 3 — Firebase + Authentication Foundation
 STEP 4 — Onboarding + Sports Profile
 STEP 5 — User Profile Experience + Preferences
 STEP 6 — Discover Sports Buddies
+STEP 7 — Compatibility + Matching Engine
 
-**Current Step:** STEP 6 — Discover Sports Buddies
+**Current Step:** STEP 7 — Compatibility + Matching Engine
 
-**Next Step:** STEP 7 — Compatibility + Matching Engine
+**Next Step:** STEP 8 — Connect + Mutual Connection Flow

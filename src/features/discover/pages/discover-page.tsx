@@ -16,7 +16,7 @@ const SKELETON_CARDS = [0, 1, 2]
 
 export function DiscoverPage() {
   const {
-    candidates,
+    buddies,
     totalCandidates,
     isLoading,
     error,
@@ -32,7 +32,7 @@ export function DiscoverPage() {
     <>
       <AppHeader
         title="Discover"
-        subtitle="Find people who enjoy the same sports."
+        subtitle="Based on your sports, availability and preferences."
         action={
           <Button
             variant="ghost"
@@ -50,7 +50,7 @@ export function DiscoverPage() {
           <span className="text-body-small text-muted-foreground">
             {isLoading
               ? 'Looking for buddies…'
-              : `${candidates.length} ${candidates.length === 1 ? 'buddy' : 'buddies'}`}
+              : `${buddies.length} ${buddies.length === 1 ? 'buddy' : 'buddies'}`}
           </span>
           <DiscoverFilterSheet
             filters={filters}
@@ -96,7 +96,7 @@ export function DiscoverPage() {
           </div>
         )}
 
-        {!isLoading && !error && candidates.length === 0 && (
+        {!isLoading && !error && buddies.length === 0 && (
           <>
             {totalCandidates === 0 ? (
               <EmptyState
@@ -121,8 +121,8 @@ export function DiscoverPage() {
 
         {!isLoading &&
           !error &&
-          candidates.map((candidate) => (
-            <BuddyCard key={candidate.userId} candidate={candidate} />
+          buddies.map((buddy) => (
+            <BuddyCard key={buddy.profile.userId} buddy={buddy} />
           ))}
       </PageContainer>
     </>

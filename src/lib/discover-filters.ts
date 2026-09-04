@@ -25,8 +25,19 @@ export const countActiveFilters = (filters: DiscoverFilters) =>
   (filters.requireAvailabilityOverlap ? 1 : 0)
 
 /**
- * Deliberately simple and deterministic. No weighting, no ranking — that is
- * STEP 7's job.
+ * HARD exclusions, applied before any filter or score: you never see
+ * yourself, and a profile that is not discoverable is never shown even if a
+ * stale projection survived.
+ */
+export const isVisibleCandidate = (
+  candidate: DiscoveryProfile,
+  currentUserId: string,
+) => candidate.userId !== currentUserId && candidate.discoverable
+
+/**
+ * HARD filters. Deliberately simple, deterministic and pure — they decide who
+ * is in the feed at all, which is a separate question from how well they
+ * match (see src/services/matching).
  */
 export function matchesFilters(
   candidate: DiscoveryProfile,

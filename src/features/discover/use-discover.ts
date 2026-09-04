@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useProfile } from '@/hooks/use-profile'
 import { createFiltersFromPreferences } from '@/lib/discover-filters'
 import { discoverService } from '@/services/discover/discover-service'
+import { toMatchingSubject } from '@/services/matching/matching-service'
 import type { DiscoverFilters } from '@/types/discover'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
 
@@ -80,13 +81,15 @@ export function useDiscover() {
   )
   const filters = overrides ?? savedFilters
 
-  const visible = useMemo(
+  // Filtering and scoring are both pure, so this recomputes without a read.
+  const buddies = useMemo(
     () =>
       profile
-        ? discoverService.applyFilters(feed.candidates, {
-            filters,
-            availability: profile.availability,
-          })
+        ? discoverService.getRankedCandidates(
+            feed.candidates,
+            { filters, availability: profile.availability },
+            toMatchingSubject(profile),
+          )
         : [],
     [feed.candidates, filters, profile],
   )
@@ -95,7 +98,7 @@ export function useDiscover() {
   const resetFilters = useCallback(() => setOverrides(null), [])
 
   return {
-    candidates: visible,
+    buddies,
     totalCandidates: feed.candidates.length,
     isLoading: feed.isLoading,
     error: feed.error,

@@ -461,32 +461,71 @@ line "Only these details are ever shared with other users." Sport rows use
 the single `secondary` (sport orange) accent on the card; budget uses
 `text-metric` with a muted `/ activity` suffix.
 
-## 17. Discover patterns (STEP 6)
+## 17. Discover patterns (STEP 6–7)
 
 ### Buddy card
 
-`BuddyCard` is the feed unit, and it accepts `DiscoveryProfile` only — a
-private field cannot reach it. Reading order top to bottom: identity, sports,
-intent, availability, bio, then the action.
+`BuddyCard` is the feed unit, and it accepts a `RankedBuddy` — the
+`DiscoveryProfile` projection plus derived compatibility — so a private field
+cannot reach it. Reading order top to bottom: identity + score, reasons,
+sports, intent, availability, bio, then the action.
 
 | Block | Treatment |
 | --- | --- |
 | Identity | 56px avatar (photo or initials), `text-title` name, area in `text-body-small text-muted-foreground` |
-| Sports | up to three `bg-muted/50` rows, sport in `text-body`, skill in `text-label text-primary`, then "+N more sports" |
+| Score | right of the identity row: `text-metric` number with a `text-body-small text-muted-foreground` `%`, band in `text-caption text-primary uppercase` |
+| Reasons | up to three rows, `size-4 text-primary` `Check` icon + `text-body-small` |
+| Sports | up to three rows; **shared** sports first on `bg-primary/10`, the rest on `bg-muted/50`; sport in `text-body`, skill in `text-label text-primary`, then "+N more sports" |
 | Intent | `outline` badges plus exactly one `secondary` (orange) intensity badge |
 | Availability | `text-caption uppercase` "Usually free" over two slot badges, overflow as a `ghost` "+N" badge |
 | Bio | `line-clamp-2 text-body text-muted-foreground` |
 | Footer | budget in `text-body-small text-muted-foreground`, `View Profile` as an outline `sm` button |
 
-Lime appears only on skill values; orange only on the intensity badge. No
-score, no distance, no Connect — STEP 7 adds a compatibility block above the
-sports list without changing this contract.
+Lime appears on skill values, the score band, the reason ticks and the shared
+sport tint; orange only on the intensity badge. No distance and no Connect.
+
+### Compatibility score
+
+`CompatibilityScore` is the only place a score is rendered. Two sizes:
+`text-metric` on a card, `text-display` on the candidate profile
+(`size="lg"`), always right-aligned with the band label beneath it.
+
+**Never colour-coded by band.** There is no green/amber/red scale: the number
+and its wording carry the meaning in every theme, and nobody is painted red.
+The number carries `aria-label="80 percent compatible"`, so the score never
+depends on colour or on reading a bare figure.
+
+### Compatibility label
+
+Bands come from `COMPATIBILITY_LABELS` — Excellent fit / Great fit / Good fit
+/ Possible fit / Low fit — rendered in `text-caption text-primary uppercase`.
+Wording describes the *pair*, never the person: no "bad match", no "poor".
+
+### Matching reason
+
+`MatchingReasons` is a `ul` of at most three rows: a `size-4 shrink-0
+text-primary` `Check` above the text baseline (`mt-0.5`), then
+`text-body-small text-card-foreground`. Concrete beats abstract — "Both free
+Saturday evening", not "Availability compatible".
+
+### Compatibility breakdown
+
+`CompatibilityBreakdown` is one `bg-muted/50 rounded-xl` row per factor:
+factor name in `text-title`, its one-line detail in `text-body-small
+text-muted-foreground`, and on the right a qualitative `text-label
+text-primary` word over the weighted points in `text-caption
+text-muted-foreground`. A `Total` row closes it with a `text-caption
+uppercase` label. Qualitative first, arithmetic second — explainable, not an
+audit.
 
 ### Candidate profile
 
 `/discover/:userId` reuses `AppHeader` (back + candidate name + "Sports Buddy
-profile") and renders the same `ProfileSummary` card the owner sees in their
-own preview, so both surfaces are provably identical in scope.
+profile"), then a compatibility card — `text-caption uppercase`
+"Compatibility" eyebrow, `text-heading-3` "Why you could play well together",
+the large score, the reasons, a `Separator`, and the breakdown — above the
+same `ProfileSummary` card the owner sees in their own preview, so both
+surfaces stay provably identical in scope.
 
 ### Filter trigger and active chips
 

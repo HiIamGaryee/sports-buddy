@@ -14,10 +14,28 @@ publicProfiles/{uid}        DISCOVERY-SAFE projection
     ▼
 DiscoverRepository          reads publicProfiles only
     ▼
-discoverService             excludes self, filters, sorts
+discoverService             excludes self → applies hard filters
     ▼
-useDiscover() → Discover UI
+Matching engine             scores the survivors, ranks them
+    ▼
+RankedBuddy[] → useDiscover() → Discover UI
 ```
+
+Full pipeline, in order:
+
+```
+publicProfiles batch (≤ 30, newest first)
+        ↓  hard exclusions — self, discoverable !== true
+        ↓  hard filters — sports/skill/intent/area/availability
+        ↓  compatibility calculation (per viewer, at runtime)
+        ↓  ranking — score desc, shared sports desc, name, userId
+BuddyCard
+```
+
+Filters run **before** scoring, so an excluded candidate is never scored, and
+a low score never hides anyone: ranking and filtering are different things.
+The score is **never stored** — it depends on who is looking. Details:
+`docs/matching.md`.
 
 Writes and reads are separate repositories on purpose:
 `PublicProfileRepository` only ever writes **your own** projection;
@@ -65,9 +83,9 @@ users get a projection without any migration.
   descending (single-field order → no composite index needed).
 - **No realtime listeners.** Discover is a one-time read plus a manual
   refresh button, which keeps Firestore reads predictable.
-- Exclusions live in `discoverService.loadCandidates()`: the signed-in user
-  is filtered out by `userId`, and anything with `discoverable !== true` is
-  dropped.
+- Exclusions live in `discoverService.loadCandidates()` via the pure
+  `isVisibleCandidate()`: the signed-in user is filtered out by `userId`, and
+  anything with `discoverable !== true` is dropped.
 
 ## 5. Filters
 
@@ -89,11 +107,19 @@ changing a filter never triggers another read:
 
 An empty array means "no restriction".
 
+Filters are **hard**: they decide who is in the feed at all. Anything softer
+— a skill gap, a different area, a budget gap — lowers the compatibility
+score instead of hiding the person.
+
 ## 6. Mock mode
 
-`VITE_DATA_SOURCE=mock` uses ten seeded Klang Valley candidates
+`VITE_DATA_SOURCE=mock` uses eleven seeded Klang Valley candidates
 (`src/repositories/discover/mock-candidates.ts`) plus any projection the
 signed-in mock account has written, so projection sync is observable locally.
+The seed set deliberately spans strong, medium and weak matches, candidates
+with no sport overlap, no availability overlap, a different region, a budget
+gap and an open-ended (RM60+) budget, so ranking is visibly different rather
+than uniform.
 
 ## 7. Firebase mode
 
@@ -105,19 +131,23 @@ fixed by the repair pass, not by reading private data.
 
 - One batch of 30, newest first. Pagination is not wired up; the repository
   method takes a limit so `startAfter` can be added without touching the UI.
-- Ranking is `updatedAt` descending. It is **not** a recommendation order.
+- Ranking is compatibility descending (STEP 7). `updatedAt` is only the
+  order the batch is retrieved in.
 - No distance: only approximate areas exist, so nothing shows "4 km away".
-  Area filtering stands in until coordinates exist.
-- No compatibility score and no Connect action — both are deliberately
-  absent rather than faked.
+  Area filtering and approximate area compatibility stand in until
+  coordinates exist, and `maxDistanceKm` still cannot be enforced.
+- No Connect action — deliberately absent rather than faked (STEP 8).
 
-## 9. Next: STEP 7 compatibility
+## 9. Compatibility (STEP 7)
 
-STEP 7 can score `SportsProfile` + `DiscoveryPreferences` against each
-`DiscoveryProfile` candidate using the same pure helpers
-(`hasAvailabilityOverlap`, the sports/skill/intent comparisons) and sort the
-list in `discoverService`. `BuddyCard` takes a `DiscoveryProfile`, so a score
-block and match reasons can be added without changing the data contract.
+`discoverService.getRankedCandidates()` filters, then scores, then ranks, and
+returns `RankedBuddy[]` (`{ profile, compatibility }`). `BuddyCard` and
+`/discover/:userId` render the compatibility; the projection itself is never
+mutated, so STEP 8 can add a connection state beside `compatibility`.
+
+Weights are sports 35, skill 20, availability 20, location 15, budget 10.
+The whole engine — formulas, thresholds, reasons, ranking and its limits —
+is documented in `docs/matching.md`.
 
 ## 10. Next: location and radius
 

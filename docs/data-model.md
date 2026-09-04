@@ -74,7 +74,7 @@ Domain types live in `src/types/user.ts` (`UserRecord`, `SportsProfile`) and
 | `preferredIntensity` | `ActivityIntensity` | `relaxed \| moderate \| high` — how they play, not how good they are |
 | `availability[].day` | `WeekDay` | lowercase English day id |
 | `availability[].periods` | `DayPeriod[]` | `morning \| afternoon \| evening`; empty days are dropped on save |
-| `area` | `AreaId` | slug from `src/constants/areas.ts` (e.g. `subang-jaya`) |
+| `area` | `AreaId` | slug from `src/constants/areas.ts` (e.g. `subang-jaya`); each area also declares an approximate `AreaRegion` used by matching, never a distance |
 | `radiusKm` | `number` | one of 5, 10, 15, 20, 30 |
 | `budget` | `{ min, max }` | MYR per activity; `max: null` means open ended (RM60+) |
 | `bio` | `string` | optional, ≤ 160 characters |
@@ -95,7 +95,7 @@ Types live in `src/types/preferences.ts`. Defaults and normalization live in
 | `preferredSports` | `SportId[]` | the sports on the profile |
 | `preferredSkillLevels` | `SkillLevel[]` | all four levels |
 | `preferredIntents` | `SportsIntent[]` | the profile's intents |
-| `maxDistanceKm` | `number` | the profile's `radiusKm` (else 10) |
+| `maxDistanceKm` | `number` | the profile's `radiusKm` (else 10) — stored only; it **cannot be enforced** while there are no coordinates |
 | `requireAvailabilityOverlap` | `boolean` | `false` |
 
 This is deliberately separate from the profile: the profile says *who I am*,
@@ -172,6 +172,26 @@ created on onboarding completion, rewritten on profile edit, **deleted** when
 `preferences.privacy.discoverable` becomes false, recreated when it becomes
 true, and repaired on load if missing (so STEP 3–5 users need no migration).
 UI never writes both documents. Details: `docs/discover.md`.
+
+## `CompatibilityResult` — DERIVED, never persisted
+
+Compatibility (`src/types/matching.ts`) is **runtime-derived data with no
+Firestore representation**. It is computed from a `MatchingSubject` (the
+viewer's own profile) plus a candidate's `DiscoveryProfile`, both of which are
+already in memory.
+
+There is deliberately **no**:
+
+- `compatibilityScore` field on `users/{uid}` or `publicProfiles/{uid}`
+- `matches/{id}` collection
+- stored matching reasons or factor breakdown
+
+A score depends on **who is looking** — the same candidate is 80% to one
+member and 21% to another — so any stored value would be wrong for everyone
+but one viewer. `DiscoveryProfile` is therefore unchanged by STEP 7: no new
+field was needed, and the allowlist above is still the complete public shape.
+
+Engine details, weights and formulas: `docs/matching.md`.
 
 ## Identifiers vs labels
 

@@ -191,6 +191,28 @@ export const MOCK_CANDIDATES = [
     updatedAt: '2026-08-22T06:55:00.000Z',
   },
   {
+    userId: 'buddy_hafiz',
+    displayName: 'Hafiz',
+    photoUrl: null,
+    bio: 'Badminton at a proper club, happy to cover the court fee.',
+    sports: [
+      { sportId: 'badminton', skillLevel: 'intermediate' },
+      { sportId: 'tennis', skillLevel: 'casual' },
+    ],
+    intents: ['training', 'competitive'],
+    preferredIntensity: 'moderate',
+    availability: [
+      { day: 'saturday', periods: ['evening'] },
+      { day: 'sunday', periods: ['evening'] },
+    ],
+    area: 'petaling-jaya',
+    // Open ended (RM60+) — keeps the null-max budget path in the mock feed.
+    budget: { min: 60, max: null },
+    profileCompleteness: 100,
+    discoverable: true,
+    updatedAt: '2026-08-20T10:00:00.000Z',
+  },
+  {
     userId: 'buddy_ryan',
     displayName: 'Ryan',
     photoUrl: null,

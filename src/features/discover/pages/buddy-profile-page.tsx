@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { ProfileSummary } from '@/components/profile/profile-summary'
 import { Card, CardContent } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
+import { CompatibilityBreakdown } from '@/features/discover/components/compatibility-breakdown'
+import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
+import { MatchingReasons } from '@/features/discover/components/matching-reasons'
+import { useProfile } from '@/hooks/use-profile'
 import { discoverService } from '@/services/discover/discover-service'
+import { toMatchingSubject } from '@/services/matching/matching-service'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
 
 interface CandidateState {
@@ -24,6 +30,7 @@ const LOADING_STATE: CandidateState = {
 
 export function BuddyProfilePage() {
   const { userId } = useParams<{ userId: string }>()
+  const { profile } = useProfile()
   const [state, setState] = useState<CandidateState>(() => LOADING_STATE)
 
   // Reset during render when the route param changes — no effect needed.
@@ -60,6 +67,15 @@ export function BuddyProfilePage() {
 
   const { candidate, isLoading, error } = state
 
+  // Derived per viewer, at runtime. Nothing about it is stored or fetched.
+  const buddy = useMemo(
+    () =>
+      candidate && profile
+        ? discoverService.rankCandidate(candidate, toMatchingSubject(profile))
+        : null,
+    [candidate, profile],
+  )
+
   return (
     <>
       <AppHeader
@@ -87,11 +103,49 @@ export function BuddyProfilePage() {
             {error}
           </p>
         ) : candidate ? (
-          <Card>
-            <CardContent>
-              <ProfileSummary profile={candidate} />
-            </CardContent>
-          </Card>
+          <>
+            {buddy && (
+              <Card>
+                <CardContent className="flex flex-col gap-5">
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="flex flex-col">
+                      <span className="text-caption text-muted-foreground uppercase">
+                        Compatibility
+                      </span>
+                      <h2 className="text-heading-3 text-card-foreground">
+                        {buddy.compatibility.reasons.length > 0
+                          ? 'Why you could play well together'
+                          : 'How the two of you compare'}
+                      </h2>
+                    </div>
+                    <CompatibilityScore
+                      score={buddy.compatibility.score}
+                      label={buddy.compatibility.label}
+                      size="lg"
+                    />
+                  </div>
+
+                  {buddy.compatibility.reasons.length > 0 ? (
+                    <MatchingReasons reasons={buddy.compatibility.reasons} />
+                  ) : (
+                    <p className="text-body-small text-muted-foreground">
+                      Not a lot in common yet — the breakdown below shows where.
+                    </p>
+                  )}
+                  <Separator />
+                  <CompatibilityBreakdown
+                    compatibility={buddy.compatibility}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardContent>
+                <ProfileSummary profile={candidate} />
+              </CardContent>
+            </Card>
+          </>
         ) : (
           <p className="text-body text-muted-foreground">
             This profile isn't available any more.
