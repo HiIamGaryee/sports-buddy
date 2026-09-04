@@ -1,3 +1,5 @@
+import type { ConnectionState } from '@/types/connection'
+import type { RankedBuddy } from '@/types/matching'
 import type {
   AreaId,
   AvailabilitySlot,
@@ -24,4 +26,14 @@ export interface CandidateQuery {
   /** Availability of the signed-in user, for the overlap filter. */
   availability: AvailabilitySlot[]
   filters: DiscoverFilters
+}
+
+/**
+ * The Discover view model: the discovery-safe projection, the derived
+ * compatibility, and the viewer's relationship with them. Three separate
+ * concerns kept as three separate fields — `CompatibilityResult` is never
+ * given a `connectionState`, and the projection is never mutated.
+ */
+export interface DiscoverBuddy extends RankedBuddy {
+  connectionState: ConnectionState
 }

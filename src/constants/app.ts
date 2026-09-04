@@ -15,4 +15,5 @@ export const MOCK_STORAGE_KEYS = {
   accounts: 'sports-buddy.mock-accounts',
   users: 'sports-buddy.mock-users',
   publicProfiles: 'sports-buddy.mock-public-profiles',
+  connections: 'sports-buddy.mock-connections',
 } as const

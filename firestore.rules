@@ -28,6 +28,94 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    // RELATIONSHIP state — one document per pair, at the deterministic id
+    // `sorted(a, b).join('__')` (see src/lib/connection.ts). Readable only by
+    // its two participants. The invariants that matter:
+    //
+    //   * participants can never change, and never number anything but two
+    //   * the document id must match the participants, so one pair can never
+    //     hold two half-relationships
+    //   * a user may only ever add THEMSELVES to `requestedBy`, and can never
+    //     remove the other person's request
+    //   * `status` can only become `connected` when both participants have
+    //     asked, and `connectedAt` only then
+    //   * a pending request can be deleted only by its sole requester;
+    //     a connected relationship cannot be deleted in this step
+    //
+    // It stores ids and relationship metadata only: no profile copy, no
+    // compatibility score, no matching reasons.
+    match /connections/{connectionId} {
+      function incoming() { return request.resource.data; }
+      function current() { return resource.data; }
+
+      function pairId(a, b) {
+        return a < b ? a + '__' + b : b + '__' + a;
+      }
+
+      function isParticipant(data) {
+        return request.auth != null && request.auth.uid in data.participants;
+      }
+
+      function fields() {
+        return ['id', 'participants', 'requestedBy',
+                'status', 'createdAt', 'updatedAt', 'connectedAt'];
+      }
+
+      function wellFormed(data) {
+        return data.keys().hasOnly(fields())
+          && data.keys().hasAll(fields())
+          && data.id == connectionId
+          && data.participants is list
+          && data.participants.size() == 2
+          && data.participants[0] != data.participants[1]
+          && connectionId == pairId(data.participants[0], data.participants[1])
+          && data.requestedBy is list
+          && data.requestedBy.size() >= 1
+          && data.requestedBy.size() <= 2
+          && data.participants.hasAll(data.requestedBy)
+          && (data.status == 'pending' || data.status == 'connected')
+          && data.updatedAt == request.time;
+      }
+
+      // `connected` is only legitimate once both participants have asked.
+      function statusMatchesRequests(data) {
+        return data.requestedBy.hasAll(data.participants)
+          ? data.status == 'connected' && data.connectedAt == request.time
+          : data.status == 'pending' && data.connectedAt == null;
+      }
+
+      allow get, list: if isParticipant(current());
+
+      allow create: if isParticipant(incoming())
+        && wellFormed(incoming())
+        // A new request can only ever be the caller's own, and only pending.
+        && incoming().requestedBy == [request.auth.uid]
+        && incoming().status == 'pending'
+        && incoming().connectedAt == null
+        && incoming().createdAt == request.time;
+
+      allow update: if isParticipant(current())
+        && wellFormed(incoming())
+        && incoming().participants == current().participants
+        && incoming().id == current().id
+        && incoming().createdAt == current().createdAt
+        // A connected relationship is immutable until a deliberate
+        // disconnect flow exists.
+        && current().status == 'pending'
+        // Exactly one change is permitted: the caller adding themselves.
+        && !(request.auth.uid in current().requestedBy)
+        && incoming().requestedBy.removeAll(current().requestedBy)
+             == [request.auth.uid]
+        && current().requestedBy.removeAll(incoming().requestedBy).size() == 0
+        && statusMatchesRequests(incoming());
+
+      // Cancelling your own outgoing request. Never someone else's, and
+      // never a connected relationship.
+      allow delete: if isParticipant(current())
+        && current().status == 'pending'
+        && current().requestedBy == [request.auth.uid];
+    }
+
     // Collections for later steps stay closed until their model exists.
     match /{document=**} {
       allow read, write: if false;

@@ -18,7 +18,7 @@ None of those features exist yet. Only the foundation does (STEP 1).
 | Styling | Tailwind CSS v4 (`@tailwindcss/vite`, CSS-first config) |
 | Components | shadcn/ui (`radix-nova` style, `radix-ui` primitives, `lucide-react` icons) |
 | Mobile shell | Capacitor 8 (config only, no native folders yet) |
-| Tests | Vitest (`npm test`) — unit tests for the pure matching engine |
+| Tests | Vitest (`npm test`); Firestore rules against the emulator (`npm run test:rules`, needs JDK 21+) |
 | Backend | Firebase (planned — not installed yet) |
 
 Planned Firebase services: Auth, Firestore, Cloud Messaging, Analytics,
@@ -245,6 +245,100 @@ weights are applied, so the breakdown always sums to the headline score.
   and `src/lib/discover-filters.test.ts`.
 - Full walkthrough: `docs/matching.md`.
 
+### Connect + mutual connection (STEP 8)
+
+```
+UI (BuddyCard / candidate profile / success dialog)
+  ↓ useConnections()
+ConnectionProvider        one React source of truth, one scoped subscription
+  ↓
+connectionService         self-connect guard, user-safe error mapping
+  ↓
+connectionRepository      chosen once in repositories.ts
+  ↓
+Firebase (transaction + onSnapshot)  |  Mock (localStorage + listeners)
+```
+
+- **Compatibility and relationship are separate systems.** Nothing in
+  `src/services/matching` imports the connection domain, and nothing in the
+  connection domain imports matching. The engine stays pure, deterministic
+  and unaware that connections exist.
+- `src/types/connection.ts` — `ConnectionStatus` (`pending | connected`, what
+  Firestore stores), `ConnectionState` (`none | pending-outgoing |
+  pending-incoming | connected`, what a *viewer* sees), `Connection`,
+  `ConnectionMap`. `DiscoverBuddy` (`src/types/discover.ts`) is
+  `{ profile, compatibility, connectionState }` — three fields, three
+  concerns. `CompatibilityResult` is never given a `connectionState`.
+- `src/lib/connection.ts` is pure — no Firebase, no storage, no React:
+  - `createConnectionId(a, b)` — the deterministic pair id: **sorted** ids
+    joined with `__`. `(a, b)` and `(b, a)` must return the same string; it is
+    what makes one relationship one document. The separator is `__` because
+    mock ids contain single underscores (`a_b` + `c` would collide with `a` +
+    `b_c`).
+  - `getConnectionState(connection, uid)` — the one perspective rule.
+  - `getOtherParticipantId()` / `toConnectionMap()` / `toConnectionStates()`.
+  - `findNewMutualConnection(before, after)` — the success dialog fires on a
+    **transition**, never on existing state.
+- `src/services/connection/connection-service.ts` — rejects self-connection
+  (defence in depth), delegates, and converts every failure into a
+  `ConnectionError` with a user-safe message
+  (`connection-error.ts`). No React state, no Firebase.
+- `src/repositories/connection/*` — contract, Firestore document mapper (the
+  one place a malformed pair is rejected, returning `null`), plus the Firebase
+  and mock implementations. Only stable ids and relationship metadata are
+  persisted.
+- `src/providers/connection-provider.tsx` + `connection-context.ts` — mounted
+  in `ProtectedRoute` only, so connections are never queried on the auth or
+  onboarding screens. `useConnections()` exposes `connections` (a
+  `otherUserId → Connection` map), `getConnectionState`, `incomingUserIds`,
+  `connectedCount`, `connect`, `cancelRequest`, `justConnectedUserId`,
+  `clearJustConnected`.
+- `src/features/connections/components/connect-action.tsx` is the **only**
+  place connection wording and button behaviour live, so Discover and the
+  candidate profile cannot drift apart. It owns its own busy flag (what stops
+  a double tap) and its own error line. `connected` renders a status, never a
+  clickable button — no dead controls.
+
+**Transaction strategy.** `connect()` is one Firestore transaction: read the
+pair document, create it pending when missing, otherwise add the caller and
+promote to `connected` once both have asked. Both people can press Connect in
+the same second, so a read-then-write would leave the pair stuck pending or
+create two documents. It is also **idempotent** — a repeated Connect returns
+the existing document untouched. `cancelPending()` is a transaction too, and
+refuses a connected relationship or someone else's request.
+
+**Security model** (`firestore.rules`, `match /connections/{connectionId}`):
+read requires `uid in resource.data.participants`; create requires exactly two
+distinct participants, an id that matches the pair, `requestedBy == [uid]` and
+`status == 'pending'`; update pins the write to *exactly the caller adding
+themselves* (`newRequestedBy.removeAll(old) == [uid]`, nothing removed,
+participants and `createdAt` unchanged) and permits `connected` only when both
+participants have asked; delete only for the sole requester of a pending
+document. A key allowlist rejects any extra field, so no score, profile copy
+or chat id can be smuggled in. `npm run test:rules` verifies all of it against
+the emulator (20 tests).
+
+**Realtime strategy.** Connections are the **only** realtime data in the app,
+and the subscription is scoped to
+`participants array-contains currentUserId` with a limit. This is where
+realtime earns its cost: the other person connecting back updates the screen
+without a refresh. There is **no listener on `publicProfiles`** — Discover
+stays a one-time read plus manual refresh — and never a global `connections`
+listener.
+
+- Connection state is joined **after** ranking
+  (`discoverService.joinConnectionStates()`), from the provider's single
+  subscription, so decorating 30 candidates costs zero extra reads (no N+1)
+  and cannot change a compatibility score or the order.
+- Incoming requests are lifted into a "Wants to connect" section above the
+  ranked feed. That is ordering only — the score is calculated normally and
+  never inflated because someone asked first.
+- "Not now" is session-only in-memory state. No `dismissedProfiles`
+  collection exists, and refresh brings the candidate back.
+- Deliberately absent: disconnect/unfriend, block/report, chat, notification
+  delivery, a connections list screen.
+- Full walkthrough: `docs/connections.md`.
+
 ### Profile editing and settings (STEP 5)
 
 - `/profile` (`features/profile/pages/profile-page.tsx`) — hero, derived
@@ -309,6 +403,9 @@ weights are applied, so the breakdown always sums to the headline score.
 - Guards: `guest-route.tsx`, `onboarding-route.tsx`, `protected-route.tsx`.
   Pages never check auth or onboarding status themselves.
 - `<AppSplash />` covers every loading case, so no route flashes.
+- `ProtectedRoute` also mounts `ConnectionProvider` (and the single
+  `ConnectionSuccessDialog`), so relationship state is only ever queried for
+  an authenticated, onboarded user — never on `/auth/*` or `/onboarding`.
 
 ### App shell
 
@@ -353,6 +450,8 @@ src/
     auth/       components/ (auth-field, auth-alert, auth-divider,
                 password-input, google-sign-in-button),
                 pages/ (login-page, register-page), validation.ts
+    connections/ components/ (connect-action — the only connection wording,
+                connection-success-dialog)
     discover/   components/ (buddy-card, discover-filter-sheet,
                 active-filter-chips, compatibility-score, matching-reasons,
                 compatibility-breakdown), pages/ (discover-page,
@@ -369,20 +468,26 @@ src/
                 location, budget, preview),
                 components/ (onboarding-layout, onboarding-progress,
                 selectable-card, selection-chip, availability-selector)
-  hooks/        use-theme.ts, use-auth.ts, use-profile.ts
+  hooks/        use-theme.ts, use-auth.ts, use-profile.ts, use-connections.ts
   lib/          utils.ts (cn + tailwind-merge config), initials.ts,
                 storage.ts, validation.ts, profile-format.ts,
                 profile-draft.ts (shared reducer), preferences.ts,
                 profile-completeness.ts, discovery-profile.ts,
-                discover-filters.ts (+ .test.ts), availability.ts
+                discover-filters.ts (+ .test.ts), availability.ts,
+                connection.ts (+ .test.ts)
   pages/        home-page.tsx, activities-page.tsx, messages-page.tsx
                 (auth, onboarding, profile, settings and discover live
                 under features/)
   providers/    theme-context.ts, theme-provider.tsx,
-                auth-context.ts, auth-provider.tsx
+                auth-context.ts, auth-provider.tsx,
+                profile-context.ts, profile-provider.tsx,
+                connection-context.ts, connection-provider.tsx
   repositories/
     auth/       auth-repository.ts (contract),
                 firebase-auth-repository.ts, mock-auth-repository.ts
+    connection/ connection-repository.ts (contract),
+                connection-document.ts, firebase-connection-repository.ts,
+                mock-connection-repository.ts
     profile/    profile-repository.ts (contract),
                 firebase-profile-repository.ts, mock-profile-repository.ts
     public-profile/  public-profile-repository.ts (contract),
@@ -397,6 +502,7 @@ src/
   services/
     auth/       auth-service.ts, auth-error.ts
     profile/    profile-service.ts, profile-validation.ts
+    connection/ connection-service.ts (+ .test.ts), connection-error.ts
     discover/   discover-service.ts
     matching/   matching-constants.ts, matching-factors.ts,
                 matching-service.ts (+ matching-service.test.ts)
@@ -404,7 +510,7 @@ src/
   styles/       theme.css — ONLY file with raw color values
   types/        theme.ts, auth.ts, user.ts, sports-profile.ts,
                 preferences.ts, discovery-profile.ts, discover.ts,
-                matching.ts, data-source.ts
+                matching.ts, connection.ts, data-source.ts
   index.css     Tailwind + shadcn + theme imports, base layer
 ```
 
@@ -545,25 +651,41 @@ collection does not exist yet — do not create it early.
 
 ### Security rules
 
-`firestore.rules` (+ `firebase.json`, empty `firestore.indexes.json`): a
-signed-in user may `get`/`create`/`update` only `users/{their uid}`; delete is
-disabled and every other path denies read and write. Deploy with
-`firebase deploy --only firestore:rules`.
+`firestore.rules` (+ `firebase.json`, still-empty `firestore.indexes.json`):
+
+| Path | Rule |
+| --- | --- |
+| `users/{uid}` | owner may `get`/`create`/`update` only their own; delete disabled |
+| `publicProfiles/{uid}` | any signed-in member may read; only the owner may write, and `userId` must match |
+| `connections/{pairId}` | only the two participants may read; create/update/delete are pinned to the exact legal transitions (see §3 and `docs/connections.md`) |
+| everything else | read and write denied |
+
+Deploy with `firebase deploy --only firestore:rules`. Verify with
+`npm run test:rules`, which starts the Firestore emulator and runs
+`tests/firestore-rules.test.ts` (20 tests) against the real rules file — it
+needs **JDK 21+**, and never runs as part of `npm test`.
 
 ## 12. Mock data architecture
 
-- `VITE_DATA_SOURCE=mock` swaps in `mockAuthRepository` and
-  `mockProfileRepository`. The UI cannot tell which backend is active — never
-  branch on the data source in a component.
+- `VITE_DATA_SOURCE=mock` swaps in the mock auth, profile, public-profile,
+  discover and connection repositories. The UI cannot tell which backend is
+  active — never branch on the data source in a component.
 - Mock state lives in localStorage through `src/repositories/mock-store.ts` —
   the only module allowed to touch storage for mocks. Keys are declared once
   in `MOCK_STORAGE_KEYS` (`src/constants/app.ts`). Pages never call
   `localStorage` directly.
 - Every mock method is Promise-based with a small delay, so swapping in a real
   backend changes no call site.
-- Mock sessions and completed profiles survive a refresh; sign-out clears the
-  session. Onboarding is never repeated after a reload. There is no fake auth
-  server and no Express backend.
+- Mock sessions, completed profiles and connections survive a refresh;
+  sign-out clears the session but leaves the relationship store, so signing
+  back in restores it. Onboarding is never repeated after a reload. There is
+  no fake auth server and no Express backend.
+- `mockConnectionRepository` seeds one relationship of each state per mock
+  account (incoming, connected, outgoing) so every UI branch is reachable,
+  records that it has seeded, and notifies its listeners on every write —
+  the same live behaviour as the Firebase subscription. To simulate the other
+  person connecting back, edit the mock store from the console; there is
+  deliberately no "simulate connection" button (`docs/connections.md` §11).
 
 ## 13. Capacitor rules
 
@@ -618,9 +740,12 @@ disabled and every other path denies read and write. Deploy with
 - Local `useState` by default. Navigation state belongs to React Router
   (`useNavigate`, `NavLink`, `useLocation`) — never mirror the current route
   in component state.
-- Cross-cutting app state goes in a provider under `src/providers/`: theme and
-  auth. `AuthProvider` is the sole owner of the signed-in user — do not copy
-  it into page state.
+- Cross-cutting app state goes in a provider under `src/providers/`: theme,
+  auth, profile and connections. `AuthProvider` is the sole owner of the
+  signed-in user, `ProfileProvider` of their profile, and
+  `ConnectionProvider` of relationship state — do not copy any of them into
+  page state, and never let Discover and the candidate profile hold separate
+  connection state.
 - Server data belongs in service calls; add a data-fetching library only when
   caching/invalidation is genuinely needed — not before.
 - No Redux/Zustand/MobX unless a step justifies it.
@@ -661,7 +786,7 @@ it. Feature logic never leaks into `components/ui/`.
   label; use the completeness, preferences and formatter modules.
 - Write to Firestore on every chip tap in an editing screen.
 - Ship a control that looks functional but is not (account deletion,
-  blocked users, policy links, a Connect button before STEP 8).
+  blocked users, policy links, a chat button before STEP 9).
 - Read `users/{uid}` for anything about another member, or widen its rules to
   make Discover easier — project through `publicProfiles/{uid}` instead.
 - Display a distance, a fake compatibility percentage or any invented metric.
@@ -673,6 +798,25 @@ it. Feature logic never leaks into `components/ui/`.
   match — the engine is rule-based and deterministic.
 - Touch Firebase, storage, React or the clock inside the matching engine.
 - Hide a candidate because their score is low; only active filters exclude.
+- Put connection logic inside the matching engine, or a compatibility score
+  inside a connection document.
+- Store a viewer-dependent state (`pending-outgoing`) in Firestore; persist
+  `pending`/`connected` and derive the perspective.
+- Create two documents for one pair, or write a connection id that is not
+  `createConnectionId(a, b)`.
+- Copy profile fields into `connections/{id}` — ids and status only.
+- Read or write Firestore from a component; connection actions go through
+  `useConnections()` → service → repository.
+- Attach a realtime listener to anything but the signed-in user's own
+  connections.
+- Fetch a connection document per Discover candidate (N+1); the provider's
+  one subscription already has them.
+- Show the mutual-connection success UI for a relationship that was already
+  connected — it reacts to a transition, not to state.
+- Ship a control that does not work yet (a "Start chat" button before STEP 9),
+  or a "simulate connection" button in production UI.
+- Loosen the connection rules to make a later step easier.
+- Persist a Discover "Not now" dismissal.
 - Attach a realtime listener to `publicProfiles`.
 - Add dependencies that nothing uses yet.
 - Create empty placeholder files/folders or single-implementation
@@ -784,15 +928,68 @@ and the production build all pass. **A visual browser pass (dark/light at
 is installed — so the UI is verified by types, build and the dev server
 serving every new module, not by screenshots.
 
-**Live Firebase verification is still outstanding** — no project credentials
+STEP 8 — Connect + Mutual Connection Flow:
+
+- `connections/{pairId}` added as a third collection, readable only by its two
+  participants. One document per pair on the deterministic id
+  `createConnectionId(a, b)` (sorted ids joined with `__`).
+- Pure connection domain in `src/lib/connection.ts` (pair id, perspective,
+  map, transition detection), `connectionService` (self-connect guard,
+  user-safe errors), `ConnectionRepository` with Firebase and mock
+  implementations, and `ConnectionProvider` mounted inside `ProtectedRoute`.
+- Connect is one Firestore transaction and is idempotent: first Connect
+  creates `pending`, the second promotes the pair to `connected` with a server
+  `connectedAt`, and a repeated Connect changes nothing.
+- Perspective is derived, never stored: the same `pending` document reads as
+  `pending-outgoing` to the requester and `pending-incoming` to the other.
+- A pending outgoing request can be cancelled by its sender; an incoming
+  request and a connected relationship cannot (enforced in the transaction
+  and in the rules). No disconnect, block or report in this step.
+- One scoped realtime subscription (`participants array-contains uid`) — the
+  only listener in the app — so connecting back updates the other person's
+  screen live. `publicProfiles` stays a one-time read.
+- Discover joins connection state after ranking from that single
+  subscription: no N+1, no change to any compatibility score. Incoming
+  requests are lifted into a "Wants to connect" section (ordering only).
+  `BuddyCard` and `/discover/:userId` share one `ConnectAction`, and the
+  candidate profile gained a sticky CTA above the bottom navigation.
+- Mutual success dialog ("You found a sports buddy.") fires on the
+  **transition** only, names the shared sport from the STEP 7
+  `bestSportMatch`, and offers View profile / Done — no chat button, because
+  chat does not exist.
+- Session-only "Not now" hides a candidate for the current Discover session
+  and is deliberately not persisted.
+- Firestore rules extended with the full connection invariants (participants
+  immutable, id must match the pair, a user may only add themselves,
+  `connected` only when both asked, delete only by the sole pending
+  requester, exact key allowlist).
+- Vitest suite grew to 81 unit tests; `npm run test:rules` runs 20 security
+  rules tests against the Firestore emulator (JDK 21+).
+- Full walkthrough: `docs/connections.md`.
+
+Verified in mock mode through the same repository the app uses: a first
+Connect creating one pending document on the deterministic pair id, the
+requester seeing `pending-outgoing` while the recipient sees
+`pending-incoming`, the second Connect producing `connected` for both, a
+triple Connect leaving exactly one document with one requester, cancel
+removing a pending request, the recipient being refused when trying to cancel
+the sender's request, a connected relationship refusing the cancel path,
+every state surviving a reload, the seeded one-of-each mock states, and a
+connection join that leaves the `CompatibilityResult` object identical.
+Security rules verified against the Firestore emulator (20 tests) including
+unauthorised reads, forged requests, self-connection, participant tampering
+and connected-relationship deletion. `tsc -b`, oxlint and the production
+build all pass. **A visual browser pass (dark/light at 390px and 430px) was
+not automated in this environment** — no headless browser is installed.
+
+**Live two-user Firebase verification is still outstanding** — no project credentials
 exist in this environment. The firebase-mode paths (auth, profile,
 preferences, projection writes and Discover reads) are implemented and typed
 but have not run against a real project.
 
-Not done (by design): Connect and mutual connections,
-chat, activity planning, maps and precise distance, calendar, notification
-delivery, subscriptions, analytics, native platforms, account deletion,
-photo upload.
+Not done (by design): chat, disconnect/unfriend, block and report, activity
+planning, maps and precise distance, calendar, notification delivery,
+subscriptions, analytics, native platforms, account deletion, photo upload.
 
 ## 21. Local development credentials (mock mode only)
 
@@ -823,7 +1020,8 @@ STEP 4 — Onboarding + Sports Profile
 STEP 5 — User Profile Experience + Preferences
 STEP 6 — Discover Sports Buddies
 STEP 7 — Compatibility + Matching Engine
+STEP 8 — Connect + Mutual Connection Flow
 
-**Current Step:** STEP 7 — Compatibility + Matching Engine
+**Current Step:** STEP 8 — Connect + Mutual Connection Flow
 
-**Next Step:** STEP 8 — Connect + Mutual Connection Flow
+**Next Step:** STEP 9 — Realtime Chat

@@ -18,7 +18,9 @@ discoverService             excludes self → applies hard filters
     ▼
 Matching engine             scores the survivors, ranks them
     ▼
-RankedBuddy[] → useDiscover() → Discover UI
+Connection state join       the viewer's relationship with each of them
+    ▼
+DiscoverBuddy[] → useDiscover() → Discover UI
 ```
 
 Full pipeline, in order:
@@ -29,8 +31,13 @@ publicProfiles batch (≤ 30, newest first)
         ↓  hard filters — sports/skill/intent/area/availability
         ↓  compatibility calculation (per viewer, at runtime)
         ↓  ranking — score desc, shared sports desc, name, userId
+        ↓  connection state join (from ConnectionProvider, no extra reads)
 BuddyCard
 ```
+
+The join is **last** and purely additive: `joinConnectionStates()` attaches a
+`connectionState` to each already-ranked candidate and never touches the
+`CompatibilityResult` or the order it produced.
 
 Filters run **before** scoring, so an excluded candidate is never scored, and
 a low score never hides anyone: ranking and filtering are different things.
@@ -136,9 +143,41 @@ fixed by the repair pass, not by reading private data.
 - No distance: only approximate areas exist, so nothing shows "4 km away".
   Area filtering and approximate area compatibility stand in until
   coordinates exist, and `maxDistanceKm` still cannot be enforced.
-- No Connect action — deliberately absent rather than faked (STEP 8).
+- Connected members stay in the feed, clearly marked, because no connections
+  or messages screen exists yet — STEP 9 gives them a home.
 
-## 9. Compatibility (STEP 7)
+## 9. Connection state (STEP 8)
+
+`DiscoverBuddy` is the view model: `{ profile, compatibility,
+connectionState }` — three separate concerns as three separate fields.
+Connection state comes from `ConnectionProvider`, which holds **one** scoped
+subscription for the signed-in user, so decorating 30 candidates costs **zero
+extra reads** — no N+1. Discover and the candidate profile read the same
+provider, so they can never disagree about a relationship.
+
+| State | Discover treatment |
+| --- | --- |
+| `pending-incoming` | lifted into a **"Wants to connect"** section above the ranked feed, with a "<name> wants to connect." line and a **Connect back** button |
+| `none` | **Connect** plus a subtle session-only **Not now** |
+| `pending-outgoing` | **Request sent** (disabled) with **Cancel request** beneath |
+| `connected` | a **Connected** status row, not a button; the candidate stays in the feed because there is no connections screen yet |
+
+Surfacing incoming requests first is an ordering decision only — **their
+compatibility score is calculated exactly the same way**, and nothing is
+inflated because someone asked first. Within each section the ranking is
+still score-descending.
+
+Low scores are never hidden: only active filters remove people. Filters
+continue to work unchanged — sport, skill, intent, area and availability all
+apply before scoring and before the join.
+
+"Not now" is in-memory only. It hides a candidate for this Discover session
+and is deliberately not persisted; refresh (or the refresh button) brings
+them back. No `dismissedProfiles` backend exists.
+
+Full walkthrough: `docs/connections.md`.
+
+## 10. Compatibility (STEP 7)
 
 `discoverService.getRankedCandidates()` filters, then scores, then ranks, and
 returns `RankedBuddy[]` (`{ profile, compatibility }`). `BuddyCard` and
@@ -149,7 +188,7 @@ Weights are sports 35, skill 20, availability 20, location 15, budget 10.
 The whole engine — formulas, thresholds, reasons, ranking and its limits —
 is documented in `docs/matching.md`.
 
-## 10. Next: location and radius
+## 11. Next: location and radius
 
 When coordinates are introduced, the projection gains a coarse location (not
 an exact point), `maxDistanceKm` becomes a real filter, and the area filter

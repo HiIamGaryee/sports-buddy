@@ -1,3 +1,4 @@
+import { getConnectionState } from '@/lib/connection'
 import { isVisibleCandidate, matchesFilters } from '@/lib/discover-filters'
 import { CANDIDATE_BATCH_LIMIT } from '@/repositories/discover/discover-repository'
 import { discoverRepository } from '@/repositories/repositories'
@@ -5,7 +6,8 @@ import {
   calculateCompatibility,
   rankBuddies,
 } from '@/services/matching/matching-service'
-import type { CandidateQuery } from '@/types/discover'
+import type { ConnectionMap } from '@/types/connection'
+import type { CandidateQuery, DiscoverBuddy } from '@/types/discover'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
 import type { MatchingSubject, RankedBuddy } from '@/types/matching'
 
@@ -54,6 +56,25 @@ export const discoverService = {
     } catch {
       throw new Error(LOAD_FAILED_MESSAGE)
     }
+  },
+
+  /**
+   * The last step of the pipeline: attach the viewer's relationship state to
+   * already-ranked candidates. Pure, and deliberately AFTER ranking —
+   * connection state must never change a compatibility score or its order.
+   */
+  joinConnectionStates(
+    buddies: readonly RankedBuddy[],
+    connections: ConnectionMap,
+    currentUserId: string,
+  ): DiscoverBuddy[] {
+    return buddies.map((buddy) => ({
+      ...buddy,
+      connectionState: getConnectionState(
+        connections.get(buddy.profile.userId),
+        currentUserId,
+      ),
+    }))
   },
 
   /** One candidate plus the viewer's compatibility with them. */

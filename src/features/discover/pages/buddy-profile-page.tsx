@@ -7,9 +7,11 @@ import { ProfileSummary } from '@/components/profile/profile-summary'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ConnectAction } from '@/features/connections/components/connect-action'
 import { CompatibilityBreakdown } from '@/features/discover/components/compatibility-breakdown'
 import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
 import { MatchingReasons } from '@/features/discover/components/matching-reasons'
+import { useConnections } from '@/hooks/use-connections'
 import { useProfile } from '@/hooks/use-profile'
 import { discoverService } from '@/services/discover/discover-service'
 import { toMatchingSubject } from '@/services/matching/matching-service'
@@ -31,6 +33,7 @@ const LOADING_STATE: CandidateState = {
 export function BuddyProfilePage() {
   const { userId } = useParams<{ userId: string }>()
   const { profile } = useProfile()
+  const { getConnectionState } = useConnections()
   const [state, setState] = useState<CandidateState>(() => LOADING_STATE)
 
   // Reset during render when the route param changes — no effect needed.
@@ -145,6 +148,17 @@ export function BuddyProfilePage() {
                 <ProfileSummary profile={candidate} />
               </CardContent>
             </Card>
+
+            {/* Sticky above the bottom navigation, which already owns the
+                bottom safe-area inset. In flow, so it never hides content. */}
+            <div className="sticky bottom-bottom-nav-space z-20 -mx-page border-t border-border bg-background/90 px-page py-3 backdrop-blur-xl">
+              <ConnectAction
+                userId={candidate.userId}
+                displayName={candidate.displayName}
+                state={getConnectionState(candidate.userId)}
+                size="lg"
+              />
+            </div>
           </>
         ) : (
           <p className="text-body text-muted-foreground">

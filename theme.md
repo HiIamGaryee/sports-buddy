@@ -525,7 +525,86 @@ profile"), then a compatibility card — `text-caption uppercase`
 "Compatibility" eyebrow, `text-heading-3` "Why you could play well together",
 the large score, the reasons, a `Separator`, and the breakdown — above the
 same `ProfileSummary` card the owner sees in their own preview, so both
-surfaces stay provably identical in scope.
+surfaces stay provably identical in scope. The connect CTA closes the page
+(§18).
+
+## 18. Connection patterns (STEP 8)
+
+All four connection states come from one component,
+`ConnectAction` — there is never a second set of labels to drift.
+
+### Connect CTA
+
+The primary action is a plain `Button`: `default` variant, `size="default"`
+on a buddy card and `size="lg"` in the candidate profile's sticky bar. Two
+labels, one per direction: **Connect** and **Connect back**. While the write
+is in flight the label becomes **Connecting…** and the button is disabled —
+that busy flag is the double-tap guard, not a spinner.
+
+Every state carries a real accessible name, never colour or icon alone:
+"Connect with Aina", "Connect back with Aina", "Connection request sent to
+Aina", "Cancel connection request to Aina", "Connected with Aina".
+
+### Pending connection (outgoing)
+
+**Request sent** as a disabled `outline` button — visibly inert, so nobody
+taps it twice — with **Cancel request** beneath it as a `ghost` `sm` button.
+Muted, not shouty: a sent request is a waiting state, not an achievement.
+Errors appear under the action as `role="alert" text-body-small
+text-destructive`.
+
+### Incoming connection
+
+The signal is typographic, not a colour wash: one
+`text-body-small text-primary` line — "Aina wants to connect." — above the
+matching reasons, and a primary **Connect back** button. On Discover these
+cards are lifted into a `SectionHeader` section titled **"Wants to connect"**
+above the ranked feed. The card is never re-tinted or outlined in neon.
+
+### Connected state
+
+Not a button — a status row, so there is nothing to tap and no dead control:
+`h-11 rounded-lg` (`h-13 rounded-xl` at `lg`), `border border-border
+bg-muted/50`, a `size-4 text-primary` `UserCheck`, then **Connected** in
+`text-label`. On a buddy card the shared sports keep their `bg-primary/10`
+tint, so a connected buddy still reads as a good match.
+
+### Session dismiss
+
+**Not now** is a `ghost` `sm` button beside the Connect action, shown only in
+the `none` state. Quiet on purpose — dismissing a sports buddy for now should
+not feel like rejecting a dating profile.
+
+### Sticky connect bar
+
+The candidate profile's CTA is `sticky bottom-bottom-nav-space z-20`, in
+normal flow as the last child of `PageContainer`, with `-mx-page px-page
+py-3`, `border-t border-border` and `bg-background/90 backdrop-blur-xl`. It
+sits **above** the fixed `BottomNavigation`, which already owns the bottom
+safe-area inset, so no notch offset is hardcoded and the bar never fights the
+tab bar. Being in flow means it also never permanently covers content.
+
+### Connection success dialog
+
+A centred `Dialog` (`showCloseButton={false}`, `gap-5 p-5`), read top to
+bottom: a `size-16 rounded-full bg-primary/15` circle holding a `size-8
+text-primary` `UserCheck`, then `text-heading-2` **"You found a sports
+buddy."**, then `text-body text-muted-foreground` "You and Aina both want to
+connect.", then the shared sport as a `rounded-full bg-muted px-3 py-1.5
+text-label` pill. Footer: **Done** (`outline`) and **View profile**, equal
+width.
+
+Motion is `animate-in duration-300 ease-out zoom-in-75` on the icon on top of
+the dialog's own fade + `zoom-in-95` — about 200–300ms. **No confetti, no
+hearts, no full-screen match effect.** Apple restraint, sports energy.
+
+### Connection colour discipline
+
+No new tokens were added. `primary` (lime) marks the positive states,
+`muted` the neutral ones, `destructive` only real errors. Connection state is
+never expressed by colour alone — there is always a label or an accessible
+name — and no state is painted red, because a pending request is not a
+failure.
 
 ### Filter trigger and active chips
 
@@ -558,7 +637,7 @@ Three distinct empty states, all `EmptyState` with the `Users` icon:
 
 Never blame the user, and never surface a provider error string.
 
-## 18. Mobile safe-area rules
+## 19. Mobile safe-area rules
 
 - `index.html` sets `viewport-fit=cover`; insets come from
   `env(safe-area-inset-*)`.
@@ -568,7 +647,7 @@ Never blame the user, and never surface a provider error string.
 - Any other fixed/sticky element must add the matching safe inset itself.
 - Never hardcode 44px/34px notch values.
 
-## 19. Accessibility / contrast rules
+## 20. Accessibility / contrast rules
 
 - Body text ≥ 4.5:1, large text ≥ 3:1. Verified pairs: dark
   `--muted-foreground` on background ≈ 7.5:1; light ≈ 5.7:1; light `--primary`
@@ -580,7 +659,7 @@ Never blame the user, and never surface a provider error string.
 - Never encode meaning in color alone; pair with icon or text.
 - `color-scheme` is set on `<html>` so native controls and scrollbars match.
 
-## 20. Allowed usage
+## 21. Allowed usage
 
 ```tsx
 <div className="bg-card text-card-foreground rounded-2xl border border-border p-page">
@@ -591,7 +670,7 @@ Never blame the user, and never surface a provider error string.
 </div>
 ```
 
-## 21. Forbidden usage
+## 22. Forbidden usage
 
 ```tsx
 // raw color values

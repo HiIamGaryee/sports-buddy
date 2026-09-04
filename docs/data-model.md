@@ -2,12 +2,13 @@
 
 One document per user. Nothing else is persisted yet.
 
-Two shapes matter, and they are not the same thing:
+Three collections exist, with three different audiences:
 
 | Shape | Where | Who may see it |
 | --- | --- | --- |
 | `SportsProfile` (`users/{uid}`) | Firestore / mock store | **PRIVATE** — the owner only |
 | `DiscoveryProfile` (`publicProfiles/{uid}`) | Firestore / mock store | any signed-in member |
+| `Connection` (`connections/{pairId}`) | Firestore / mock store | **the two participants only** |
 
 ## `users/{uid}` — PRIVATE profile
 
@@ -172,6 +173,55 @@ created on onboarding completion, rewritten on profile edit, **deleted** when
 `preferences.privacy.discoverable` becomes false, recreated when it becomes
 true, and repaired on load if missing (so STEP 3–5 users need no migration).
 UI never writes both documents. Details: `docs/discover.md`.
+
+## `connections/{connectionId}` — RELATIONSHIP state
+
+One document per pair, readable only by its two participants. The id is the
+deterministic pair id `createConnectionId(a, b)` — the two user ids sorted and
+joined with `__` — so one relationship can never become two half
+relationships. Types live in `src/types/connection.ts`.
+
+```jsonc
+{
+  "id": "aina__gary",               // always equals the document id
+  "participants": ["aina", "gary"], // exactly two, sorted, immutable
+  "requestedBy": ["gary"],          // 1 → pending, 2 → connected
+  "status": "pending",              // pending | connected
+  "createdAt": "<serverTimestamp>",
+  "updatedAt": "<serverTimestamp>",
+  "connectedAt": null               // set only on the mutual transition
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | equals the document id; the rules verify it matches the participants |
+| `participants` | `[string, string]` | exactly two distinct user ids, sorted; can never change |
+| `requestedBy` | `string[]` | who has asked; only ever the caller may add themselves |
+| `status` | `'pending' \| 'connected'` | `connected` only once both participants appear in `requestedBy` |
+| `createdAt` | server timestamp | when the first request was sent |
+| `updatedAt` | server timestamp | every write sets it to `request.time` |
+| `connectedAt` | server timestamp \| `null` | stamped on the mutual transition, otherwise `null` |
+
+Timestamps are Firebase server timestamps — a relationship event must not
+depend on a client clock. The domain object exposes ISO strings; Firestore
+`Timestamp` never leaves `src/repositories/connection/`.
+
+### Never stored in a connection
+
+- **No profile data.** Not a name, an email, a sport, an area or a photo url.
+  Profiles already exist in `users/{uid}` and `publicProfiles/{uid}`;
+  duplicating them here would create a second, stale copy outside the privacy
+  boundary.
+- **No `compatibilityScore`.** It is viewer-dependent and derived (below).
+- **No `matchingReasons`.** Same reason.
+- **No perspective.** `pending-outgoing` describes a *viewer*, not the
+  relationship, so only `pending` / `connected` is persisted and
+  `ConnectionState` is derived by `getConnectionState()`.
+- **No chat or conversation id.** Chat does not exist yet (STEP 9).
+
+The security rules enforce an exact key allowlist, so a client cannot add any
+of the above. Full walkthrough: `docs/connections.md`.
 
 ## `CompatibilityResult` — DERIVED, never persisted
 

@@ -1,6 +1,8 @@
 import { env } from '@/config/env'
 import { firebaseAuthRepository } from '@/repositories/auth/firebase-auth-repository'
 import { mockAuthRepository } from '@/repositories/auth/mock-auth-repository'
+import { firebaseConnectionRepository } from '@/repositories/connection/firebase-connection-repository'
+import { mockConnectionRepository } from '@/repositories/connection/mock-connection-repository'
 import { firebaseDiscoverRepository } from '@/repositories/discover/firebase-discover-repository'
 import { mockDiscoverRepository } from '@/repositories/discover/mock-discover-repository'
 import { firebaseProfileRepository } from '@/repositories/profile/firebase-profile-repository'
@@ -29,3 +31,8 @@ export const publicProfileRepository = useFirebase
 export const discoverRepository = useFirebase
   ? firebaseDiscoverRepository
   : mockDiscoverRepository
+
+/** `connections/{pairId}` — relationship state, participants only. */
+export const connectionRepository = useFirebase
+  ? firebaseConnectionRepository
+  : mockConnectionRepository

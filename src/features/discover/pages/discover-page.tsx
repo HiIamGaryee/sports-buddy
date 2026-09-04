@@ -1,6 +1,7 @@
 import { RefreshCw, Users } from 'lucide-react'
 
 import { EmptyState } from '@/components/common/empty-state'
+import { SectionHeader } from '@/components/common/section-header'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
@@ -16,7 +17,9 @@ const SKELETON_CARDS = [0, 1, 2]
 
 export function DiscoverPage() {
   const {
-    buddies,
+    incoming,
+    suggested,
+    visibleCount,
     totalCandidates,
     isLoading,
     error,
@@ -24,6 +27,7 @@ export function DiscoverPage() {
     setFilters,
     resetFilters,
     refresh,
+    dismiss,
   } = useDiscover()
 
   const activeCount = countActiveFilters(filters)
@@ -50,7 +54,7 @@ export function DiscoverPage() {
           <span className="text-body-small text-muted-foreground">
             {isLoading
               ? 'Looking for buddies…'
-              : `${buddies.length} ${buddies.length === 1 ? 'buddy' : 'buddies'}`}
+              : `${visibleCount} ${visibleCount === 1 ? 'buddy' : 'buddies'}`}
           </span>
           <DiscoverFilterSheet
             filters={filters}
@@ -96,7 +100,7 @@ export function DiscoverPage() {
           </div>
         )}
 
-        {!isLoading && !error && buddies.length === 0 && (
+        {!isLoading && !error && visibleCount === 0 && (
           <>
             {totalCandidates === 0 ? (
               <EmptyState
@@ -119,11 +123,27 @@ export function DiscoverPage() {
           </>
         )}
 
-        {!isLoading &&
-          !error &&
-          buddies.map((buddy) => (
-            <BuddyCard key={buddy.profile.userId} buddy={buddy} />
-          ))}
+        {!isLoading && !error && incoming.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <SectionHeader title="Wants to connect" />
+            {incoming.map((buddy) => (
+              <BuddyCard key={buddy.profile.userId} buddy={buddy} />
+            ))}
+          </section>
+        )}
+
+        {!isLoading && !error && suggested.length > 0 && (
+          <section className="flex flex-col gap-4">
+            {incoming.length > 0 && <SectionHeader title="For you" />}
+            {suggested.map((buddy) => (
+              <BuddyCard
+                key={buddy.profile.userId}
+                buddy={buddy}
+                onDismiss={dismiss}
+              />
+            ))}
+          </section>
+        )}
       </PageContainer>
     </>
   )

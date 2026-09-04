@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { ConnectAction } from '@/features/connections/components/connect-action'
 import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
 import { MatchingReasons } from '@/features/discover/components/matching-reasons'
 import { getInitials } from '@/lib/initials'
@@ -19,18 +20,25 @@ import {
 import { cn } from '@/lib/utils'
 import { buddyProfilePath } from '@/routes/routes'
 import { getTopMatchingReasons } from '@/services/matching/matching-service'
-import type { RankedBuddy } from '@/types/matching'
+import type { DiscoverBuddy } from '@/types/discover'
 
 const MAX_SPORTS_SHOWN = 3
 const MAX_SLOTS_SHOWN = 2
 
 /**
- * Discovery-safe candidate card. It takes a `RankedBuddy` — the projection
- * plus the viewer's derived compatibility — so no private field can reach it
- * and no score is ever read from the document.
+ * Discovery-safe candidate card. It takes a `DiscoverBuddy` — the projection,
+ * the viewer's derived compatibility and the viewer's relationship state — so
+ * no private field can reach it and no score is ever read from a document.
+ * Actions are state-driven through `ConnectAction`, never four card variants.
  */
-export function BuddyCard({ buddy }: { buddy: RankedBuddy }) {
-  const { profile: candidate, compatibility } = buddy
+export function BuddyCard({
+  buddy,
+  onDismiss,
+}: {
+  buddy: DiscoverBuddy
+  onDismiss?: (userId: string) => void
+}) {
+  const { profile: candidate, compatibility, connectionState } = buddy
   const shared = compatibility.sharedSports
   // Shared sports first: the reason someone is here belongs at the top.
   const ordered = [
@@ -68,6 +76,12 @@ export function BuddyCard({ buddy }: { buddy: RankedBuddy }) {
             label={compatibility.label}
           />
         </div>
+
+        {connectionState === 'pending-incoming' && (
+          <p className="text-body-small text-primary">
+            {candidate.displayName} wants to connect.
+          </p>
+        )}
 
         <MatchingReasons reasons={reasons} />
 
@@ -144,6 +158,25 @@ export function BuddyCard({ buddy }: { buddy: RankedBuddy }) {
               View Profile
             </Link>
           </Button>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <ConnectAction
+            userId={candidate.userId}
+            displayName={candidate.displayName}
+            state={connectionState}
+            className="flex-1"
+          />
+          {connectionState === 'none' && onDismiss && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Not now — hide ${candidate.displayName} for this session`}
+              onClick={() => onDismiss(candidate.userId)}
+            >
+              Not now
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

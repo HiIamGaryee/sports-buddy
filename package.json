@@ -10,7 +10,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "cap:sync": "npm run build && cap sync",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:rules": "firebase emulators:exec --project demo-sports-buddy --only firestore \"vitest run --config vitest.rules.config.ts\""
   },
   "dependencies": {
     "@capacitor/core": "^8.5.1",
@@ -26,11 +27,13 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.1",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
+    "firebase-tools": "^15.29.0",
     "oxlint": "^1.79.0",
     "shadcn": "^4.20.1",
     "tailwindcss": "^4.3.3",
