@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // PRIVATE. `users/{uid}` holds account fields, the sports profile and the
+    // user's preferences (discovery filters, privacy, notifications). It is
+    // never readable by anyone else — Discover reads publicProfiles instead.
+    match /users/{userId} {
+      allow get, list: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.id == userId;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.id == userId;
+      allow delete: if false;
+    }
+
+    // DISCOVERY-SAFE projection, written only by its owner and readable by any
+    // signed-in member. It must only ever contain DiscoveryProfile fields (see
+    // src/lib/discovery-profile.ts); a document is deleted when the owner
+    // turns discoverability off.
+    match /publicProfiles/{userId} {
+      allow get, list: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.userId == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Collections for later steps stay closed until their model exists.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
