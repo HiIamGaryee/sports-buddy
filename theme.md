@@ -3,6 +3,33 @@
 Single reference for the visual language. Raw values live in exactly one
 file: `src/styles/theme.css`. Everything else consumes semantic tokens.
 
+## 0. How to style something
+
+Work down this list and stop at the first rung that already covers the case.
+Most styling questions are answered above rung 4.
+
+1. **A theme token** — a colour, radius, shadow, spacing or motion value
+   belongs in `src/styles/theme.css`, defined for both themes, and is used
+   through its Tailwind utility (`bg-card`, `rounded-2xl`, `shadow-sm`).
+2. **A component variant** — `Card variant="interactive"`,
+   `Button variant="outline"`, `StatusPill tone="pending"`,
+   `ChoiceChip selection="single"`. If the look you want is a state of an
+   existing component, it is a variant, not a new className.
+3. **A shared component** — `FormField`, `SectionHeader`, `DetailTile`,
+   `EmptyState`, `ErrorState`, `StickyActionBar`, `SettingsRow`, `NavItem`.
+   These exist because the pattern was written more than once. §29 lists all
+   of them.
+4. **A semantic utility** — `px-gutter`, `bleed-gutter`, `grid-cards`,
+   `transition-ui`, `pressable`, `bg-primary-gradient`,
+   `bg-primary-gradient-soft`, `max-w-default`, `pb-bottom-nav-space`.
+5. **Plain Tailwind** for layout that is genuinely local to one screen —
+   flex direction, gap, order, column spans.
+6. **Inline `style`** only for a value that does not exist until runtime: a
+   progress width, a computed offset. Never for a colour.
+
+If a pattern appears a third time, it has earned a component. If a value
+appears in a component at all, it has earned a token.
+
 ## 1. Brand personality
 
 Energetic but premium. Dark, confident surfaces with one loud fluorescent
@@ -61,6 +88,10 @@ Components use the Tailwind utility, never the value.
 | `--foreground` | primary text | `#F7F8FA` | `#15171A` |
 | `--surface` | elevated section behind cards | `#111318` | `#FFFFFF` |
 | `--surface-foreground` | text on surface | `#F7F8FA` | `#15171A` |
+| `--surface-subtle` | a tile INSIDE a card | `#1B1E26` | `#F2F4F7` |
+| `--surface-raised` | a card above other cards | `#1E212A` | `#FFFFFF` |
+| `--surface-overlay` | translucent sticky chrome | `rgb(11 12 16 / .85)` | `rgb(246 247 248 / .85)` |
+| `--scrim` | dimming behind a dialog or sheet | `rgb(0 0 0 / .6)` | `rgb(15 23 42 / .2)` |
 | `--card` | card background | `#17191F` | `#FFFFFF` |
 | `--card-foreground` | text on card | `#F7F8FA` | `#15171A` |
 | `--popover` | menus, dialogs, sheets | `#17191F` | `#FFFFFF` |
@@ -74,6 +105,7 @@ Components use the Tailwind utility, never the value.
 | `--muted` | quiet fills, footers | `#1E212A` | `#ECEEF1` |
 | `--muted-foreground` | secondary text | `#9BA1AE` | `#5B6270` |
 | `--border` | hairlines, card edges | `#262A34` | `#E2E5EA` |
+| `--border-strong` | hover / emphasis edge | `#363B47` | `#CFD4DC` |
 | `--input` | field borders | `#2C313C` | `#DDE1E7` |
 | `--ring` | focus ring | `#C4FF3D` | `#46700D` |
 | `--success` | confirmed activity | `#3FD37A` | `#167C4A` |
@@ -82,6 +114,23 @@ Components use the Tailwind utility, never the value.
 | `--warning-foreground` | text on warning | `#1A1200` | `#FFFFFF` |
 | `--destructive` | cancel, delete | `#FF5A5F` | `#CC2A2E` |
 | `--destructive-foreground` | text on destructive | `#17191F` | `#FFFFFF` |
+
+### Surface hierarchy
+
+Four steps, from the floor upward. Picking the wrong one is the single most
+common way a screen stops looking like the rest of the app.
+
+| Step | Token | Where it belongs |
+| --- | --- | --- |
+| floor | `bg-background` | the page itself |
+| section | `bg-surface` | navigation, a full-bleed section behind cards |
+| object | `bg-card` | a card — the default object on the page |
+| inside | `bg-surface-subtle` | a tile INSIDE a card: a read-only fact, a stat, a segmented-control track |
+| above | `bg-surface-raised` | a card that sits above other cards |
+| chrome | `bg-surface-overlay` + `backdrop-blur-xl` | anything sticky that content scrolls under |
+
+`bg-muted` is **not** a surface step. It is the fill for a shimmer skeleton
+and for a `ghost` control's hover, and nothing else.
 
 Non-color tokens (theme independent):
 
@@ -104,6 +153,11 @@ Non-color tokens (theme independent):
 | `--desktop-page-padding` | `2.5rem` | `px-gutter` at `lg` |
 | `--mobile-page-padding` | `1.25rem` | `px-page` |
 | `--elevation-sm/md/lg/floating` | per theme | `shadow-sm/md/lg/floating` |
+| `--elevation-hover` | per theme | `shadow-hover` |
+| `--motion-fast` | `120ms` | press feedback |
+| `--motion-base` | `200ms` | `transition-ui`, page enter |
+| `--motion-slow` | `320ms` | celebratory entrances only |
+| `--motion-ease` | `cubic-bezier(.32,.72,0,1)` | `ease-ui`, every custom utility |
 
 ## 6. Typography system
 
@@ -163,14 +217,33 @@ light mode uses low-alpha slate.
 | `shadow-md` | menus, dropdowns |
 | `shadow-lg` | dialogs, sheets |
 | `shadow-floating` | bottom navigation / floating bars (upward cast) |
+| `shadow-hover` | the lifted state of an interactive card |
 
 ## 10. Cards
 
 `bg-card` + `border border-border` + `rounded-2xl` + `shadow-sm`, 20px
 padding, `CardTitle` at `text-heading-3`, `CardDescription` at
-`text-body-small text-muted-foreground`. Footers use `bg-muted/40` with a top
-border. No colored card backgrounds except a deliberate primary/secondary
-promo surface.
+`text-body-small text-muted-foreground`. Footers use `bg-surface-subtle` with
+a top border.
+
+Never re-write that class string. `Card` carries the whole hierarchy as
+variants:
+
+| Variant | Surface | Use |
+| --- | --- | --- |
+| `default` | `bg-card`, `shadow-sm` | the ordinary card |
+| `subtle` | `bg-surface-subtle`, no border, no shadow | a grouping device, not an object |
+| `elevated` | `bg-surface-raised`, `shadow-md` | above other cards: a summary, the thing being decided |
+| `interactive` | `default` + `hover:border-border-strong hover:shadow-hover` | the whole card is a link or a target |
+| `selected` | `border-primary` + `bg-primary-gradient-soft` | chosen: a venue, an agreed proposal |
+
+`size="sm"` tightens `--card-spacing` from 20px to 12px; it is independent of
+`variant`.
+
+**Selected means two different things at two scales.** A selected *card* gets
+`bg-primary-gradient-soft` — a tint with depth. A selected *chip or small
+control* gets flat `bg-primary/12`, or a solid `bg-primary` fill when exactly
+one option can win. Mixing them makes a chip look like a card.
 
 ## 11. Buttons
 
@@ -210,7 +283,7 @@ frame edges on larger screens, and the fixed bottom navigation. Pages add
 | --- | --- |
 | Height | `h-bottom-nav` (68px) plus `pb-safe-bottom` |
 | Width | full width below `md`; from `md` the rail/sidebar sits beside it (§19) |
-| Background | `bg-surface/85` + `backdrop-blur-xl` |
+| Background | `bg-surface-overlay` + `backdrop-blur-xl` — the one chrome translucency, shared with every sticky header and action bar |
 | Border | `border-t border-border` only — no side borders, no floating pill |
 | Elevation | `shadow-floating` (upward cast) |
 | Icons | `size-6`, stroke icons from lucide; label always present |
@@ -218,15 +291,18 @@ frame edges on larger screens, and the fixed bottom navigation. Pages add
 | Active | `text-primary` on icon + label, icon `scale-110` |
 | Inactive | `text-muted-foreground` |
 | Touch target | full tab height (68px) × one fifth of the column |
-| Motion | colour transition only |
+| Motion | `transition-ui` |
 
 Active state is `aria-current="page"` from `NavLink`, so it is announced to
 assistive tech and styled with `aria-[current=page]:`. Non-exact matching
 means `/messages/user123` keeps Messages active.
 
+All three navigation shells render `NavItem` (§29); none of them owns its own
+active-state styling.
+
 ### Header
 
-`AppHeader` is sticky, `bg-background/85` + `backdrop-blur-xl`, with a
+`AppHeader` is sticky, `bg-surface-overlay` + `backdrop-blur-xl`, with a
 `border-b border-border` (or `transparent` mode for hero screens).
 
 - Title: `text-heading-1`, truncates.
@@ -256,11 +332,23 @@ pick a semantic content width.
 
 ### Motion
 
-- Page enter: ~200ms, fade plus a 4px rise, `ease-out`, CSS only
-  (`tw-animate-css` utilities). No animation library.
-- Interactive feedback: colour/opacity transitions only, ≤150ms.
+Three durations and one curve, all tokens. Nothing hand-picks a timing.
+
+| Utility | What it does |
+| --- | --- |
+| `transition-ui` | THE interaction transition: colour, background, border, shadow, transform and opacity over `--motion-base` on `--motion-ease`. Use it instead of `transition-colors` / `transition-all` / `transition-shadow`. |
+| `pressable` | Touch feedback: scales to 0.97 on `:active`, and presses (`--motion-fast`) faster than it releases (`--motion-base`), which is what gives a control weight. |
+| `ease-ui` | The shared curve, for the rare animation that needs its own duration. |
+
+- Page enter: ~200ms, fade plus a 4px rise, CSS only (`tw-animate-css`
+  utilities). No animation library.
+- `--motion-slow` is reserved for one-off celebratory entrances (the mutual
+  connection dialog). It is not a general speed.
 - No tab-to-tab sliding, no parallax, no decorative animation. If motion is
   noticeable as motion, it is too much.
+- `src/index.css` carries a global `prefers-reduced-motion` block: durations
+  collapse to nothing, so state changes stay perceivable but nothing travels
+  or scales. Never re-enable motion past it.
 
 ## 14. Auth screens (STEP 3)
 
@@ -277,7 +365,7 @@ Lime appears on exactly one element per screen: the primary CTA.
 
 ### Form fields
 
-`AuthField` wraps every input: `text-label` label, the control, then an
+`FormField` wraps every input: `text-label` label, the control, then an
 optional `text-body-small text-destructive` message with `role="alert"`.
 Fields stack with `gap-5`; label-to-control is `gap-1.5`.
 
@@ -328,9 +416,9 @@ keeps route transitions from flashing and stays deliberately plain.
 
 - Sticky header: back button (`icon-sm` ghost, omitted on step 1), progress,
   then `text-heading-1` title + `text-body-small` subtitle, on
-  `bg-background/85` + `backdrop-blur-xl` with a `border-b`.
+  `bg-surface-overlay` + `backdrop-blur-xl` with a `border-b`.
 - Scrolling content: `px-page`, `gap-4`, page-enter transition.
-- Sticky footer CTA on `bg-background/90` + blur with a `border-t`, padded
+- Sticky footer CTA on `bg-surface-overlay` + blur with a `border-t`, padded
   with `pb-safe-bottom` so it never sits under the home indicator.
 
 ### Progress indicator
@@ -349,20 +437,29 @@ intensity.
 | --- | --- |
 | Unselected | `border-border bg-card`, icon in `bg-muted text-muted-foreground` |
 | Hover | `border-input` |
-| Selected | `border-primary bg-primary/10`, icon in `bg-primary text-primary-foreground`, `Check` in `text-primary` |
+| Selected | `border-primary bg-primary/12`, icon in `bg-primary text-primary-foreground`, `Check` in `text-primary` |
 | Disabled | `opacity-40` (used when the 5-sport cap is reached) |
 | Press | `active:scale-[0.98]` |
 
 Selection is never colour-only: the check icon and `aria-pressed` both carry
 it. `compact` stacks icon over label for the 2-column sport grid.
 
-### Selection chip
+### Choice chip
 
-`SelectionChip` — 44px pill for skills, day periods, radius and budget.
-Unselected `border-border bg-card text-muted-foreground`; selected
-`border-primary bg-primary text-primary-foreground`. `single` switches ARIA
-from `aria-pressed` to `role="radio"` + `aria-checked` inside a
-`role="radiogroup"` wrapper.
+`ChoiceChip` (`components/ui/choice-chip.tsx`) — 44px pill for skills, day
+periods, radius, budget, sports and Discover filters. Unselected
+`border-border bg-card text-muted-foreground` with a `border-border-strong`
+hover.
+
+`selection` changes the ARIA contract, not only the look:
+
+- `multiple` — `aria-pressed`, tinted `bg-primary/12` when on, so a fully
+  selected group does not become a wall of lime.
+- `single` — `role="radio"` + `aria-checked` inside a `role="radiogroup"`
+  wrapper, solid `bg-primary` fill, because exactly one option wins.
+
+`size="sm"` drops it to 36px for dense filter rows. It carries `pressable`,
+so every chip in the app has the same press feedback.
 
 ### Skill selector
 
@@ -388,7 +485,7 @@ validates, with the reason above it in `text-body-small text-muted-foreground`
 `ProfileSummary` inside a `Card` — the shared read-only profile view used by
 the onboarding preview and the Profile page. Avatar (photo or initials),
 name, `area · within N km`, optional bio, then `text-caption uppercase`
-section labels over: sports rows (`bg-muted/50` pill rows, skill in
+section labels over: sports rows (`bg-surface-subtle` pill rows, skill in
 `text-primary`), intent badges with one `secondary` intensity badge,
 availability badges, and the budget in `text-metric`.
 
@@ -427,9 +524,9 @@ lime:
 
 | Control | Unselected | Selected |
 | --- | --- | --- |
-| `SelectableCard` | `border-border bg-card` | `border-primary bg-primary/10` + primary icon chip + `Check` |
-| `SelectionChip`, single (radio) | `border-border bg-card text-muted-foreground` | `border-primary bg-primary text-primary-foreground` |
-| `SelectionChip`, multi (checkbox) | same | `border-primary bg-primary/15 text-primary` |
+| `SelectableCard` | `border-border bg-card` | `border-primary bg-primary-gradient-soft` + primary icon chip + `Check` |
+| `ChoiceChip`, single (radio) | `border-border bg-card text-muted-foreground` | `border-primary bg-primary text-primary-foreground` |
+| `ChoiceChip`, multi (checkbox) | same | `border-primary bg-primary/12 text-primary` |
 
 Solid lime therefore marks *the one chosen value*; tinted lime marks *each of
 several*. Both carry `aria-pressed`/`aria-checked` and, on cards, an icon —
@@ -440,7 +537,7 @@ never colour alone.
 `EditLayout` is the shared full-screen form shell for `/profile/edit` and
 `/settings/discovery`: sticky blurred header with a back/cancel button and
 `text-heading-2` title, content at `px-page` with `gap-8` between sections,
-then a sticky footer on `bg-background/90` + `backdrop-blur-xl` with a
+then a sticky footer on `bg-surface-overlay` + `backdrop-blur-xl` with a
 `border-t` and `pb-safe-bottom`.
 
 The footer holds one hint/error line plus `Cancel` (`flex-1`, outline) and the
@@ -471,7 +568,7 @@ so the state is never colour-only.
 `ProfileSummary` accepts `DiscoveryProfile` **only** and is shown in a
 `Dialog` (`max-h-[85dvh] overflow-y-auto`) titled "Profile preview" with the
 line "Only these details are ever shared with other users." Sport rows use
-`bg-muted/50` pills with the skill in `text-primary`; the intensity badge is
+`bg-surface-subtle` pills with the skill in `text-primary`; the intensity badge is
 the single `secondary` (sport orange) accent on the card; budget uses
 `text-metric` with a muted `/ activity` suffix.
 
@@ -489,7 +586,7 @@ sports, intent, availability, bio, then the action.
 | Identity | 56px avatar (photo or initials), `text-title` name, area in `text-body-small text-muted-foreground` |
 | Score | right of the identity row: `text-metric` number with a `text-body-small text-muted-foreground` `%`, band in `text-caption text-primary uppercase` |
 | Reasons | up to three rows, `size-4 text-primary` `Check` icon + `text-body-small` |
-| Sports | up to three rows; **shared** sports first on `bg-primary/10`, the rest on `bg-muted/50`; sport in `text-body`, skill in `text-label text-primary`, then "+N more sports" |
+| Sports | up to three rows; **shared** sports first on `bg-primary/12`, the rest on `bg-surface-subtle`; sport in `text-body`, skill in `text-label text-primary`, then "+N more sports" |
 | Intent | `outline` badges plus exactly one `secondary` (orange) intensity badge |
 | Availability | `text-caption uppercase` "Usually free" over two slot badges, overflow as a `ghost` "+N" badge |
 | Bio | `line-clamp-2 text-body text-muted-foreground` |
@@ -524,7 +621,7 @@ Saturday evening", not "Availability compatible".
 
 ### Compatibility breakdown
 
-`CompatibilityBreakdown` is one `bg-muted/50 rounded-xl` row per factor:
+`CompatibilityBreakdown` is one `bg-surface-subtle rounded-xl` row per factor:
 factor name in `text-title`, its one-line detail in `text-body-small
 text-muted-foreground`, and on the right a qualitative `text-label
 text-primary` word over the weighted points in `text-caption
@@ -579,8 +676,8 @@ above the ranked feed. The card is never re-tinted or outlined in neon.
 
 Not a button — a status row, so there is nothing to tap and no dead control:
 `h-11 rounded-lg` (`h-13 rounded-xl` at `lg`), `border border-border
-bg-muted/50`, a `size-4 text-primary` `UserCheck`, then **Connected** in
-`text-label`. On a buddy card the shared sports keep their `bg-primary/10`
+bg-surface-subtle`, a `size-4 text-primary` `UserCheck`, then **Connected** in
+`text-label`. On a buddy card the shared sports keep their `bg-primary/12`
 tint, so a connected buddy still reads as a good match.
 
 ### Session dismiss
@@ -593,7 +690,7 @@ not feel like rejecting a dating profile.
 
 The candidate profile's CTA is `sticky bottom-bottom-nav-space z-20`, in
 normal flow as the last child of `PageContainer`, with `-mx-page px-page
-py-3`, `border-t border-border` and `bg-background/90 backdrop-blur-xl`. It
+py-3`, `border-t border-border` and `bg-surface-overlay backdrop-blur-xl`. It
 sits **above** the fixed `BottomNavigation`, which already owns the bottom
 safe-area inset, so no notch offset is hardcoded and the bar never fights the
 tab bar. Being in flow means it also never permanently covers content.
@@ -601,7 +698,7 @@ tab bar. Being in flow means it also never permanently covers content.
 ### Connection success dialog
 
 A centred `Dialog` (`showCloseButton={false}`, `gap-5 p-5`), read top to
-bottom: a `size-16 rounded-full bg-primary/15` circle holding a `size-8
+bottom: a `size-16 rounded-full bg-primary/12` circle holding a `size-8
 text-primary` `UserCheck`, then `text-heading-2` **"You found a sports
 buddy."**, then `text-body text-muted-foreground` "You and Aina both want to
 connect.", then the shared sport as a `rounded-full bg-muted px-3 py-1.5
@@ -631,7 +728,7 @@ Applied filters are echoed under the header as read-only `outline` badges via
 
 A bottom `Sheet` (`max-h-[85dvh] overflow-y-auto pb-safe-bottom`) with one
 `text-caption uppercase` group label per filter and multi-select
-`SelectionChip`s (tinted, per §16), plus a `Switch` row for matching
+`ChoiceChip`s (tinted, per §16), plus a `Switch` row for matching
 availability. Its description states that changes are session-only. Footer:
 `Reset` (`flex-1`, outline) and `Apply filters` (`flex-[2]`, primary) — the
 same weighting as the edit screens.
@@ -677,7 +774,7 @@ listener; `matchMedia` appears once, in the theme provider, for
 | Width | Component | Treatment |
 | --- | --- | --- |
 | `< md` | `BottomNavigation` | fixed, full width, `bg-surface/85` + `backdrop-blur-xl`, `pb-safe-bottom`, `h-bottom-nav` |
-| `md` | `NavigationRail` | `w-rail` (80px), left, icon over `text-caption`, active = `bg-primary/10 text-primary` |
+| `md` | `NavigationRail` | `w-rail` (80px), left, icon over `text-caption`, active = `bg-primary/12 text-primary` |
 | `lg` | `DesktopSidebar` | `w-sidebar` (240px), brand mark on `text-primary-gradient`, five destinations, Settings pinned to the bottom |
 
 All three render from the same `mainNavigation` config, and only one exists in
@@ -825,7 +922,7 @@ stays inside the shell.
 
 ### Chat header
 
-`pt-safe-top pb-3`, `border-b border-border`, `bg-background/85
+`pt-safe-top pb-3`, `border-b border-border`, `bg-surface-overlay
 backdrop-blur-xl`: a ghost `icon-sm` back button (returning to `/messages`,
 not browser history), a 36px avatar, and the buddy's name in `text-title`.
 Compact on purpose — vertical room belongs to the conversation. **No presence
@@ -908,7 +1005,7 @@ right. Below that, summary follows the steps in flow.
 
 Three equal-width buttons in an `<ol aria-label="Plan steps">`. Agreed steps
 show a `size-4 text-primary` `Check`, unagreed show their number; the active
-one is `border-primary bg-primary/10 text-primary` with `aria-current="step"`.
+one is `border-primary bg-primary/12 text-primary` with `aria-current="step"`.
 Each carries an `sr-only` "— agreed" / "— not agreed yet", so the state never
 depends on the tick's colour. Tapping revisits a step. **No XP, no streaks, no
 gamified bar.**
@@ -921,17 +1018,18 @@ gamified bar.**
 | --- | --- |
 | Agreed | `Check` + `text-body-small text-primary` — "You both agreed on Badminton." |
 | Waiting | `Clock` + `text-body-small text-muted-foreground` — "You suggested … Waiting for Aina." |
-| Needs you | `UserCheck` in a `rounded-2xl border-border bg-muted/50 p-4` card, with a primary Agree button |
+| Needs you | `UserCheck` in a `rounded-2xl border-border bg-surface-subtle p-4` card, with a primary Agree button |
 
 The Agree button names what is being agreed (`Agree to Sat, Sep 12 · 5:00–7:00 PM`)
 and repeats it in `aria-label`, so it is never a bare "Agree".
 
 ### Live plan summary
 
-`PlanSummary` is `bg-muted/50 rounded-xl` rows — icon, `text-caption uppercase`
-label, `text-title` value — with an `Agreed` / `Pending` marker in
-`text-caption uppercase`. An undecided row reads "Not decided yet" in
-`text-muted-foreground`. A `Draft` / `Ready` badge sits in the header.
+`PlanSummary` is a stack of `DetailTile`s (§29) — icon, `text-caption
+uppercase` label, `text-title` value — each with a `StatusPill` marking
+`Agreed` (`success`) or `Pending` (`pending`). An undecided row reads "Not
+decided yet" in `text-muted-foreground` and dims its icon via `muted`. The
+plan's own status is a `StatusPill` in the header.
 
 The **venue row is always present and always empty** in this step: shown
 honestly as undecided rather than hidden, and ready for STEP 11 to fill in.
@@ -946,7 +1044,7 @@ than being a dead "Continue to venue".
 
 ### Plan card in chat
 
-A single `rounded-xl border-border bg-muted/50` row pinned above the composer
+A single `rounded-xl border-border bg-surface-subtle` row pinned above the composer
 via `ChatLayout`'s `banner` slot: `CalendarCheck` in `text-primary`, an
 eyebrow ("Session plan · draft"), the decisions truncated to one line, and an
 outline **Continue** / **View plan** button.
@@ -1038,7 +1136,7 @@ reserves nothing.
 ### Activity detail
 
 `size="wide"` with `lg:grid-aside-end`: the event details card on the left,
-the venue card beside it. Details are a `<dl>` of `bg-muted/50 rounded-xl`
+the venue card beside it. Details are a `<dl>` of `bg-surface-subtle rounded-xl`
 rows — `size-4 text-primary` icon, `text-caption uppercase` term,
 `text-title` value.
 
@@ -1127,7 +1225,69 @@ content around it.
 
 // hardcoded device metrics
 <header className="pt-[44px]" />
+
+// a pattern that already has a component (see §29)
+<div className="flex flex-col gap-1.5">
+  <label className="text-label text-foreground">Email</label>
+  <Input />
+</div>
+
+// a card surface re-written by hand
+<div className="rounded-2xl border border-border bg-card p-4 shadow-sm" />
+
+// a hand-picked transition instead of the motion system
+<button className="transition-colors duration-150" />
+
+// a surface step invented on the spot
+<div className="bg-muted/50" />
+<div className="bg-background/90" />
 ```
 
-Every one of these breaks theme switching. If a needed color has no token,
-add the token to `src/styles/theme.css` (both themes) and document it here.
+Every one of these breaks theme switching, or quietly forks a pattern that
+already exists. If a needed color has no token, add the token to
+`src/styles/theme.css` (both themes) and document it here. If a needed
+pattern has no component, check §29 before writing a third copy.
+
+## 29. Shared component inventory
+
+Each of these exists because the same markup had been written at least twice
+and had already drifted. Reach for one before writing a className.
+
+### Surfaces and content
+
+| Component | Where | Replaces |
+| --- | --- | --- |
+| `Card` (5 variants) | `components/ui/card.tsx` | four hand-written `rounded-2xl border border-border bg-card` surfaces |
+| `DetailTile` | `components/common/detail-tile.tsx` | the read-only "icon · LABEL · value" row in the plan summary and activity detail. `as="dl"` keeps a description list a description list |
+| `SectionHeader` | `components/common/section-header.tsx` | five section headings. `level="page"` is `text-heading-3`; `level="group"` is the uppercase caption used inside a card |
+| `EmptyState` | `components/common/empty-state.tsx` | the dashed "nothing here" panel. Put the recovery control in `action` — never in a wrapper `div` underneath |
+| `ErrorState` | `components/common/error-state.tsx` | four different failure blocks. Omit `onRetry` when retrying cannot help (a configuration error) |
+
+### Controls
+
+| Component | Where | Replaces |
+| --- | --- | --- |
+| `ChoiceChip` | `components/ui/choice-chip.tsx` | six selection treatments. `selection="multiple"` is a checkbox and tints; `selection="single"` is a radio and fills |
+| `StatusPill` | `components/ui/status-pill.tsx` | five status treatments. Tones are `neutral`, `pending`, `success`, `active`, `danger` — and the label always carries the meaning, so the tone only reinforces it |
+| `FormField` | `components/common/form-field.tsx` | eight hand-written label/control rows. `optional` appends the muted "(optional)"; `hint` is the right-aligned line under the control |
+| `SettingsRow` | `features/settings/components/settings-row.tsx` | the label/description block shared by a navigational row and a toggle row. `htmlFor` decides `<label>` vs `<span>` |
+
+`Badge` is not on this list and is not interchangeable with `StatusPill`.
+`Badge` labels **content** — a sport, an intent, an availability slot.
+`StatusPill` reports **state**.
+
+### Chrome
+
+| Component | Where | Replaces |
+| --- | --- | --- |
+| `NavItem` | `components/layout/nav-item.tsx` | the three navigation shells' item styling. `shape` is `bar` (phone), `rail` (tablet) or `sidebar` (desktop); the active state is always `aria-current="page"` |
+| `StickyActionBar` | `components/layout/sticky-action-bar.tsx` | three sticky bottom bars. `offset` says what it stops above; `bleed` says whether it must escape a gutter-padded parent. Anything responsive beyond that stays with the caller |
+
+### Layout utilities
+
+| Utility | What it does |
+| --- | --- |
+| `px-gutter` | the responsive page gutter (20 / 28 / 40px). One class instead of `px-page md:px-7 lg:px-10` |
+| `bleed-gutter` | cancels it, so an element spans its whole column |
+| `grid-cards` | a card grid that sizes from the cards (`auto-fill`, 20rem floor) rather than counting columns per breakpoint |
+| `grid-aside-start` / `grid-aside-end` / `grid-nav-start` | the two-column desktop shapes |

@@ -1,20 +1,51 @@
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+
+/**
+ * Card elevation and intent. Before these variants existed, four surfaces
+ * outside this file hand-wrote `rounded-2xl border border-border bg-card`
+ * and then diverged on hover, selection and shadow.
+ */
+const cardVariants = cva(
+  "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-2xl border py-(--card-spacing) text-body text-card-foreground [--card-spacing:--spacing(5)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
+  {
+    variants: {
+      variant: {
+        /** The default surface: a card sitting on the page background. */
+        default: "border-border bg-card shadow-sm",
+        /** Quieter — a grouping device rather than an object. No shadow. */
+        subtle: "border-transparent bg-surface-subtle",
+        /** Above other cards: sheets, summaries, the thing being decided. */
+        elevated: "border-border bg-surface-raised shadow-md",
+        /** The whole card is a target — links into detail, opens a flow. */
+        interactive:
+          "border-border bg-card shadow-sm transition-ui hover:border-border-strong hover:shadow-hover",
+        /** Chosen: a selected venue, an agreed proposal, the active plan. */
+        selected: "border-primary bg-primary-gradient-soft shadow-sm",
+      },
+      size: {
+        default: "",
+        sm: "[--card-spacing:--spacing(3)]",
+      },
+    },
+    defaultVariants: { variant: "default", size: "default" },
+  }
+)
 
 function Card({
   className,
   size = "default",
+  variant = "default",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & VariantProps<typeof cardVariants>) {
   return (
     <div
       data-slot="card"
       data-size={size}
-      className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-2xl border border-border bg-card py-(--card-spacing) text-body text-card-foreground shadow-sm [--card-spacing:--spacing(5)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
-        className
-      )}
+      data-variant={variant}
+      className={cn(cardVariants({ variant, size }), className)}
       {...props}
     />
   )
@@ -84,7 +115,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-footer"
       className={cn(
-        "flex items-center rounded-b-2xl border-t bg-muted/40 p-(--card-spacing)",
+        "flex items-center rounded-b-2xl border-t bg-surface-subtle p-(--card-spacing)",
         className
       )}
       {...props}
@@ -94,6 +125,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
 
 export {
   Card,
+  cardVariants,
   CardHeader,
   CardFooter,
   CardTitle,

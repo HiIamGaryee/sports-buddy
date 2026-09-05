@@ -1,4 +1,7 @@
-import { Badge } from '@/components/ui/badge'
+import { CalendarCheck, CircleCheck, CircleSlash } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+
+import { StatusPill } from '@/components/ui/status-pill'
 import type { ActivityStatus } from '@/types/activity'
 
 /**
@@ -8,16 +11,21 @@ import type { ActivityStatus } from '@/types/activity'
  * Deliberately never says "Booked", "Reserved" or "Paid": Sports Buddy does
  * not reserve anything.
  */
-const LABELS = {
-  upcoming: 'Upcoming',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-} as const satisfies Record<ActivityStatus, string>
+const STATUSES = {
+  upcoming: { label: 'Upcoming', tone: 'active', icon: CalendarCheck },
+  completed: { label: 'Completed', tone: 'success', icon: CircleCheck },
+  cancelled: { label: 'Cancelled', tone: 'danger', icon: CircleSlash },
+} as const satisfies Record<
+  ActivityStatus,
+  { label: string; tone: 'active' | 'success' | 'danger'; icon: LucideIcon }
+>
 
 export function ActivityStatusBadge({ status }: { status: ActivityStatus }) {
+  const { label, tone, icon } = STATUSES[status]
+
   return (
-    <Badge variant={status === 'upcoming' ? 'default' : 'outline'}>
-      {LABELS[status]}
-    </Badge>
+    <StatusPill tone={tone} icon={icon}>
+      {label}
+    </StatusPill>
   )
 }

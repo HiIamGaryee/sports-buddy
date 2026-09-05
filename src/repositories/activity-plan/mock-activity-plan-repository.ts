@@ -10,7 +10,7 @@ import {
   activePlanId,
   type ActivityPlanRepository,
 } from '@/repositories/activity-plan/activity-plan-repository'
-import { delay, readStore, writeStore } from '@/repositories/mock-store'
+import { delay, readStoreRecord, writeStore } from '@/repositories/mock-store'
 import {
   PLANNING_ERROR_CODES,
   planningError,
@@ -24,7 +24,7 @@ interface MockPlanStore {
 const EMPTY_STORE: MockPlanStore = { plans: [] }
 
 const readMockStore = () =>
-  readStore<MockPlanStore>(MOCK_STORAGE_KEYS.activityPlans, EMPTY_STORE)
+  readStoreRecord<MockPlanStore>(MOCK_STORAGE_KEYS.activityPlans, EMPTY_STORE)
 
 const writeMockStore = (store: MockPlanStore) =>
   writeStore(MOCK_STORAGE_KEYS.activityPlans, store)

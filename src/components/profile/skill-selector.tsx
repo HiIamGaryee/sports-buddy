@@ -1,4 +1,4 @@
-import { SelectionChip } from '@/components/profile/selection-chip'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { SKILL_LEVELS } from '@/constants/profile-options'
 import { getSportName } from '@/lib/profile-format'
 import type { SkillLevel, SportId } from '@/types/sports-profile'
@@ -34,10 +34,10 @@ export function SkillSelector({
             className="grid grid-cols-2 gap-2"
           >
             {SKILL_LEVELS.map((level) => (
-              <SelectionChip
+              <ChoiceChip
                 key={level.id}
                 label={level.label}
-                single
+                selection="single"
                 selected={skillLevel === level.id}
                 onClick={() => onChange(sportId, level.id)}
               />

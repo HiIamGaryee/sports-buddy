@@ -1,5 +1,5 @@
 import { DAY_PERIODS, WEEK_DAYS } from '@/constants/profile-options'
-import { SelectionChip } from '@/components/profile/selection-chip'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import type { AvailabilitySlot, DayPeriod, WeekDay } from '@/types/sports-profile'
 
 /** Day rows with period chips — compact enough for a 390px viewport. */
@@ -28,7 +28,7 @@ export function AvailabilitySelector({
           </span>
           <div className="flex flex-1 gap-2">
             {DAY_PERIODS.map((period) => (
-              <SelectionChip
+              <ChoiceChip
                 key={period.id}
                 label={period.short}
                 selected={isSelected(day, period.id)}

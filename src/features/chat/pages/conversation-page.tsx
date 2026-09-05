@@ -1,6 +1,8 @@
 import { Link, useParams } from 'react-router-dom'
 import { ArrowDown, CalendarPlus } from 'lucide-react'
 
+import { ErrorState } from '@/components/common/error-state'
+import { isValidPairId } from '@/lib/ids'
 import { ChatLayout } from '@/components/layout/chat-layout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -21,7 +23,16 @@ const SKELETON_BUBBLES = [
 ] as const
 
 export function ConversationPage() {
-  const { conversationId } = useParams<{ conversationId: string }>()
+  const { conversationId: rawConversationId } =
+    useParams<{ conversationId: string }>()
+  // A route param is untrusted input on its way to `doc(db, COLLECTION, id)`.
+  // An invalid id becomes `undefined`, which the hook already treats as
+  // "nothing to load", so the page shows its normal unavailable state instead
+  // of building a malformed document path.
+  // A conversation id IS the STEP 8 pair id, so the shape is checkable.
+  const conversationId = isValidPairId(rawConversationId)
+    ? rawConversationId
+    : undefined
   const conversation = useConversation(conversationId)
   const {
     currentUserId,
@@ -142,14 +153,7 @@ export function ConversationPage() {
           </div>
         ))
       ) : error ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-          <p role="alert" className="text-title text-foreground">
-            {error}
-          </p>
-          <Button variant="outline" onClick={retry}>
-            Try again
-          </Button>
-        </div>
+        <ErrorState title={error} onRetry={retry} className="my-auto" />
       ) : (
         <>
           {hasMore && (

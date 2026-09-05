@@ -198,6 +198,50 @@ describe('isValidSelection', () => {
       }),
     ).toBe(false)
   })
+
+  /**
+   * A venue selection is written into a SHARED plan document, so the other
+   * participant renders whatever is stored. These are the fields an attacker
+   * would reach for.
+   */
+  it('rejects a maps URI that is not a real Google Maps link', () => {
+    expect(
+      venueService.isValidSelection({
+        ...selection,
+        googleMapsUri: 'javascript:alert(1)',
+      }),
+    ).toBe(false)
+    expect(
+      venueService.isValidSelection({
+        ...selection,
+        googleMapsUri: 'https://phishing.example.com/maps',
+      }),
+    ).toBe(false)
+    expect(
+      venueService.isValidSelection({
+        ...selection,
+        googleMapsUri: 'https://maps.google.com/?cid=1',
+      }),
+    ).toBe(true)
+  })
+
+  it('rejects a place id that would address a different document path', () => {
+    expect(
+      venueService.isValidSelection({ ...selection, placeId: 'a/b' }),
+    ).toBe(false)
+    expect(
+      venueService.isValidSelection({ ...selection, placeId: '../../admin' }),
+    ).toBe(false)
+  })
+
+  it('rejects oversized name and address strings', () => {
+    expect(
+      venueService.isValidSelection({ ...selection, name: 'a'.repeat(500) }),
+    ).toBe(false)
+    expect(
+      venueService.isValidSelection({ ...selection, address: 'a'.repeat(500) }),
+    ).toBe(false)
+  })
 })
 
 describe('google place mapping', () => {

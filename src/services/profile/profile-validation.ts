@@ -1,5 +1,16 @@
 import { MAX_BIO_LENGTH } from '@/constants/profile-options'
+import { MAX_SPORTS } from '@/constants/sports'
+import { hasUnsafeCharacters } from '@/lib/sanitize'
 import { validateDisplayName } from '@/lib/validation'
+import {
+  isActivityIntensity,
+  isAreaId,
+  isRadiusKm,
+  isValidAvailability,
+  isValidBudget,
+  isValidIntents,
+  isValidSports,
+} from '@/services/profile/profile-schema'
 import type {
   ActivityIntensity,
   AreaId,
@@ -17,40 +28,67 @@ import type {
 export const profileRules = {
   displayName: validateDisplayName,
 
-  sports: (sports: readonly unknown[]) =>
-    sports.length === 0 ? 'Choose at least one sport.' : undefined,
+  /**
+   * Membership, not just presence. Before this, an unknown `sportId` reached
+   * `publicProfiles` and the matching engine unchallenged.
+   */
+  sports: (sports: readonly unknown[]) => {
+    if (sports.length === 0) return 'Choose at least one sport.'
+    if (sports.length > MAX_SPORTS) return `Choose up to ${MAX_SPORTS} sports.`
+    return isValidSports(sports) ? undefined : 'Choose a valid sport.'
+  },
 
   skills: (sports: readonly { skillLevel: SkillLevel | null }[]) =>
     sports.some((sport) => sport.skillLevel === null)
       ? 'Set a skill level for every sport.'
       : undefined,
 
-  intents: (intents: readonly unknown[]) =>
-    intents.length === 0
-      ? 'Pick at least one thing you are looking for.'
-      : undefined,
+  intents: (intents: readonly unknown[]) => {
+    if (intents.length === 0) {
+      return 'Pick at least one thing you are looking for.'
+    }
+    return isValidIntents(intents) ? undefined : 'Choose a valid option.'
+  },
 
-  intensity: (intensity: ActivityIntensity | null) =>
-    intensity === null ? 'Choose how you usually like to play.' : undefined,
+  intensity: (intensity: ActivityIntensity | null) => {
+    if (intensity === null) return 'Choose how you usually like to play.'
+    return isActivityIntensity(intensity)
+      ? undefined
+      : 'Choose a valid playing style.'
+  },
 
-  availability: (availability: readonly AvailabilitySlot[]) =>
-    availability.every((slot) => slot.periods.length === 0)
-      ? 'Select at least one time you are usually free.'
-      : undefined,
+  availability: (availability: readonly AvailabilitySlot[]) => {
+    if (availability.every((slot) => slot.periods.length === 0)) {
+      return 'Select at least one time you are usually free.'
+    }
+    return isValidAvailability(availability)
+      ? undefined
+      : 'Choose a valid time.'
+  },
 
-  area: (area: AreaId | null) =>
-    area === null ? 'Choose your general area.' : undefined,
+  area: (area: AreaId | null) => {
+    if (area === null) return 'Choose your general area.'
+    return isAreaId(area) ? undefined : 'Choose a valid area.'
+  },
 
-  radius: (radiusKm: number | null) =>
-    radiusKm === null ? 'Choose how far you can travel.' : undefined,
+  radius: (radiusKm: number | null) => {
+    if (radiusKm === null) return 'Choose how far you can travel.'
+    return isRadiusKm(radiusKm) ? undefined : 'Choose a valid distance.'
+  },
 
-  budget: (budget: BudgetPreference | null) =>
-    budget === null ? 'Choose your usual budget.' : undefined,
+  budget: (budget: BudgetPreference | null) => {
+    if (budget === null) return 'Choose your usual budget.'
+    return isValidBudget(budget) ? undefined : 'Choose a valid budget.'
+  },
 
-  bio: (bio: string) =>
-    bio.length > MAX_BIO_LENGTH
-      ? `Keep your bio under ${MAX_BIO_LENGTH} characters.`
-      : undefined,
+  bio: (bio: string) => {
+    if (bio.length > MAX_BIO_LENGTH) {
+      return `Keep your bio under ${MAX_BIO_LENGTH} characters.`
+    }
+    return hasUnsafeCharacters(bio)
+      ? 'Your bio contains characters we can\u2019t save.'
+      : undefined
+  },
 } as const
 
 /** First blocking problem, or `undefined` when the profile is complete. */

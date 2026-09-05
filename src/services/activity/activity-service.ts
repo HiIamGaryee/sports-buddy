@@ -1,5 +1,6 @@
 import { buildActivityFromPlan, canConfirmActivity, compareByStart } from '@/lib/activity'
 import { getOtherParticipantId } from '@/lib/connection'
+import { isValidDocumentId } from '@/lib/ids'
 import { ACTIVITY_BATCH_LIMIT } from '@/repositories/activity/activity-repository'
 import { activityRepository } from '@/repositories/repositories'
 import {
@@ -79,6 +80,11 @@ export const activityService = {
     activityId: string,
     userId: string,
   ): Promise<Activity | null> {
+    // Validation before authorization: a malformed id must not reach
+    // `doc(db, ACTIVITIES_COLLECTION, id)` at all. A rejected id resolves the
+    // same way a missing one does, so nothing is revealed either way.
+    if (!isValidDocumentId(activityId) || !isValidDocumentId(userId)) return null
+
     try {
       const activity = await activityRepository.getById(activityId)
       if (!activity || !activity.participants.includes(userId)) return null

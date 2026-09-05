@@ -1,3 +1,4 @@
+import { SectionHeader } from '@/components/common/section-header'
 import { Card, CardContent } from '@/components/ui/card'
 
 export function SettingsSection({
@@ -12,7 +13,7 @@ export function SettingsSection({
 }) {
   return (
     <section id={id} className="flex scroll-mt-6 flex-col gap-3">
-      <h2 className="text-caption text-muted-foreground uppercase">{title}</h2>
+      <SectionHeader level="group" title={title} />
       <Card>
         <CardContent className="flex flex-col gap-4">{children}</CardContent>
       </Card>

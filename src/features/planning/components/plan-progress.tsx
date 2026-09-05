@@ -34,10 +34,10 @@ export function PlanProgress({
               aria-current={isActive ? 'step' : undefined}
               onClick={() => onSelect(kind)}
               className={cn(
-                'flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-label transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                'flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-label transition-ui pressable focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                 isActive
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border bg-card text-muted-foreground hover:text-foreground',
+                  ? 'border-primary bg-primary/12 text-primary'
+                  : 'border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground',
               )}
             >
               {agreed ? (

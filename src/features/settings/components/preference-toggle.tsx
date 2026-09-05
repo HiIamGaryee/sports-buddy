@@ -1,3 +1,4 @@
+import { SettingsRow } from '@/features/settings/components/settings-row'
 import { Switch } from '@/components/ui/switch'
 
 export function PreferenceToggle({
@@ -16,24 +17,19 @@ export function PreferenceToggle({
   onChange: (checked: boolean) => void
 }) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <label htmlFor={id} className="text-title text-card-foreground">
-          {label}
-        </label>
-        {description && (
-          <span className="text-body-small text-muted-foreground">
-            {description}
-          </span>
-        )}
-      </div>
-      <Switch
-        id={id}
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={onChange}
-        className="mt-1 shrink-0"
-      />
-    </div>
+    <SettingsRow
+      label={label}
+      description={description}
+      htmlFor={id}
+      trailing={
+        <Switch
+          id={id}
+          checked={checked}
+          disabled={disabled}
+          onCheckedChange={onChange}
+          className="mt-1 shrink-0"
+        />
+      }
+    />
   )
 }

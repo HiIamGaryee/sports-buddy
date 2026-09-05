@@ -1,7 +1,8 @@
 import { CalendarDays, CircleDashed, MapPin, Wallet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
+import { DetailTile } from '@/components/common/detail-tile'
+import { StatusPill } from '@/components/ui/status-pill'
 import { formatPlannedTime, formatSessionBudget } from '@/lib/plan-format'
 import { getSportName } from '@/lib/profile-format'
 import { isProposalAgreed, PLAN_STATUS_LABELS } from '@/lib/planning'
@@ -36,11 +37,17 @@ export function PlanSummary({
         <h2 className="text-caption text-muted-foreground uppercase">
           Plan so far
         </h2>
-        <Badge
-          variant={plan.status === 'venue-agreed' ? 'default' : 'outline'}
+        <StatusPill
+          tone={
+            plan.status === 'confirmed' || plan.status === 'venue-agreed'
+              ? 'success'
+              : plan.status === 'draft'
+                ? 'neutral'
+                : 'pending'
+          }
         >
           {PLAN_STATUS_LABELS[plan.status]}
-        </Badge>
+        </StatusPill>
       </div>
 
       <div className="flex flex-col gap-2.5">
@@ -89,8 +96,13 @@ export function PlanSummary({
   )
 }
 
+/**
+ * One agreed-or-not fact in the summary. The tile itself is shared with the
+ * activity detail and the chat card; only the agreement pill is local, since
+ * nothing else in the app has a two-person agreement state.
+ */
 function SummaryRow({
-  icon: Icon,
+  icon,
   label,
   value,
   agreed,
@@ -101,32 +113,18 @@ function SummaryRow({
   agreed: boolean
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
-      <Icon
-        aria-hidden
-        className={cn(
-          'mt-0.5 size-4 shrink-0',
-          agreed ? 'text-primary' : 'text-muted-foreground',
-        )}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-caption text-muted-foreground uppercase">
-          {label}
-        </span>
-        <span
-          className={cn(
-            'text-title',
-            value ? 'text-card-foreground' : 'text-muted-foreground',
-          )}
-        >
-          {value ?? 'Not decided yet'}
-        </span>
-      </div>
-      {value && (
-        <span className="shrink-0 text-caption text-muted-foreground uppercase">
-          {agreed ? 'Agreed' : 'Pending'}
-        </span>
-      )}
-    </div>
+    <DetailTile
+      icon={icon}
+      label={label}
+      value={value}
+      muted={!agreed}
+      trailing={
+        value && (
+          <StatusPill tone={agreed ? 'success' : 'pending'}>
+            {agreed ? 'Agreed' : 'Pending'}
+          </StatusPill>
+        )
+      }
+    />
   )
 }

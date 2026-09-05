@@ -1,6 +1,6 @@
 import { MOCK_STORAGE_KEYS } from '@/constants/app'
 import { normalizeUserPreferences } from '@/lib/preferences'
-import { delay, readStore, writeStore } from '@/repositories/mock-store'
+import { delay, readStoreArray, writeStore } from '@/repositories/mock-store'
 import {
   EMPTY_PROFILE_FIELDS,
   type ProfileRepository,
@@ -10,8 +10,21 @@ import type { UserPreferences } from '@/types/preferences'
 import type { SaveProfileInput } from '@/types/sports-profile'
 import type { SportsProfile } from '@/types/user'
 
+/**
+ * A stored profile must at least be an object carrying its own id. Anything
+ * else is somebody's hand-edited localStorage or a document from an older
+ * shape, and is dropped rather than handed to the UI — `normalize()` fills
+ * the remaining fields in.
+ */
+const isStoredProfile = (value: unknown): value is SportsProfile =>
+  Boolean(value) &&
+  typeof value === 'object' &&
+  typeof (value as SportsProfile).id === 'string' &&
+  (value as SportsProfile).id.length > 0
+
+/** Corrupt entries are skipped; one bad record never empties the whole store. */
 const readProfiles = () =>
-  readStore<SportsProfile[]>(MOCK_STORAGE_KEYS.users, [])
+  readStoreArray<SportsProfile>(MOCK_STORAGE_KEYS.users, isStoredProfile)
 
 const writeProfiles = (profiles: SportsProfile[]) =>
   writeStore(MOCK_STORAGE_KEYS.users, profiles)

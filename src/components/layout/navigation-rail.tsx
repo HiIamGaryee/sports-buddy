@@ -1,5 +1,4 @@
-import { NavLink } from 'react-router-dom'
-
+import { NavItem } from '@/components/layout/nav-item'
 import { mainNavigation } from '@/config/navigation'
 import { cn } from '@/lib/utils'
 
@@ -23,13 +22,7 @@ export function NavigationRail({ className }: { className?: string }) {
       <ul className="flex flex-col items-center gap-1 py-4">
         {mainNavigation.map(({ label, path, icon: Icon }) => (
           <li key={path} className="w-full px-2">
-            <NavLink
-              to={path}
-              className="group flex flex-col items-center gap-1 rounded-xl py-2.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <Icon aria-hidden className="size-5" />
-              <span className="text-caption">{label}</span>
-            </NavLink>
+            <NavItem shape="rail" to={path} label={label} icon={Icon} />
           </li>
         ))}
       </ul>

@@ -814,9 +814,11 @@ src/
                 (renders DiscoveryProfile only)
     layout/     app-shell.tsx, app-header.tsx, page-container.tsx,
                 bottom-navigation.tsx (phone), navigation-rail.tsx (tablet),
-                desktop-sidebar.tsx (desktop),
+                desktop-sidebar.tsx (desktop), nav-item.tsx (the one nav
+                item all three render), sticky-action-bar.tsx,
                 auth-layout.tsx, edit-layout.tsx, chat-layout.tsx
-    ui/         shadcn/ui primitives (customized — see §10)
+    ui/         shadcn/ui primitives (customized — see §10) plus
+                choice-chip.tsx and status-pill.tsx
   config/       env.ts (import.meta.env boundary), navigation.ts (tabs)
   constants/    app.ts (name, tagline, storage keys), sports.ts, areas.ts,
                 profile-options.ts (skills, intents, intensity, days,
@@ -979,10 +981,56 @@ pre-create empty folders.
   any scrollable page body. `PageContainer` already applies it.
 - `cn()` from `@/lib/utils` merges class names; use it whenever a component
   accepts `className`.
-- **When you add a `text-*` typography token to the theme, also register it in
-  the `font-size` class group in `src/lib/utils.ts`.** tailwind-merge
-  otherwise classifies it as a text *color* and silently drops the real color
-  class (this caused unreadable buttons before it was fixed).
+- **When you add ANY custom utility to `src/styles/theme.css`, register it in
+  `src/lib/utils.ts`.** tailwind-merge only resolves classes it can classify:
+  a `text-*` typography token it does not know is treated as a text *color*
+  and silently drops the real color class (this caused unreadable buttons
+  before it was fixed), and an unregistered `bg-*` / `transition-*` /
+  `px-*` / `mx-*` utility will not be overridden by the Tailwind class a
+  caller passes through `className`.
+
+### Styling decision order (STEP 12.5)
+
+Stop at the first rung that covers the case. Full reference: `theme.md` §0.
+
+1. **A theme token** in `src/styles/theme.css`, defined for both themes.
+2. **A component variant** — `Card variant`, `Button variant`,
+   `StatusPill tone`, `ChoiceChip selection`.
+3. **A shared component** — the inventory is `theme.md` §29. Never write a
+   pattern that already has one.
+4. **A semantic utility** — `px-gutter`, `bleed-gutter`, `grid-cards`,
+   `transition-ui`, `pressable`, `bg-primary-gradient[-soft]`.
+5. **Plain Tailwind** for layout local to one screen.
+6. **Inline `style`** only for a value that does not exist until runtime (a
+   progress width). Never for a color.
+
+If a pattern appears a third time it has earned a component; if a value
+appears in a component at all it has earned a token.
+
+### Surface hierarchy
+
+`bg-background` (page) → `bg-surface` (section/navigation) → `bg-card`
+(object) → `bg-surface-subtle` (a tile INSIDE a card) → `bg-surface-raised`
+(a card above cards). Sticky chrome is `bg-surface-overlay` +
+`backdrop-blur-xl`, and a dialog/sheet scrim is `bg-scrim` — one translucency
+each, never a hand-picked `/85` or `/90`.
+
+`bg-muted` is not a surface step: it is the skeleton shimmer and the `ghost`
+hover, nothing else.
+
+### Motion
+
+`transition-ui` is THE interaction transition and `pressable` THE press
+feedback; both read `--motion-*` tokens. Never write `transition-colors`,
+`transition-all`, `transition-shadow` or a hand-picked `duration-*`.
+`src/index.css` carries the global `prefers-reduced-motion` block — do not
+re-enable motion past it.
+
+### Selected states
+
+A selected **card** uses `bg-primary-gradient-soft`; a selected **chip or
+small control** uses flat `bg-primary/12`, or solid `bg-primary` when exactly
+one option can win. There is one tint value — never `/5`, `/10` or `/15`.
 
 ## 8. Theme rules
 
@@ -1035,6 +1083,11 @@ only the presentation adapts (STEP 9.5):
 - Note: `secondary` maps to sport orange (brand decision), so
   `variant="secondary"` is an energetic CTA, not neutral chrome. Use
   `variant="outline"` or `ghost` for neutral actions.
+- `Card` carries five variants (`default`, `subtle`, `elevated`,
+  `interactive`, `selected`) — never re-write `rounded-2xl border
+  border-border bg-card` in a feature file.
+- `Badge` labels **content** (a sport, an intent, an availability slot).
+  `StatusPill` reports **state**. They are not interchangeable.
 
 ## 11. Firebase architecture
 
@@ -1098,6 +1151,74 @@ Deploy with `firebase deploy --only firestore:rules`. Verify with
 `npm run test:rules`, which starts the Firestore emulator and runs
 `tests/firestore-rules.test.ts` (86 tests) against the real rules file — it
 needs **JDK 21+**, and never runs as part of `npm test`.
+
+## 11.5 Security rules for writing code (STEP 12.6)
+
+Permanent. Full audit and rationale: `docs/security-audit.md`.
+
+**Trust.** Every external and persisted value is untrusted — form fields,
+route params, query strings, Firestore documents, `publicProfiles` written by
+other members, localStorage, Google Places responses, and provider photo URLs.
+"It came from Firestore" is not a safety argument: in a two-person feature,
+half the document is the other person's input.
+
+**Rendering.**
+- Never render user content as HTML. No `dangerouslySetInnerHTML`, `innerHTML`
+  or `document.write` — anywhere, for any field. React text rendering is the
+  escape mechanism, and it is sufficient.
+- Every external URL passes `safeLinkUrl` / `isTrustedMapsUrl`
+  (`src/lib/safe-url.ts`) before it reaches an `href`, and `safeImageUrl`
+  before an `<img src>`. Use `SafeExternalLink`; a rejected URL renders
+  nothing rather than a repaired link.
+- `target="_blank"` always carries `rel="noopener noreferrer"`.
+- No user value may become a className or a `style` value.
+
+**Validation.**
+- Validation belongs in the service, not only the form: a programmatic caller
+  skips the UI. Validate structure first, then authorize.
+- Enum fields (`sportId`, `areaId`, `skillLevel`, intents, intensity, statuses)
+  are checked for MEMBERSHIP against the centralized datasets, never accepted
+  as arbitrary strings.
+- Numbers are checked with `Number.isFinite` and a range. `NaN`, `Infinity`
+  and negatives are not budgets, radii or coordinates.
+- Normalize text with `src/lib/sanitize.ts`. Do NOT strip `<`, `>`, `'` or `&`
+  — that breaks "Let's play!" and "Court A & B" and prevents nothing. Never
+  silently truncate text a person authored; report the length instead.
+- Every language and emoji stays valid. Validate length, structure and control
+  characters, never which script somebody writes in.
+
+**Firestore.**
+- Collection names are module constants. Never derive a collection, field
+  name, operator, `orderBy` or `limit` from user input.
+- Validate a document id with `isValidDocumentId` / `isValidPairId`
+  (`src/lib/ids.ts`) before it reaches `doc()`.
+- Writes construct their fields explicitly. Never `setDoc(ref, { ...input })`
+  with an object a caller supplied.
+- `firestore.rules` is part of authorization, not a formality. Assume the
+  attacker uses the Firebase SDK directly and never opens the app. A rule
+  that is not written protects nothing, however well the UI behaves.
+- Sensitive collections carry a `keys().hasOnly(...)` allowlist and string
+  size caps, so no unexpected privileged field can be smuggled in.
+
+**Storage and objects.**
+- `localStorage` is untrusted: read it through `readStore`/`readStoreArray`
+  with a type guard. Never `JSON.parse(raw) as T`.
+- Never merge an untrusted parsed object into a trusted one. `__proto__`,
+  `constructor` and `prototype` are stripped at the parse boundary.
+- Dynamic property access uses a typed key allowlist, never a raw user string.
+
+**Forbidden outright.** `eval`, `new Function`, string-form `setTimeout` /
+`setInterval`. If SQL is ever introduced, parameterized queries only — never
+concatenation. If XML parsing is ever introduced, DTDs and external entities
+must be disabled (ICS is not XML; STEP 13 needs its own escaping).
+
+**Secrets and errors.**
+- `VITE_*` is compiled into the bundle and is not secret. Firebase web config
+  and the Maps browser key are public by design and are protected by referrer,
+  API and quota restrictions — never put a server credential there.
+- Never log a password, token, raw auth error or message content.
+- User-facing errors are fixed, human strings. Never a Firestore code, a
+  document path or a stack trace.
 
 ## 12. Mock data architecture
 
@@ -1206,7 +1327,32 @@ it. Feature logic never leaks into `components/ui/`.
 
 ## 19. Things that must NOT be done
 
+- Render user content as HTML, or use `dangerouslySetInnerHTML` / `innerHTML`
+  / `document.write` with any data.
+- Put a URL into an `href` or `<img src>` without `safeLinkUrl` /
+  `safeImageUrl` / `isTrustedMapsUrl`.
+- Derive a Firestore collection, field name, operator or limit from user input.
+- Reach `doc()` with an unvalidated route parameter.
+- Write a client object to Firestore with a spread instead of an explicit
+  field list.
+- Trust `localStorage` — read it with a guard, never `JSON.parse(raw) as T`.
+- Accept an enum value without checking it against its centralized dataset.
+- Strip `<`, `>` or apostrophes from user text, or silently truncate what a
+  person authored.
+- Use `eval`, `new Function`, or string-form `setTimeout` / `setInterval`.
+- Log a password, token, raw auth error or message content.
+- Put a server secret in a `VITE_*` variable.
 - Hardcode colors in components (hex/rgb/hsl or `bg-[...]` color values).
+- Re-write a pattern that already has a shared component (`theme.md` §29):
+  a label + input row, a card surface, a status display, a selection chip, a
+  section heading, an empty/error state, a sticky action bar, a nav item.
+- Invent a surface step (`bg-muted/50`, `bg-card/60`, `bg-background/90`) or
+  a selected tint (`bg-primary/5`, `/10`, `/15`) instead of using the tokens.
+- Write `transition-colors` / `transition-all` / a hand-picked `duration-*`
+  instead of `transition-ui` and `pressable`.
+- Count grid columns per breakpoint for a card list — use `grid-cards`.
+- Add a custom utility to `src/styles/theme.css` without registering it in
+  `src/lib/utils.ts`.
 - Duplicate theme logic outside the theme provider.
 - Import mock data or a backend SDK inside UI components; pages talk to
   `useAuth()` / services only.
@@ -1737,6 +1883,87 @@ report, unread/read receipts, typing and presence, media messages,
 notification delivery, subscriptions, analytics, native platforms, account
 deletion, photo upload.
 
+STEP 12.5 — Design System Refactor + Theme-First Styling:
+
+- Surface hierarchy added (`--surface-subtle` / `--surface-raised` /
+  `--surface-overlay`), plus `--border-strong`, `--scrim` and the
+  `--motion-*` tokens. Three chrome translucencies (`bg-background/85`,
+  `/90`, `bg-surface/85`) collapsed into one `bg-surface-overlay`.
+- New utilities: `transition-ui`, `pressable`, `bg-primary-gradient-soft`,
+  `grid-cards`. All custom utilities are now registered with tailwind-merge
+  in `src/lib/utils.ts`, not just the typography tokens.
+- New shared components: `ChoiceChip` and `StatusPill` (`components/ui/`),
+  `FormField`, `ErrorState`, `DetailTile` (`components/common/`),
+  `NavItem` and `StickyActionBar` (`components/layout/`), `SettingsRow`
+  (`features/settings/`). `Card` gained five variants; `EmptyState` gained
+  an `action` slot; `SectionHeader` absorbed four section-heading copies;
+  `SelectionChip` and `AuthField` were replaced and deleted.
+- Two defects fixed rather than restyled: dialog and sheet scrims were
+  `bg-black/10` in both themes and therefore invisible in dark mode, and the
+  app had no `prefers-reduced-motion` handling at all.
+- Discover's and Activities' card grids were counting columns per breakpoint,
+  which produced ~265px cards on a 1440px Discover page (the filter rail eats
+  the row). They now size from the cards via `grid-cards`.
+- `docs/design-system-audit.md` records what the audit found, what changed,
+  and what was deliberately left alone. `theme.md` gained §0 (styling
+  decision order) and §29 (shared component inventory) and had its stale
+  values swept.
+- No product behaviour, route, type, service, repository, Firestore document
+  or dependency changed.
+
+Verified with a headless browser in mock mode at 390px, 834px and 1440px in
+both themes across Home, Discover, buddy detail, Activities, Messages,
+Profile, Profile edit, Settings, Discovery settings and the Discover filter
+sheet: no console errors, the dark-mode scrim now dims the page behind a
+sheet, and every `bg-*` / `text-*` / `border-*` / `shadow-*` / `ring-*` class
+used in `src/**/*.tsx` resolves in the built stylesheet.
+
+Not verified: live Firebase (no credentials in this environment) and Google
+Places/Maps (no API key), unchanged from earlier steps.
+
+STEP 12.6 — Security Hardening: Input Validation + Injection Prevention:
+
+- New safety boundaries: `src/lib/safe-url.ts` (protocol + Google-host
+  allowlists), `src/lib/sanitize.ts` (control/zero-width/bidi stripping,
+  no over-filtering), `src/lib/ids.ts` (document id shape),
+  `src/services/profile/profile-schema.ts` (enum membership, number and array
+  validation, and the profile write allowlist).
+- One real vulnerability found and fixed: `VenueSelection.googleMapsUri` was
+  any string, written into a SHARED plan document by either participant, and
+  rendered into an `href`. A participant could hand the other a `javascript:`
+  or phishing link behind "Open in Maps". Now validated at the mapper, the
+  service, the persistence guard and the render, with `SafeExternalLink`
+  rendering nothing for a rejected URL.
+- Profile enums were presence-checked only, so an unknown `sportId` or
+  `areaId` reached `publicProfiles` and the matching engine; budgets accepted
+  `NaN` / `Infinity` / negatives. Both now validated against the centralized
+  datasets.
+- Mass assignment closed: `profileService` and the Firestore repository build
+  the document field by field, and `users/{uid}` and `publicProfiles/{uid}`
+  gained `keys().hasOnly(...)` allowlists plus field size caps in the rules.
+- `readStore` no longer asserts a shape over user-editable storage: it takes a
+  type guard, strips `__proto__`/`constructor`/`prototype` at the parse
+  boundary, `readStoreArray` drops corrupt entries instead of a whole key, and
+  `readStoreRecord` repairs a store object field by field. A live check with
+  hand-corrupted storage had crashed the Messages screen; it no longer does.
+- Route parameters are validated before reaching `doc()`; avatar images are
+  https-only inside `AvatarImage`; venue search input is capped.
+- Confirmed absent, and documented as such: SQL (no packages, no raw queries),
+  XML/XXE (no parser), `eval`/`new Function`, `dangerouslySetInnerHTML`,
+  `document.write`, iframes, file uploads, and any `console.*` in `src/`.
+- Vitest grew to 355 tests; emulator rules tests to 95.
+- `npm audit --omit=dev`: 0 vulnerabilities. 13 moderate advisories exist, all
+  transitive under `firebase-tools` and `@capacitor/cli` (dev-only); not
+  force-fixed, because nothing vulnerable ships to the browser.
+- Full audit, findings table and known limitations: `docs/security-audit.md`.
+
+Known limitations (recorded honestly, not fixed here): no rate limiting —
+loading flags and debounce are UX, not abuse protection; Firebase App Check
+not configured; no abuse reporting or blocking; no logging or monitoring;
+CSP/security headers documented but not applied because no hosting config
+exists; account deletion still absent. Live Firebase and Google Places remain
+unverified in this environment.
+
 ## 21. Local development credentials (mock mode only)
 
 `VITE_DATA_SOURCE=mock` seeds one demo account. These are development-only
@@ -1772,7 +1999,9 @@ STEP 9.5 — Responsive UI + Tablet/Desktop + Gradient Polish
 STEP 10 — Plan Together: Sport + Availability + Budget
 STEP 11 — Venue Discovery + Google Maps / Places
 STEP 12 — Confirmed Activity + Activity Card
+STEP 12.5 — Design System Refactor + Theme-First Styling
+STEP 12.6 — Security Hardening + Input Validation
 
-**Current Step:** STEP 12 — Confirmed Activity
+**Current Step:** STEP 12.6 — Security Hardening
 
 **Next Step:** STEP 13 — Calendar + Upcoming/Past Activity Experience

@@ -1,3 +1,4 @@
+import { SectionHeader } from '@/components/common/section-header'
 import { cn } from '@/lib/utils'
 
 export function ProfileSection({
@@ -13,12 +14,7 @@ export function ProfileSection({
 }) {
   return (
     <section className={cn('flex flex-col gap-3', className)}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-caption text-muted-foreground uppercase">
-          {title}
-        </h2>
-        {action}
-      </div>
+      <SectionHeader level="group" title={title} action={action} />
       {children}
     </section>
   )

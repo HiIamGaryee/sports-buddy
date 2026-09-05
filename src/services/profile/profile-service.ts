@@ -7,6 +7,7 @@ import {
   profileRepository,
   publicProfileRepository,
 } from '@/repositories/repositories'
+import { toSafeProfileInput } from '@/services/profile/profile-schema'
 import { validateProfileInput } from '@/services/profile/profile-validation'
 import type { AuthUser } from '@/types/auth'
 import type { UserPreferences } from '@/types/preferences'
@@ -17,13 +18,13 @@ const SAVE_FAILED_MESSAGE = "We couldn't save your profile. Please try again."
 const PREFERENCES_FAILED_MESSAGE =
   "We couldn't update your preferences. Please try again."
 
-const normalize = (input: SaveProfileInput): SaveProfileInput => ({
-  ...input,
-  displayName: input.displayName.trim(),
-  bio: input.bio.trim(),
-  // Drop days the user left empty so stored availability stays meaningful.
-  availability: input.availability.filter((slot) => slot.periods.length > 0),
-})
+/**
+ * WRITE ALLOWLIST. `toSafeProfileInput` rebuilds the object field by field
+ * rather than spreading the caller's, so an extra property — whether a stale
+ * client attached it, or somebody called the service directly with
+ * `{ ...input, admin: true }` — never reaches `setDoc`.
+ */
+const normalize = toSafeProfileInput
 
 const shouldPublish = (profile: SportsProfile) =>
   profile.onboardingCompleted && profile.preferences.privacy.discoverable

@@ -5,7 +5,7 @@ import {
   sortConnectionPair,
 } from '@/lib/connection'
 import type { ConnectionRepository } from '@/repositories/connection/connection-repository'
-import { delay, readStore, writeStore } from '@/repositories/mock-store'
+import { delay, readStoreRecord, writeStore } from '@/repositories/mock-store'
 import {
   CONNECTION_ERROR_CODES,
   connectionError,
@@ -21,7 +21,7 @@ interface MockConnectionStore {
 const EMPTY_STORE: MockConnectionStore = { seededUserIds: [], connections: [] }
 
 const readMockStore = () =>
-  readStore<MockConnectionStore>(MOCK_STORAGE_KEYS.connections, EMPTY_STORE)
+  readStoreRecord<MockConnectionStore>(MOCK_STORAGE_KEYS.connections, EMPTY_STORE)
 
 const writeMockStore = (store: MockConnectionStore) =>
   writeStore(MOCK_STORAGE_KEYS.connections, store)

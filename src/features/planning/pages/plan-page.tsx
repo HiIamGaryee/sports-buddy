@@ -7,6 +7,7 @@ import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { isValidPairId } from '@/lib/ids'
 import { CORE_PLAN_STEPS, PLAN_STEPS } from '@/constants/planning'
 import { BudgetStep } from '@/features/planning/components/budget-step'
 import { PlanProgress } from '@/features/planning/components/plan-progress'
@@ -37,7 +38,15 @@ const firstOpenStep = (plan: ActivityPlan): ProposalKind => {
 }
 
 export function PlanPage() {
-  const { conversationId } = useParams<{ conversationId: string }>()
+  const { conversationId: rawConversationId } =
+    useParams<{ conversationId: string }>()
+  // A route param is untrusted input on its way to `doc(db, COLLECTION, id)`.
+  // An invalid id becomes `undefined`, which the hook already treats as
+  // "nothing to load", so the page shows its normal unavailable state instead
+  // of building a malformed document path.
+  const conversationId = isValidPairId(rawConversationId)
+    ? rawConversationId
+    : undefined
   const navigate = useNavigate()
   const {
     currentUserId,

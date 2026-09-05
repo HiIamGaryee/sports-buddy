@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { APP_VERSION } from '@/constants/app'
 import { PreferenceToggle } from '@/features/settings/components/preference-toggle'
+import { SettingsRow } from '@/features/settings/components/settings-row'
 import { SettingsSection } from '@/features/settings/components/settings-section'
 import { usePreferenceUpdate } from '@/features/settings/use-preference-update'
 import { useAuth } from '@/hooks/use-auth'
@@ -109,7 +110,7 @@ export function SettingsPage() {
                 <li key={id}>
                   <a
                     href={`#${id}`}
-                    className="block rounded-lg px-3 py-2 text-title text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    className="block rounded-lg px-3 py-2 text-title text-muted-foreground transition-ui hover:bg-surface-subtle hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                   >
                     {label}
                   </a>
@@ -122,19 +123,22 @@ export function SettingsPage() {
         <SettingsSection id="preferences" title="Preferences">
           <Link
             to={ROUTES.discoverySettings}
-            className="-m-1 flex items-center gap-3 rounded-xl p-1 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="-m-2 flex items-center gap-3 rounded-xl p-2 transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-title text-card-foreground">Discovery</span>
-              <span className="text-body-small text-muted-foreground">
-                {preferences
+            <SettingsRow
+              label="Discovery"
+              description={
+                preferences
                   ? `${preferences.discovery.preferredSports.length} sports · up to ${formatRadius(preferences.discovery.maxDistanceKm)}`
-                  : 'Who you want to see'}
-              </span>
-            </div>
-            <ChevronRight
-              aria-hidden
-              className="size-4 shrink-0 text-muted-foreground"
+                  : 'Who you want to see'
+              }
+              trailing={
+                <ChevronRight
+                  aria-hidden
+                  className="mt-1 size-4 shrink-0 text-muted-foreground"
+                />
+              }
+              className="flex-1"
             />
           </Link>
 
@@ -145,7 +149,7 @@ export function SettingsPage() {
             <div
               role="radiogroup"
               aria-label="Theme"
-              className="flex gap-2 rounded-xl bg-muted p-1"
+              className="flex gap-2 rounded-xl bg-surface-subtle p-1"
             >
               {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
                 <button
@@ -155,7 +159,7 @@ export function SettingsPage() {
                   aria-checked={theme === value}
                   onClick={() => setTheme(value)}
                   className={cn(
-                    'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-label transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                    'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-label transition-ui focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                     theme === value
                       ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:text-foreground',

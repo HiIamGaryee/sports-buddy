@@ -54,7 +54,7 @@ export function BuddyCard({
   return (
     // `h-full` keeps cards in a grid row the same height; the hover lift is
     // a desktop affordance only (a phone gets the pressed state instead).
-    <Card className="h-full transition-shadow hover:shadow-hover">
+    <Card variant="interactive" className="h-full">
       <CardContent className="flex h-full flex-col gap-4">
         <div className="flex items-center gap-3">
           <Avatar className="size-14">
@@ -93,7 +93,7 @@ export function BuddyCard({
               key={sportId}
               className={cn(
                 'flex items-center justify-between gap-3 rounded-xl px-3 py-2',
-                shared.includes(sportId) ? 'bg-primary/10' : 'bg-muted/50',
+                shared.includes(sportId) ? 'bg-primary/12' : 'bg-surface-subtle',
               )}
             >
               <span className="text-body text-card-foreground">

@@ -28,20 +28,20 @@ export function SelectableCard({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'group relative flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-all active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-40',
+        'group relative flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-ui pressable focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40',
         compact && 'flex-col items-start gap-2',
         selected
-          ? 'border-primary bg-primary/10'
-          : 'border-border bg-card hover:border-input',
+          ? 'border-primary bg-primary-gradient-soft'
+          : 'border-border bg-card hover:border-border-strong',
       )}
     >
       {Icon && (
         <span
           className={cn(
-            'flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors',
+            'flex size-10 shrink-0 items-center justify-center rounded-xl transition-ui',
             selected
               ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground',
+              : 'bg-surface-subtle text-muted-foreground',
           )}
         >
           <Icon aria-hidden className="size-5" />

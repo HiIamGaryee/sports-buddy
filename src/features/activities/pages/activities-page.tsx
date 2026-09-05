@@ -2,6 +2,7 @@ import { CalendarDays, History } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { EmptyState } from '@/components/common/empty-state'
+import { ErrorState } from '@/components/common/error-state'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
@@ -19,7 +20,7 @@ const ACTIVITY_TABS = [
 const SKELETON_CARDS = [0, 1, 2]
 
 /** 1 column on a phone, 2 from `md`, 3 on a large desktop. */
-const CARD_GRID = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'
+const CARD_GRID = 'grid-cards'
 
 export function ActivitiesPage() {
   const { items, isLoading, error, refresh } = useUpcomingActivities()
@@ -55,35 +56,20 @@ export function ActivitiesPage() {
             )}
 
             {!isLoading && error && (
-              <div className="flex flex-col items-start gap-4">
-                <EmptyState
-                  icon={CalendarDays}
-                  title={error}
-                  description="Something went wrong on our side, not yours."
-                  className="w-full"
-                />
-                <Button
-                  variant="outline"
-                  onClick={refresh}
-                  className="sm:px-8"
-                >
-                  Try again
-                </Button>
-              </div>
+              <ErrorState title={error} onRetry={refresh} />
             )}
 
             {!isLoading && !error && items.length === 0 && (
-              <div className="flex flex-col items-start gap-4">
-                <EmptyState
-                  icon={CalendarDays}
-                  title="No upcoming activities."
-                  description="Find a sports buddy and plan your first session."
-                  className="w-full"
-                />
-                <Button variant="outline" asChild className="sm:px-8">
-                  <Link to={ROUTES.discover}>Find a Buddy</Link>
-                </Button>
-              </div>
+              <EmptyState
+                icon={CalendarDays}
+                title="No upcoming activities."
+                description="Find a sports buddy and plan your first session."
+                action={
+                  <Button variant="outline" asChild className="px-8">
+                    <Link to={ROUTES.discover}>Find a Buddy</Link>
+                  </Button>
+                }
+              />
             )}
 
             {!isLoading && !error && items.length > 0 && (

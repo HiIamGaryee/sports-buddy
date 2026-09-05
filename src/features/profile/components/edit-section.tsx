@@ -1,3 +1,5 @@
+import { SectionHeader } from '@/components/common/section-header'
+
 export function EditSection({
   title,
   description,
@@ -9,12 +11,7 @@ export function EditSection({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-heading-3 text-foreground">{title}</h2>
-        {description && (
-          <p className="text-body-small text-muted-foreground">{description}</p>
-        )}
-      </div>
+      <SectionHeader title={title} description={description} />
       {children}
     </section>
   )

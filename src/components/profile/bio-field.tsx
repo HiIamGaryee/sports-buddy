@@ -1,3 +1,4 @@
+import { FormField } from '@/components/common/form-field'
 import { Textarea } from '@/components/ui/textarea'
 import { MAX_BIO_LENGTH } from '@/constants/profile-options'
 
@@ -11,10 +12,12 @@ export function BioField({
   id?: string
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="text-label text-foreground">
-        Short bio <span className="text-muted-foreground">(optional)</span>
-      </label>
+    <FormField
+      id={id}
+      label="Short bio"
+      optional
+      hint={`${value.length} / ${MAX_BIO_LENGTH}`}
+    >
       <Textarea
         id={id}
         value={value}
@@ -22,9 +25,6 @@ export function BioField({
         onChange={(event) => onChange(event.target.value)}
         placeholder="Tell people what you enjoy about playing."
       />
-      <span className="self-end text-caption text-muted-foreground">
-        {value.length} / {MAX_BIO_LENGTH}
-      </span>
-    </div>
+    </FormField>
   )
 }

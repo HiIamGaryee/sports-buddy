@@ -1,4 +1,4 @@
-import { SelectionChip } from '@/components/profile/selection-chip'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { RADIUS_OPTIONS } from '@/constants/profile-options'
 
 export function RadiusSelector({
@@ -13,10 +13,10 @@ export function RadiusSelector({
   return (
     <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2">
       {RADIUS_OPTIONS.map((radius) => (
-        <SelectionChip
+        <ChoiceChip
           key={radius}
           label={`${radius} km`}
-          single
+          selection="single"
           selected={value === radius}
           onClick={() => onChange(radius)}
         />

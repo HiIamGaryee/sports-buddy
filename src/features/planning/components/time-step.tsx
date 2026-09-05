@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { FormField } from '@/components/common/form-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatPlanDate, formatSharedSlot } from '@/lib/plan-format'
@@ -78,10 +79,10 @@ export function TimeStep({
                       })
                     }
                     className={cn(
-                      'flex flex-col items-start gap-0.5 rounded-xl border px-4 py-3 text-left transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50',
+                      'flex flex-col items-start gap-0.5 rounded-xl border px-4 py-3 text-left transition-ui pressable focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50',
                       isSelected
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border bg-card hover:border-input',
+                        ? 'border-primary bg-primary/12'
+                        : 'border-border bg-card hover:border-border-strong',
                     )}
                   >
                     <span className="text-title text-card-foreground">
@@ -103,10 +104,7 @@ export function TimeStep({
           Exact time
         </h3>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="plan-date" className="text-label text-foreground">
-            Date
-          </label>
+        <FormField id="plan-date" label="Date">
           <Input
             id="plan-date"
             type="date"
@@ -115,13 +113,10 @@ export function TimeStep({
               setDraft({ ...draft, date: event.target.value })
             }
           />
-        </div>
+        </FormField>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="plan-start" className="text-label text-foreground">
-              Starts
-            </label>
+          <FormField id="plan-start" label="Starts">
             <Input
               id="plan-start"
               type="time"
@@ -130,11 +125,8 @@ export function TimeStep({
                 setDraft({ ...draft, startTime: event.target.value })
               }
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="plan-end" className="text-label text-foreground">
-              Ends
-            </label>
+          </FormField>
+          <FormField id="plan-end" label="Ends">
             <Input
               id="plan-end"
               type="time"
@@ -143,7 +135,7 @@ export function TimeStep({
                 setDraft({ ...draft, endTime: event.target.value })
               }
             />
-          </div>
+          </FormField>
         </div>
 
         <Button

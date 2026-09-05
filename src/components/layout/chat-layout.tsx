@@ -45,7 +45,7 @@ export function ChatLayout({
 
   return (
     <div className="flex h-dvh min-h-0 w-full flex-col bg-background md:h-full">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-background/85 px-gutter pt-safe-top pb-3 backdrop-blur-xl md:pt-4">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-surface-overlay px-gutter pt-safe-top pb-3 backdrop-blur-xl md:pt-4">
         <Button
           variant="ghost"
           size="icon-sm"

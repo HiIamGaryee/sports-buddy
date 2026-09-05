@@ -7,6 +7,7 @@ import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { StatusPill } from '@/components/ui/status-pill'
 import { Badge } from '@/components/ui/badge'
 import { APP_NAME, APP_TAGLINE_LINES } from '@/constants/app'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -52,10 +53,9 @@ export function HomePage() {
         <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
         <Card className="border-primary/30 bg-card">
           <CardContent className="flex flex-col gap-4">
-            <span className="flex w-fit items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-1 text-caption text-primary uppercase">
-              <Sparkles aria-hidden className="size-3" />
+            <StatusPill tone="success" icon={Sparkles}>
               Get started
-            </span>
+            </StatusPill>
             <div className="flex flex-col gap-2">
               <p className="text-heading-1 text-card-foreground">
                 {APP_TAGLINE_LINES.map((line) => (

@@ -28,7 +28,7 @@ export function LocationStep({
         <RadiusSelector value={draft.radiusKm} onChange={onSetRadius} />
       </section>
 
-      <p className="flex items-start gap-2 rounded-xl bg-muted/50 p-3 text-body-small text-muted-foreground">
+      <p className="flex items-start gap-2 rounded-xl bg-surface-subtle p-3 text-body-small text-muted-foreground">
         <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
         We only show your general area. Your exact location is never displayed.
       </p>

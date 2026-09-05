@@ -84,7 +84,7 @@ export function ConnectionSuccessDialog() {
         {buddy && (
           <>
             <div className="flex flex-col items-center gap-4 text-center">
-              <span className="flex size-16 animate-in items-center justify-center rounded-full bg-primary/15 duration-300 ease-out zoom-in-75">
+              <span className="flex size-16 animate-in items-center justify-center rounded-full bg-primary/12 duration-300 ease-out zoom-in-75">
                 <UserCheck className="size-8 text-primary" />
               </span>
               <div className="flex flex-col gap-1.5">

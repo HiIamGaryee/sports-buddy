@@ -1,7 +1,8 @@
 import { MapPin, Search } from 'lucide-react'
 
 import { EmptyState } from '@/components/common/empty-state'
-import { Button } from '@/components/ui/button'
+import { ErrorState } from '@/components/common/error-state'
+import { FormField } from '@/components/common/form-field'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getAreaName } from '@/lib/profile-format'
@@ -55,10 +56,7 @@ export function VenueStep({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="venue-search" className="text-label text-foreground">
-          Search venues
-        </label>
+      <FormField id="venue-search" label="Search venues">
         <div className="relative">
           <Search
             aria-hidden
@@ -78,7 +76,7 @@ export function VenueStep({
           <MapPin aria-hidden className="size-3.5 shrink-0" />
           Searching around the midpoint of {areaNames}.
         </p>
-      </div>
+      </FormField>
 
       <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start lg:gap-6">
         <div className="order-2 flex min-w-0 flex-col gap-3 lg:order-1">
@@ -88,25 +86,14 @@ export function VenueStep({
             ))}
 
           {!isLoading && error && (
-            <div className="flex flex-col items-start gap-4">
-              <EmptyState
-                icon={MapPin}
-                title={
-                  isConfigurationError ? 'Venue search is not configured.' : error
-                }
-                description={
-                  isConfigurationError
-                    ? error
-                    : 'Something went wrong on our side, not yours.'
-                }
-                className="w-full"
-              />
-              {!isConfigurationError && (
-                <Button variant="outline" onClick={onRetry}>
-                  Try again
-                </Button>
-              )}
-            </div>
+            <ErrorState
+              icon={MapPin}
+              title={
+                isConfigurationError ? 'Venue search is not configured.' : error
+              }
+              description={isConfigurationError ? error : undefined}
+              onRetry={isConfigurationError ? undefined : onRetry}
+            />
           )}
 
           {!isLoading && !error && venues.length === 0 && (

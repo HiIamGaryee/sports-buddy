@@ -1,3 +1,4 @@
+import { SectionHeader } from '@/components/common/section-header'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/initials'
@@ -44,12 +45,12 @@ export function ProfileSummary({ profile }: { profile: DiscoveryProfile }) {
         <p className="text-body text-card-foreground">{profile.bio}</p>
       )}
 
-      <ProfileSummarySection title="Sports">
+      <SummarySection title="Sports">
         <div className="flex flex-col gap-2">
           {profile.sports.map(({ sportId, skillLevel }) => (
             <div
               key={sportId}
-              className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-3 py-2.5"
+              className="flex items-center justify-between gap-3 rounded-xl bg-surface-subtle px-3 py-2.5"
             >
               <span className="text-title text-card-foreground">
                 {getSportName(sportId)}
@@ -60,9 +61,9 @@ export function ProfileSummary({ profile }: { profile: DiscoveryProfile }) {
             </div>
           ))}
         </div>
-      </ProfileSummarySection>
+      </SummarySection>
 
-      <ProfileSummarySection title="Looking for">
+      <SummarySection title="Looking for">
         <div className="flex flex-wrap gap-2">
           {profile.intents.map((intent) => (
             <Badge key={intent} variant="outline">
@@ -73,9 +74,9 @@ export function ProfileSummary({ profile }: { profile: DiscoveryProfile }) {
             {getIntensityLabel(profile.preferredIntensity)}
           </Badge>
         </div>
-      </ProfileSummarySection>
+      </SummarySection>
 
-      <ProfileSummarySection title="Usually free">
+      <SummarySection title="Usually free">
         {availability.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {availability.map((slot) => (
@@ -89,9 +90,9 @@ export function ProfileSummary({ profile }: { profile: DiscoveryProfile }) {
             No availability set yet.
           </p>
         )}
-      </ProfileSummarySection>
+      </SummarySection>
 
-      <ProfileSummarySection title="Usual budget">
+      <SummarySection title="Usual budget">
         <span className="text-metric text-card-foreground">
           {formatBudget(profile.budget)}
           <span className="text-body-small text-muted-foreground">
@@ -99,12 +100,12 @@ export function ProfileSummary({ profile }: { profile: DiscoveryProfile }) {
             / activity
           </span>
         </span>
-      </ProfileSummarySection>
+      </SummarySection>
     </div>
   )
 }
 
-function ProfileSummarySection({
+function SummarySection({
   title,
   children,
 }: {
@@ -113,7 +114,7 @@ function ProfileSummarySection({
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-caption text-muted-foreground uppercase">{title}</h3>
+      <SectionHeader level="group" as="h3" title={title} />
       {children}
     </section>
   )

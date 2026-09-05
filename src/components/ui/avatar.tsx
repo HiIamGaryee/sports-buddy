@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Avatar as AvatarPrimitive } from "radix-ui"
 
+import { safeImageUrl } from "@/lib/safe-url"
 import { cn } from "@/lib/utils"
 
 function Avatar({
@@ -23,13 +24,27 @@ function Avatar({
   )
 }
 
+/**
+ * THE avatar image boundary. `src` is always somebody else's data: an auth
+ * provider's photo URL, or a `publicProfiles` document another member wrote.
+ * A URL that is not https is dropped and nothing renders, so Radix falls
+ * through to `AvatarFallback` and the viewer sees initials.
+ *
+ * Guarding here rather than at each of the five call sites means a new avatar
+ * cannot forget to do it.
+ */
 function AvatarImage({
   className,
+  src,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+  const safeSrc = safeImageUrl(src)
+  if (!safeSrc) return null
+
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
+      src={safeSrc}
       className={cn(
         "aspect-square size-full rounded-full object-cover",
         className

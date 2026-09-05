@@ -43,7 +43,7 @@ export function AppHeader({
         'sticky top-0 z-30 px-gutter pt-safe-top',
         transparent
           ? 'bg-transparent'
-          : 'border-b border-border bg-background/85 backdrop-blur-xl',
+          : 'border-b border-border bg-surface-overlay backdrop-blur-xl',
       )}
     >
       <div

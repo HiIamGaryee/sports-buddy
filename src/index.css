@@ -18,4 +18,30 @@
     @apply bg-background text-body text-foreground antialiased;
     overscroll-behavior-y: none;
   }
+
+  /*
+   * Headings inherit the heading family and tighten optically at large sizes.
+   * Set once here so no component re-specifies tracking next to its
+   * `text-display` / `text-heading-*` token.
+   */
+  h1,
+  h2,
+  h3 {
+    @apply font-heading text-balance;
+  }
+
+  /*
+   * Accessibility floor for the whole motion system. Transitions still run,
+   * so state changes stay perceivable, but nothing travels or scales.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

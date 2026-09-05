@@ -1,6 +1,7 @@
 import { RefreshCw, Users } from 'lucide-react'
 
 import { EmptyState } from '@/components/common/empty-state'
+import { ErrorState } from '@/components/common/error-state'
 import { SectionHeader } from '@/components/common/section-header'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
@@ -17,7 +18,7 @@ import { countActiveFilters } from '@/lib/discover-filters'
 const SKELETON_CARDS = [0, 1, 2, 3]
 
 /** 1 column on a phone, 2 from `sm`, 3 on a large desktop. */
-const CARD_GRID = 'grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3'
+const CARD_GRID = 'grid-cards'
 
 export function DiscoverPage() {
   const {
@@ -108,52 +109,34 @@ export function DiscoverPage() {
             )}
 
             {!isLoading && error && (
-              <div className="flex flex-col items-start gap-4">
-                <EmptyState
-                  icon={Users}
-                  title={error}
-                  description="Something went wrong on our side, not yours."
-                  className="w-full"
-                />
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={refresh}
-                  className="sm:w-auto sm:px-8"
-                >
-                  Try again
-                </Button>
-              </div>
+              <ErrorState title={error} onRetry={refresh} />
             )}
 
             {!isLoading && !error && visibleCount === 0 && (
-              <>
-                {totalCandidates === 0 ? (
-                  <EmptyState
-                    icon={Users}
-                    title="It's quiet here for now."
-                    description="Try again soon as more Sports Buddy members join your area."
-                    className="w-full"
-                  />
-                ) : (
-                  <div className="flex flex-col items-start gap-4">
-                    <EmptyState
-                      icon={Users}
-                      title="No sports buddies found."
-                      description="Try changing your filters or widening what you're looking for."
-                      className="w-full"
-                    />
+              <EmptyState
+                icon={Users}
+                title={
+                  totalCandidates === 0
+                    ? "It's quiet here for now."
+                    : 'No sports buddies found.'
+                }
+                description={
+                  totalCandidates === 0
+                    ? 'Check back soon as more Sports Buddy members join your area.'
+                    : "Try changing your filters or widening what you're looking for."
+                }
+                action={
+                  totalCandidates > 0 && (
                     <Button
-                      size="lg"
                       variant="outline"
                       onClick={resetFilters}
-                      className="sm:w-auto sm:px-8"
+                      className="px-8"
                     >
                       Reset filters
                     </Button>
-                  </div>
-                )}
-              </>
+                  )
+                }
+              />
             )}
 
             {!isLoading && !error && incoming.length > 0 && (

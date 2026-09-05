@@ -1,4 +1,5 @@
 import { isValidCoordinate } from '@/lib/geo'
+import { isTrustedMapsUrl } from '@/lib/safe-url'
 import type { Venue } from '@/types/venue'
 
 /**
@@ -61,7 +62,12 @@ export function mapGooglePlaceToVenue(raw: unknown): Venue | null {
     name,
     address: asString(place.formattedAddress) ?? '',
     location,
-    googleMapsUri: asString(place.googleMapsUri),
+    // Provider data is still external data. A URI that is not an https
+    // Google Maps link is dropped here rather than stored and later rendered
+    // into an `href`; callers fall back to a link built from the place id.
+    googleMapsUri: isTrustedMapsUrl(place.googleMapsUri)
+      ? (place.googleMapsUri as string)
+      : null,
     rating: asNumber(place.rating),
     ratingCount: asNumber(place.userRatingCount),
     primaryType: asString(place.primaryType),

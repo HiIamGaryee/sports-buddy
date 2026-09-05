@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { SelectionChip } from '@/components/profile/selection-chip'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { Button } from '@/components/ui/button'
 import { BUDGET_OPTIONS } from '@/constants/profile-options'
 import { formatBudget } from '@/lib/profile-format'
@@ -76,7 +76,7 @@ export function BudgetStep({
           aria-label="Budget per person"
         >
           {BUDGET_OPTIONS.map(({ id, label, budget }) => (
-            <SelectionChip
+            <ChoiceChip
               key={id}
               label={label}
               selected={isSameBudget(draft, budget)}

@@ -1,13 +1,10 @@
-import { NavLink } from 'react-router-dom'
 import { Settings } from 'lucide-react'
 
+import { NavItem } from '@/components/layout/nav-item'
 import { mainNavigation } from '@/config/navigation'
 import { APP_NAME } from '@/constants/app'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/routes/routes'
-
-const itemClass =
-  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-title text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none'
 
 /**
  * DESKTOP navigation (≥1024px). Brand, the five main destinations, then
@@ -35,18 +32,17 @@ export function DesktopSidebar({ className }: { className?: string }) {
       <ul className="flex flex-1 flex-col gap-1">
         {mainNavigation.map(({ label, path, icon: Icon }) => (
           <li key={path}>
-            <NavLink to={path} className={itemClass}>
-              <Icon aria-hidden className="size-5 shrink-0" />
-              {label}
-            </NavLink>
+            <NavItem shape="sidebar" to={path} label={label} icon={Icon} />
           </li>
         ))}
       </ul>
 
-      <NavLink to={ROUTES.settings} className={itemClass}>
-        <Settings aria-hidden className="size-5 shrink-0" />
-        Settings
-      </NavLink>
+      <NavItem
+        shape="sidebar"
+        to={ROUTES.settings}
+        label="Settings"
+        icon={Settings}
+      />
     </nav>
   )
 }

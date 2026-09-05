@@ -1,5 +1,6 @@
 import { ChevronLeft } from 'lucide-react'
 
+import { StickyActionBar } from '@/components/layout/sticky-action-bar'
 import { Button } from '@/components/ui/button'
 import { OnboardingProgress } from '@/features/onboarding/components/onboarding-progress'
 
@@ -43,7 +44,7 @@ export function OnboardingLayout({
   return (
     <div className="flex min-h-dvh flex-col bg-background pl-safe-left pr-safe-right lg:justify-center">
       <div className="mx-auto flex w-full max-w-default flex-1 flex-col lg:max-w-wide lg:flex-none lg:grid lg:grid-aside-start lg:items-start lg:gap-16 lg:px-gutter lg:py-16">
-        <header className="sticky top-0 z-30 flex flex-col gap-3 border-b border-border bg-background/85 px-gutter pt-safe-top pb-4 backdrop-blur-xl lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        <header className="sticky top-0 z-30 flex flex-col gap-3 border-b border-border bg-surface-overlay px-gutter pt-safe-top pb-4 backdrop-blur-xl lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
           <div className="flex min-h-11 items-center gap-2">
             {onBack ? (
               <Button
@@ -77,7 +78,7 @@ export function OnboardingLayout({
             {children}
           </main>
 
-          <footer className="sticky bottom-0 flex flex-col gap-3 border-t border-border bg-background/90 px-gutter pt-4 pb-safe-bottom backdrop-blur-xl lg:static lg:mt-10 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+          <StickyActionBar className="lg:static lg:mt-10 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
             {message && (
               <p
                 role={error ? 'alert' : undefined}
@@ -99,7 +100,7 @@ export function OnboardingLayout({
               {ctaLabel}
             </Button>
             <span className="h-2 lg:hidden" />
-          </footer>
+          </StickyActionBar>
         </div>
       </div>
     </div>

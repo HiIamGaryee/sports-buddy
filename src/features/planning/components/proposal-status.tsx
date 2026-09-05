@@ -51,7 +51,7 @@ export function ProposalStatus({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/50 p-4">
+    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-subtle p-4">
       <p className="flex items-center gap-2 text-body text-foreground">
         <UserCheck aria-hidden className="size-4 shrink-0 text-primary" />
         {buddyName} suggested {summary}.

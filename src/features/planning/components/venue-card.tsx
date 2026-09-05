@@ -1,5 +1,6 @@
-import { ExternalLink, MapPin, Star } from 'lucide-react'
+import { MapPin, Star } from 'lucide-react'
 
+import { SafeExternalLink } from '@/components/common/external-link'
 import { Button } from '@/components/ui/button'
 import { formatDistance } from '@/lib/geo'
 import { cn } from '@/lib/utils'
@@ -35,10 +36,10 @@ export function VenueCard({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 rounded-2xl border bg-card p-4 transition-shadow',
+        'flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm transition-ui',
         isSelected
-          ? 'border-primary bg-primary/5'
-          : 'border-border hover:shadow-hover',
+          ? 'border-primary bg-primary-gradient-soft'
+          : 'border-border hover:border-border-strong hover:shadow-hover',
       )}
     >
       <button
@@ -85,17 +86,12 @@ export function VenueCard({
         >
           {isProposing ? 'Suggesting…' : 'Suggest venue'}
         </Button>
-        <Button variant="outline" size="sm" asChild>
-          <a
-            href={venueService.mapsUrl(venue)}
-            target="_blank"
-            rel="noreferrer noopener"
-            aria-label={`Open ${venue.name} in Google Maps`}
-          >
-            <ExternalLink className="size-3.5" />
-            Open in Maps
-          </a>
-        </Button>
+        <SafeExternalLink
+          size="sm"
+          href={venueService.mapsUrl(venue)}
+          label="Open in Maps"
+          ariaLabel={`Open ${venue.name} in Google Maps`}
+        />
       </div>
     </div>
   )

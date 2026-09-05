@@ -13,6 +13,14 @@ import {
 } from '@/lib/geo'
 import { venueRepository } from '@/repositories/repositories'
 import {
+  MAX_VENUE_SEARCH_LENGTH,
+  MAX_VENUE_TEXT_LENGTH,
+} from '@/constants/venues'
+import { normalizeSingleLine } from '@/lib/sanitize'
+import { isSportId } from '@/services/profile/profile-schema'
+import { isValidDocumentId } from '@/lib/ids'
+import { isTrustedMapsUrl } from '@/lib/safe-url'
+import {
   VENUE_FALLBACK_MESSAGES,
   VenueError,
   toVenueError,
@@ -68,11 +76,20 @@ export const venueService = {
     area: PlanningSearchArea,
     query?: string,
   ): Promise<VenueSearchResult> {
+    // The sport decides the provider search terms, so an unknown id would
+    // otherwise reach the request builder; and a query is a phrase, never a
+    // document. Both are bounded before anything leaves the app.
+    if (!isSportId(sportId)) {
+      throw toVenueError(null, VENUE_FALLBACK_MESSAGES.search)
+    }
+
     try {
       const result = await venueRepository.searchVenues({
         sportId,
         area,
-        query,
+        query: query
+          ? normalizeSingleLine(query, MAX_VENUE_SEARCH_LENGTH)
+          : undefined,
         limit: VENUE_RESULT_LIMIT,
       })
 
@@ -96,8 +113,14 @@ export const venueService = {
   distanceFromSearchArea: (venue: Venue, area: PlanningSearchArea) =>
     calculateHaversineDistance(area.center, venue.location),
 
+  /**
+   * The link behind "Open in Maps". `googleMapsUri` reaches us from a provider
+   * response or from a plan document the OTHER participant wrote, so it is
+   * only used when it is an https Google host; otherwise the app builds its
+   * own link from the validated place id and coordinates.
+   */
   mapsUrl: (venue: Venue) =>
-    venue.googleMapsUri ??
+    (isTrustedMapsUrl(venue.googleMapsUri) ? venue.googleMapsUri : null) ??
     buildGoogleMapsUrl({
       name: venue.name,
       placeId: venue.id,
@@ -125,12 +148,19 @@ export const venueService = {
 
   /** Guards a snapshot arriving from anywhere before it is persisted. */
   isValidSelection(selection: VenueSelection | null | undefined): boolean {
+    if (!selection) return false
+    // A selection is proposed into a shared plan document, so the other
+    // participant renders whatever is stored here. Bound every field.
     return Boolean(
-      selection &&
-        typeof selection.placeId === 'string' &&
-        selection.placeId.length > 0 &&
+      isValidDocumentId(selection.placeId) &&
         typeof selection.name === 'string' &&
         selection.name.trim().length > 0 &&
+        selection.name.length <= MAX_VENUE_TEXT_LENGTH &&
+        (selection.address === null ||
+          (typeof selection.address === 'string' &&
+            selection.address.length <= MAX_VENUE_TEXT_LENGTH)) &&
+        (selection.googleMapsUri === null ||
+          isTrustedMapsUrl(selection.googleMapsUri)) &&
         isValidCoordinate(selection.location),
     )
   },

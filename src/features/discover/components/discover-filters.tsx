@@ -1,4 +1,4 @@
-import { SelectionChip } from '@/components/profile/selection-chip'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { Switch } from '@/components/ui/switch'
 import { AREAS } from '@/constants/areas'
 import { SKILL_LEVELS, SPORTS_INTENTS } from '@/constants/profile-options'
@@ -26,7 +26,7 @@ export function DiscoverFilterFields({
     <div className="flex flex-col gap-6">
       <FilterGroup label="Sports">
         {SPORTS.map(({ id, name }) => (
-          <SelectionChip
+          <ChoiceChip
             key={id}
             label={name}
             selected={draft.sports.includes(id)}
@@ -39,7 +39,7 @@ export function DiscoverFilterFields({
 
       <FilterGroup label="Skill">
         {SKILL_LEVELS.map(({ id, label }) => (
-          <SelectionChip
+          <ChoiceChip
             key={id}
             label={label}
             selected={draft.skillLevels.includes(id)}
@@ -55,7 +55,7 @@ export function DiscoverFilterFields({
 
       <FilterGroup label="Looking for">
         {SPORTS_INTENTS.map(({ id, label }) => (
-          <SelectionChip
+          <ChoiceChip
             key={id}
             label={label}
             selected={draft.intents.includes(id)}
@@ -71,7 +71,7 @@ export function DiscoverFilterFields({
 
       <FilterGroup label="Area">
         {AREAS.map(({ id, name }) => (
-          <SelectionChip
+          <ChoiceChip
             key={id}
             label={name}
             selected={draft.areas.includes(id)}

@@ -1,7 +1,10 @@
 import { Link, useParams } from 'react-router-dom'
-import { CalendarDays, Clock, ExternalLink, Users, Wallet } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { CalendarDays, Clock, Users, Wallet } from 'lucide-react'
 
+import { DetailTile } from '@/components/common/detail-tile'
+import { SafeExternalLink } from '@/components/common/external-link'
+import { validDocumentId } from '@/lib/ids'
+import { isTrustedMapsUrl } from '@/lib/safe-url'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
@@ -21,7 +24,12 @@ import { ROUTES } from '@/routes/routes'
 import { isMapsConfigured } from '@/services/google/maps-loader'
 
 export function ActivityDetailPage() {
-  const { activityId } = useParams<{ activityId: string }>()
+  const { activityId: rawActivityId } = useParams<{ activityId: string }>()
+  // A route param is untrusted input on its way to `doc(db, COLLECTION, id)`.
+  // An invalid id becomes `undefined`, which the hook already treats as
+  // "nothing to load", so the page shows its normal unavailable state instead
+  // of building a malformed document path.
+  const activityId = validDocumentId(rawActivityId) ?? undefined
   const { activity, isLoading, error, buddyName } = useActivity(activityId)
 
   if (isLoading) {
@@ -55,8 +63,12 @@ export function ActivityDetailPage() {
     )
   }
 
+  // The stored URI was written by whichever participant proposed the venue,
+  // so it is only used when it is a real Google Maps link.
   const mapsUrl =
-    activity.venue.googleMapsUri ??
+    (isTrustedMapsUrl(activity.venue.googleMapsUri)
+      ? activity.venue.googleMapsUri
+      : null) ??
     buildGoogleMapsUrl({
       name: activity.venue.name,
       placeId: activity.venue.placeId,
@@ -85,22 +97,22 @@ export function ActivityDetailPage() {
               </div>
 
               <dl className="flex flex-col gap-2.5">
-                <DetailRow
+                <DetailTile as="dl"
                   icon={CalendarDays}
                   label="Date"
                   value={formatActivityDate(activity.startAt)}
                 />
-                <DetailRow
+                <DetailTile as="dl"
                   icon={Clock}
                   label="Time"
                   value={`${formatActivityTimeRange(activity.startAt, activity.endAt)} · ${formatDuration(activity.startAt, activity.endAt)}`}
                 />
-                <DetailRow
+                <DetailTile as="dl"
                   icon={Users}
                   label="Who"
                   value={`You and ${buddyName}`}
                 />
-                <DetailRow
+                <DetailTile as="dl"
                   icon={Wallet}
                   label="Budget"
                   value={`${formatBudget(activity.budget)} / person`}
@@ -148,17 +160,12 @@ export function ActivityDetailPage() {
                 />
               )}
 
-              <Button variant="outline" asChild className="sm:w-auto sm:self-start sm:px-6">
-                <a
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  aria-label={`Open ${activity.venue.name} in Google Maps`}
-                >
-                  <ExternalLink className="size-4" />
-                  Open in Maps
-                </a>
-              </Button>
+              <SafeExternalLink
+                href={mapsUrl}
+                label="Open in Maps"
+                ariaLabel={`Open ${activity.venue.name} in Google Maps`}
+                className="sm:w-auto sm:self-start sm:px-6"
+              />
 
               <p className="text-body-small text-muted-foreground">
                 You both chose this venue. Sports Buddy doesn't reserve it —
@@ -172,24 +179,4 @@ export function ActivityDetailPage() {
   )
 }
 
-function DetailRow({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon
-  label: string
-  value: string
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
-      <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <dt className="text-caption text-muted-foreground uppercase">
-          {label}
-        </dt>
-        <dd className="text-title text-card-foreground">{value}</dd>
-      </div>
-    </div>
-  )
-}
+

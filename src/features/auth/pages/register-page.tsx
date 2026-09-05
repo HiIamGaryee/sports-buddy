@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AuthAlert } from '@/features/auth/components/auth-alert'
 import { AuthDivider } from '@/features/auth/components/auth-divider'
-import { AuthField } from '@/features/auth/components/auth-field'
+import { FormField } from '@/components/common/form-field'
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button'
 import { PasswordInput } from '@/features/auth/components/password-input'
 import {
@@ -101,7 +101,7 @@ export function RegisterPage() {
       <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
         {formError && <AuthAlert message={formError} />}
 
-        <AuthField
+        <FormField
           id="register-name"
           label="Display name"
           error={fieldErrors.displayName}
@@ -113,9 +113,9 @@ export function RegisterPage() {
             autoComplete="name"
             placeholder="Gary"
           />
-        </AuthField>
+        </FormField>
 
-        <AuthField id="register-email" label="Email" error={fieldErrors.email}>
+        <FormField id="register-email" label="Email" error={fieldErrors.email}>
           <Input
             id="register-email"
             type="email"
@@ -125,9 +125,9 @@ export function RegisterPage() {
             inputMode="email"
             placeholder="you@email.com"
           />
-        </AuthField>
+        </FormField>
 
-        <AuthField
+        <FormField
           id="register-password"
           label="Password"
           error={fieldErrors.password}
@@ -138,9 +138,9 @@ export function RegisterPage() {
             onChange={(value) => update('password', value)}
             autoComplete="new-password"
           />
-        </AuthField>
+        </FormField>
 
-        <AuthField
+        <FormField
           id="register-confirm"
           label="Confirm password"
           error={fieldErrors.confirmPassword}
@@ -151,7 +151,7 @@ export function RegisterPage() {
             onChange={(value) => update('confirmPassword', value)}
             autoComplete="new-password"
           />
-        </AuthField>
+        </FormField>
 
         <Button type="submit" size="lg" disabled={pending !== null}>
           {pending === 'email' ? 'Creating account…' : 'Create Account'}

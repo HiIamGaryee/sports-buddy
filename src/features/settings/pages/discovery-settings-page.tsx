@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { EditLayout } from '@/components/layout/edit-layout'
 import { IntentSelector } from '@/components/profile/intent-selector'
 import { RadiusSelector } from '@/components/profile/radius-selector'
-import { SelectionChip } from '@/components/profile/selection-chip'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { SKILL_LEVELS } from '@/constants/profile-options'
 import { EditSection } from '@/features/profile/components/edit-section'
 import { PreferenceToggle } from '@/features/settings/components/preference-toggle'
@@ -93,7 +93,7 @@ function DiscoverySettingsForm({ profile }: { profile: SportsProfile }) {
           role="group"
         >
           {profile.sports.map(({ sportId }) => (
-            <SelectionChip
+            <ChoiceChip
               key={sportId}
               label={getSportName(sportId)}
               selected={discovery.preferredSports.includes(sportId)}
@@ -113,7 +113,7 @@ function DiscoverySettingsForm({ profile }: { profile: SportsProfile }) {
       >
         <div className="grid grid-cols-2 gap-2" role="group" aria-label="Skill levels">
           {SKILL_LEVELS.map(({ id, label }) => (
-            <SelectionChip
+            <ChoiceChip
               key={id}
               label={label}
               selected={discovery.preferredSkillLevels.includes(id)}

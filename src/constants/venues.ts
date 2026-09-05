@@ -50,4 +50,13 @@ export const VENUE_RESULT_LIMIT = 16
 
 /** Manual search: wait for a pause, and for enough to search on. */
 export const VENUE_SEARCH_DEBOUNCE_MS = 400
+
+/**
+ * A venue search is a phrase, not a document. Capping it keeps a 50KB string
+ * out of the Places request and out of the in-memory cache key.
+ */
+export const MAX_VENUE_SEARCH_LENGTH = 120
+
+/** Upper bound for a stored venue name or address before it is persisted. */
+export const MAX_VENUE_TEXT_LENGTH = 300
 export const MIN_VENUE_QUERY_LENGTH = 3

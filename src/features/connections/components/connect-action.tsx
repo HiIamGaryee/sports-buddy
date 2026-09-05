@@ -98,7 +98,7 @@ export function ConnectAction({
         <>
           <div
             className={cn(
-              'flex items-center justify-center gap-2 border border-border bg-muted/50 px-4',
+              'flex items-center justify-center gap-2 border border-border bg-surface-subtle px-4',
               STATUS_SIZES[size],
             )}
             aria-label={`Connected with ${displayName}`}

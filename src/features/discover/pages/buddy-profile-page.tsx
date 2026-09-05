@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
+import { validDocumentId } from '@/lib/ids'
+import { StickyActionBar } from '@/components/layout/sticky-action-bar'
 import { ProfileSummary } from '@/components/profile/profile-summary'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -31,7 +33,12 @@ const LOADING_STATE: CandidateState = {
 }
 
 export function BuddyProfilePage() {
-  const { userId } = useParams<{ userId: string }>()
+  const { userId: rawUserId } = useParams<{ userId: string }>()
+  // A route param is untrusted input on its way to `doc(db, COLLECTION, id)`.
+  // An invalid id becomes `undefined`, which the hook already treats as
+  // "nothing to load", so the page shows its normal unavailable state instead
+  // of building a malformed document path.
+  const userId = validDocumentId(rawUserId) ?? undefined
   const { profile } = useProfile()
   const { getConnectionState } = useConnections()
   const [state, setState] = useState<CandidateState>(() => LOADING_STATE)
@@ -157,14 +164,18 @@ export function BuddyProfilePage() {
                 owns the bottom safe-area inset, and in flow so it never hides
                 content. Desktop: a sticky card in the side column, because a
                 full-width bar under a 1440px page looks like a phone habit. */}
-            <div className="sticky bottom-bottom-nav-space z-20 border-t border-border bg-background/90 px-gutter py-3 backdrop-blur-xl bleed-gutter md:bottom-0 lg:relative lg:bottom-auto lg:col-start-2 lg:row-start-2 lg:mx-0 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-5 lg:backdrop-blur-none">
+            <StickyActionBar
+              offset="nav"
+              bleed
+              className="pt-3 pb-3 lg:relative lg:bottom-auto lg:col-start-2 lg:row-start-2 lg:mx-0 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-5 lg:backdrop-blur-none"
+            >
               <ConnectAction
                 userId={candidate.userId}
                 displayName={candidate.displayName}
                 state={getConnectionState(candidate.userId)}
                 size="lg"
               />
-            </div>
+            </StickyActionBar>
           </div>
         ) : (
           <p className="text-body text-muted-foreground">

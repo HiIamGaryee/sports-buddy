@@ -2,7 +2,7 @@ import { MOCK_STORAGE_KEYS } from '@/constants/app'
 import { canConfirmActivity } from '@/lib/activity'
 import { readActiveMockPlan, saveMockPlan } from '@/repositories/activity-plan/mock-activity-plan-repository'
 import type { ActivityRepository } from '@/repositories/activity/activity-repository'
-import { delay, readStore, writeStore } from '@/repositories/mock-store'
+import { delay, readStoreRecord, writeStore } from '@/repositories/mock-store'
 import {
   ACTIVITY_ERROR_CODES,
   activityError,
@@ -16,7 +16,7 @@ interface MockActivityStore {
 const EMPTY_STORE: MockActivityStore = { activities: [] }
 
 const readMockStore = () =>
-  readStore<MockActivityStore>(MOCK_STORAGE_KEYS.activities, EMPTY_STORE)
+  readStoreRecord<MockActivityStore>(MOCK_STORAGE_KEYS.activities, EMPTY_STORE)
 
 const writeMockStore = (store: MockActivityStore) =>
   writeStore(MOCK_STORAGE_KEYS.activities, store)

@@ -95,9 +95,25 @@ export const firebaseProfileRepository: ProfileRepository = {
 
   async saveProfile(userId: string, input: SaveProfileInput) {
     // merge keeps email, photoUrl and createdAt from the auth step intact.
+    // Fields are listed explicitly rather than spread: the document shape is
+    // decided here, so no extra property on `input` can be persisted, and the
+    // written keys always match the allowlist in `firestore.rules`.
     await setDoc(
       userDoc(userId),
-      { ...input, onboardingCompleted: true, updatedAt: serverTimestamp() },
+      {
+        displayName: input.displayName,
+        bio: input.bio,
+        sports: input.sports,
+        intents: input.intents,
+        preferredIntensity: input.preferredIntensity,
+        availability: input.availability,
+        area: input.area,
+        radiusKm: input.radiusKm,
+        budget: input.budget,
+        ...(input.preferences ? { preferences: input.preferences } : {}),
+        onboardingCompleted: true,
+        updatedAt: serverTimestamp(),
+      },
       { merge: true },
     )
 

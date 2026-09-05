@@ -3,7 +3,7 @@ import { MESSAGE_PAGE_SIZE } from '@/constants/chat'
 import { compareMessages } from '@/lib/chat'
 import type { ChatRepository } from '@/repositories/chat/chat-repository'
 import { buildSeededChat } from '@/repositories/chat/mock-conversations'
-import { delay, readStore, writeStore } from '@/repositories/mock-store'
+import { delay, readStoreRecord, writeStore } from '@/repositories/mock-store'
 import type { ChatMessage, Conversation, MessagePage } from '@/types/chat'
 
 interface MockChatStore {
@@ -19,7 +19,7 @@ const EMPTY_STORE: MockChatStore = {
 }
 
 const readMockStore = () =>
-  readStore<MockChatStore>(MOCK_STORAGE_KEYS.chat, EMPTY_STORE)
+  readStoreRecord<MockChatStore>(MOCK_STORAGE_KEYS.chat, EMPTY_STORE)
 
 const writeMockStore = (store: MockChatStore) =>
   writeStore(MOCK_STORAGE_KEYS.chat, store)

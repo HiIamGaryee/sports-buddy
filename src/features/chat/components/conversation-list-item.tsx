@@ -31,7 +31,7 @@ export function ConversationListItem({
       to={conversationPath(item.conversationId)}
       aria-current={isSelected ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-3 p-4 transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none md:rounded-xl md:px-3',
+        'flex items-center gap-3 p-4 transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none md:rounded-xl md:px-3',
         isSelected && 'md:bg-muted',
       )}
     >

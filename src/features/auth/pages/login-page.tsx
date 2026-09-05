@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AuthAlert } from '@/features/auth/components/auth-alert'
 import { AuthDivider } from '@/features/auth/components/auth-divider'
-import { AuthField } from '@/features/auth/components/auth-field'
+import { FormField } from '@/components/common/form-field'
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button'
 import { PasswordInput } from '@/features/auth/components/password-input'
 import {
@@ -78,7 +78,7 @@ export function LoginPage() {
       <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
         {formError && <AuthAlert message={formError} />}
 
-        <AuthField id="login-email" label="Email" error={fieldErrors.email}>
+        <FormField id="login-email" label="Email" error={fieldErrors.email}>
           <Input
             id="login-email"
             type="email"
@@ -88,9 +88,9 @@ export function LoginPage() {
             inputMode="email"
             placeholder="you@email.com"
           />
-        </AuthField>
+        </FormField>
 
-        <AuthField
+        <FormField
           id="login-password"
           label="Password"
           error={fieldErrors.password}
@@ -101,7 +101,7 @@ export function LoginPage() {
             onChange={(value) => update('password', value)}
             autoComplete="current-password"
           />
-        </AuthField>
+        </FormField>
 
         <Button type="submit" size="lg" disabled={pending !== null}>
           {pending === 'email' ? 'Signing in…' : 'Sign In'}

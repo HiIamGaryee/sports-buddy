@@ -1383,6 +1383,156 @@ describe('confirmed activities', () => {
   })
 })
 
+/**
+ * STEP 12.6. The profile documents gained key allowlists and field size caps.
+ * These are the checks the client is not trusted to make: an attacker calling
+ * the SDK directly skips every form and service in the app.
+ */
+describe('the private profile document', () => {
+  const userPath = (uid: string) => `users/${uid}`
+
+  const validProfile = (uid: string) => ({
+    id: uid,
+    email: `${uid}@example.com`,
+    displayName: 'Gary',
+    photoUrl: null,
+    bio: 'Weeknight badminton.',
+    sports: [{ sportId: 'badminton', skillLevel: 'intermediate' }],
+    intents: ['casual'],
+    preferredIntensity: 'moderate',
+    availability: [{ day: 'tuesday', periods: ['evening'] }],
+    area: 'subang-jaya',
+    radiusKm: 15,
+    budget: { min: 20, max: 40 },
+    preferences: {},
+    onboardingCompleted: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+
+  it('accepts a well-formed profile from its owner', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(GARY), userPath(GARY)), validProfile(GARY)),
+    )
+  })
+
+  it('rejects a privileged field the schema does not define', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), userPath(GARY)), {
+        ...validProfile(GARY),
+        role: 'admin',
+      }),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), userPath(GARY)), {
+        ...validProfile(GARY),
+        isAdmin: true,
+      }),
+    )
+  })
+
+  it('rejects an oversized display name or bio', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), userPath(GARY)), {
+        ...validProfile(GARY),
+        displayName: 'a'.repeat(41),
+      }),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), userPath(GARY)), {
+        ...validProfile(GARY),
+        bio: 'a'.repeat(161),
+      }),
+    )
+  })
+
+  it('rejects more sports than the domain allows', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), userPath(GARY)), {
+        ...validProfile(GARY),
+        sports: Array.from({ length: 6 }, () => ({
+          sportId: 'badminton',
+          skillLevel: 'casual',
+        })),
+      }),
+    )
+  })
+
+  it('still refuses another user entirely', async () => {
+    await assertFails(
+      setDoc(doc(asUser(AINA), userPath(GARY)), validProfile(GARY)),
+    )
+    await assertFails(getDoc(doc(asUser(AINA), userPath(GARY))))
+  })
+})
+
+describe('the public profile projection', () => {
+  const publicPath = (uid: string) => `publicProfiles/${uid}`
+
+  const validProjection = (uid: string) => ({
+    userId: uid,
+    displayName: 'Gary',
+    photoUrl: null,
+    bio: 'Weeknight badminton.',
+    sports: [{ sportId: 'badminton', skillLevel: 'intermediate' }],
+    intents: ['casual'],
+    preferredIntensity: 'moderate',
+    availability: [{ day: 'tuesday', periods: ['evening'] }],
+    area: 'subang-jaya',
+    budget: { min: 20, max: 40 },
+    profileCompleteness: 100,
+    discoverable: true,
+    updatedAt: serverTimestamp(),
+  })
+
+  it('accepts the discovery allowlist from its owner', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(GARY), publicPath(GARY)), validProjection(GARY)),
+    )
+  })
+
+  it('refuses private fields that would leak through the projection', async () => {
+    // Every signed-in member can read this document, so an email or a saved
+    // filter radius here is a privacy leak rather than an untidy field.
+    await assertFails(
+      setDoc(doc(asUser(GARY), publicPath(GARY)), {
+        ...validProjection(GARY),
+        email: 'gary@example.com',
+      }),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), publicPath(GARY)), {
+        ...validProjection(GARY),
+        radiusKm: 15,
+      }),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), publicPath(GARY)), {
+        ...validProjection(GARY),
+        preferences: { privacy: { discoverable: true } },
+      }),
+    )
+  })
+
+  it('refuses an oversized projection', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), publicPath(GARY)), {
+        ...validProjection(GARY),
+        bio: 'a'.repeat(161),
+      }),
+    )
+  })
+
+  it('refuses a projection written for somebody else', async () => {
+    await assertFails(
+      setDoc(doc(asUser(AINA), publicPath(GARY)), validProjection(GARY)),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), publicPath(GARY)), validProjection(AINA)),
+    )
+  })
+})
+
 describe('the pair id', () => {
   it('agrees with the rules, whichever way round it is built', () => {
     expect(createConnectionId(AINA, GARY)).toBe(PAIR)

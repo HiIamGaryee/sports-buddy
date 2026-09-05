@@ -26,11 +26,11 @@ export function ActivityCard({ item }: { item: ActivityWithBuddy }) {
     <Link
       to={activityPath(activity.id)}
       aria-label={`${getSportName(activity.sportId)} with ${buddyName}, ${month} ${day}`}
-      className="flex gap-4 rounded-2xl border border-border bg-card p-4 transition-shadow hover:shadow-hover focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="flex gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition-ui hover:border-border-strong hover:shadow-hover focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <div
         aria-hidden
-        className="flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-muted"
+        className="flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-surface-subtle"
       >
         <span className="text-caption text-muted-foreground uppercase">
           {month}

@@ -548,3 +548,47 @@ intended shape is a deliberate projection — e.g. `publicProfiles/{uid}`
 holding only `DiscoveryProfile` fields, written from the private document and
 gated on `preferences.privacy.discoverable`. That collection does not exist
 yet and should not be added before the Discover step designs it.
+
+---
+
+## Validation constraints (STEP 12.6)
+
+Enforced in the domain (`src/services/profile/profile-schema.ts`,
+`src/lib/*`), again in the services, and again in `firestore.rules` — because
+a client can be skipped entirely. Full rationale: `docs/security-audit.md`.
+
+| Field | Constraint |
+| --- | --- |
+| `displayName` | 2–40 characters after normalization; control, zero-width and bidi characters stripped |
+| `bio` | ≤ 160 characters; same normalization |
+| `sports` | 1–5 entries; `sportId` must exist in `SPORTS`; `skillLevel` in `SKILL_LEVELS`; no duplicate sport |
+| `intents` | ≥ 1, no duplicates, each in `SPORTS_INTENTS` |
+| `preferredIntensity` | in `ACTIVITY_INTENSITIES`, or `null` |
+| `availability` | ≤ 7 rows, one per day; each `day` in `WEEK_DAYS`, each period in `DAY_PERIODS`, no duplicates |
+| `area` | must exist in `AREAS` |
+| `radiusKm` | one of `RADIUS_OPTIONS` |
+| `budget` | finite `min` ≥ 0; `max` either `null` or finite and ≥ `min`; both ≤ 10 000 MYR |
+| message `content` | non-empty after trim, ≤ 1000 characters, plain text |
+| `VenueSelection.placeId` | a valid document id — no `/`, no `..`, ≤ 200 chars |
+| `VenueSelection.name` / `address` | ≤ 300 characters |
+| `VenueSelection.googleMapsUri` | `null`, or https on a Google Maps host |
+| coordinates | finite; lat −90…90, lng −180…180 |
+| `Proposal.version` | non-negative integer, checked inside the transaction |
+| participants | exactly two distinct user ids, immutable after creation |
+| every document id | no `/`, not `.`/`..`, not `__reserved__`, ≤ 200 characters |
+
+### Key allowlists
+
+`users/{uid}` and `publicProfiles/{uid}` declare their complete key set in
+`firestore.rules` (`keys().hasOnly(...)`). A field not on the list is
+rejected by the server, so no client can attach a privileged property, and a
+private field cannot leak into the public projection by accident.
+
+### Immutability
+
+- `activities/{planId}` — no update or delete path exists, in the repository
+  or the rules.
+- Messages — create-only.
+- Connection `participants`, `createdAt` and plan identity fields — frozen
+  after creation.
+- A `confirmed` plan — read-only.

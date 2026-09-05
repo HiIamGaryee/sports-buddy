@@ -1,5 +1,6 @@
 import { ChevronLeft } from 'lucide-react'
 
+import { StickyActionBar } from '@/components/layout/sticky-action-bar'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -38,7 +39,7 @@ export function EditLayout({
 }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background pl-safe-left pr-safe-right">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/85 px-gutter pt-safe-top pb-4 backdrop-blur-xl md:pb-5">
+      <header className="sticky top-0 z-30 border-b border-border bg-surface-overlay px-gutter pt-safe-top pb-4 backdrop-blur-xl md:pb-5">
         <div className="mx-auto flex w-full max-w-default items-center gap-2">
           <Button
             variant="ghost"
@@ -84,38 +85,34 @@ export function EditLayout({
         )}
       </main>
 
-      <footer className="sticky bottom-0 border-t border-border bg-background/90 px-gutter pt-4 pb-safe-bottom backdrop-blur-xl md:hidden">
-        <div className="mx-auto flex w-full max-w-default flex-col gap-3">
-          {error ? (
-            <p role="alert" className="text-body-small text-destructive">
-              {error}
-            </p>
-          ) : (
-            hint && (
-              <p className="text-body-small text-muted-foreground">{hint}</p>
-            )
-          )}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={onCancel}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="lg"
-              onClick={onSave}
-              disabled={saveDisabled}
-              className="flex-[2]"
-            >
-              {saveLabel}
-            </Button>
-          </div>
-          <span className="h-2" />
+      <StickyActionBar className="md:hidden">
+        {error ? (
+          <p role="alert" className="text-body-small text-destructive">
+            {error}
+          </p>
+        ) : (
+          hint && <p className="text-body-small text-muted-foreground">{hint}</p>
+        )}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={onCancel}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            size="lg"
+            onClick={onSave}
+            disabled={saveDisabled}
+            className="flex-[2]"
+          >
+            {saveLabel}
+          </Button>
         </div>
-      </footer>
+        <span className="h-2" />
+      </StickyActionBar>
     </div>
   )
 }

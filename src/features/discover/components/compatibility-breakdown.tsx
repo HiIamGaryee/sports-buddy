@@ -28,7 +28,7 @@ export function CompatibilityBreakdown({
         return (
           <div
             key={key}
-            className="flex items-start justify-between gap-3 rounded-xl bg-muted/50 px-3 py-2.5"
+            className="flex items-start justify-between gap-3 rounded-xl bg-surface-subtle px-3 py-2.5"
           >
             <div className="flex min-w-0 flex-col">
               <span className="text-title text-card-foreground">

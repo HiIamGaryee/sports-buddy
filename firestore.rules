@@ -2,17 +2,62 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // ---------------------------------------------------------------- SHARED
+
+    /**
+     * Field limits, mirroring the domain constants in src/constants and
+     * src/services/profile/profile-schema.ts. The client enforces these so a
+     * person gets a readable error; the rules enforce them again because an
+     * attacker can skip the client entirely and call the SDK directly.
+     */
+    function maxDisplayName() { return 40; }
+    function maxBio() { return 160; }
+    function maxSports() { return 5; }
+
+    /** A string field that is present, a string, and within `limit`. */
+    function boundedString(value, limit) {
+      return value is string && value.size() <= limit;
+    }
+
+    /** Same, but the field is allowed to be absent or null. */
+    function boundedOptionalString(data, key, limit) {
+      return !(key in data) || data[key] == null
+        || boundedString(data[key], limit);
+    }
+
     // PRIVATE. `users/{uid}` holds account fields, the sports profile and the
     // user's preferences (discovery filters, privacy, notifications). It is
     // never readable by anyone else — Discover reads publicProfiles instead.
     match /users/{userId} {
+      /**
+       * The complete set of keys this document may contain. Without it a
+       * client could attach anything it liked to its own profile — a `role`,
+       * an `isAdmin`, a copy of somebody else's document — and a later
+       * feature that trusted such a field would inherit the hole.
+       */
+      function userFields() {
+        return ['id', 'email', 'displayName', 'photoUrl', 'bio', 'sports',
+                'intents', 'preferredIntensity', 'availability', 'area',
+                'radiusKm', 'budget', 'preferences', 'onboardingCompleted',
+                'createdAt', 'updatedAt'];
+      }
+
+      function wellFormedUser(data) {
+        return data.keys().hasOnly(userFields())
+          && boundedOptionalString(data, 'displayName', maxDisplayName())
+          && boundedOptionalString(data, 'bio', maxBio())
+          && (!('sports' in data) || data.sports.size() <= maxSports());
+      }
+
       allow get, list: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null
         && request.auth.uid == userId
-        && request.resource.data.id == userId;
+        && request.resource.data.id == userId
+        && wellFormedUser(request.resource.data);
       allow update: if request.auth != null
         && request.auth.uid == userId
-        && request.resource.data.id == userId;
+        && request.resource.data.id == userId
+        && wellFormedUser(request.resource.data);
       allow delete: if false;
     }
 
@@ -21,10 +66,31 @@ service cloud.firestore {
     // src/lib/discovery-profile.ts); a document is deleted when the owner
     // turns discoverability off.
     match /publicProfiles/{userId} {
+      /**
+       * EXACTLY the DiscoveryProfile allowlist from
+       * src/lib/discovery-profile.ts. Every signed-in member can read this
+       * document, so the rules state its shape rather than trusting the
+       * client's projection: an `email` or a `radiusKm` written here would be
+       * a privacy leak, not merely an unexpected field.
+       */
+      function discoveryFields() {
+        return ['userId', 'displayName', 'photoUrl', 'bio', 'sports',
+                'intents', 'preferredIntensity', 'availability', 'area',
+                'budget', 'profileCompleteness', 'discoverable', 'updatedAt'];
+      }
+
+      function wellFormedProjection(data) {
+        return data.keys().hasOnly(discoveryFields())
+          && boundedString(data.displayName, maxDisplayName())
+          && boundedOptionalString(data, 'bio', maxBio())
+          && (!('sports' in data) || data.sports.size() <= maxSports());
+      }
+
       allow get, list: if request.auth != null;
       allow create, update: if request.auth != null
         && request.auth.uid == userId
-        && request.resource.data.userId == userId;
+        && request.resource.data.userId == userId
+        && wellFormedProjection(request.resource.data);
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 

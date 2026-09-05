@@ -1,5 +1,6 @@
 import { MAX_MESSAGE_LENGTH } from '@/constants/chat'
 import { getConnectionState } from '@/lib/connection'
+import { normalizeMultiLine } from '@/lib/sanitize'
 import type { Connection } from '@/types/connection'
 import type { ChatMessage } from '@/types/chat'
 
@@ -14,7 +15,13 @@ export const canChat = (
   currentUserId: string,
 ) => getConnectionState(connection, currentUserId) === 'connected'
 
-export const normalizeMessageContent = (raw: string) => raw.trim()
+/**
+ * Trim, collapse runaway blank lines, and drop control/zero-width characters.
+ * Message text is still plain text and is still rendered as text - see
+ * `MessageBubble` - so `<script>` stays a word, not markup.
+ */
+export const normalizeMessageContent = (raw: string) =>
+  normalizeMultiLine(raw)
 
 /** `null` when the (already normalized) content is sendable. */
 export function getMessageError(content: string): string | null {

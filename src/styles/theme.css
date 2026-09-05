@@ -14,6 +14,25 @@
   --surface: #ffffff;
   --surface-foreground: #15171a;
 
+  /*
+   * Surface hierarchy. `background` is the floor, `card` sits on it, and
+   * these three are the in-between steps that pages kept improvising with
+   * `bg-muted/50` and `bg-card/60`:
+   *   subtle  — a tile INSIDE a card (detail rows, stat blocks, read-only facts)
+   *   raised  — a card that sits above other cards (sheets, popovers, selected)
+   *   overlay — translucent sticky chrome (headers, action bars, navigation)
+   */
+  --surface-subtle: #f2f4f7;
+  --surface-raised: #ffffff;
+  --surface-overlay: rgb(246 247 248 / 0.85);
+
+  /*
+   * The dimming layer behind a dialog or sheet. It is NOT `bg-black/10` in
+   * both themes: 10% black over a #0b0c10 background is invisible, which left
+   * dark-mode modals with no separation from the page behind them.
+   */
+  --scrim: rgb(15 23 42 / 0.2);
+
   --card: #ffffff;
   --card-foreground: #15171a;
 
@@ -38,6 +57,7 @@
   --muted-foreground: #5b6270;
 
   --border: #e2e5ea;
+  --border-strong: #cfd4dc;
   --input: #dde1e7;
   --ring: #46700d;
 
@@ -58,6 +78,16 @@
 
   /* Layout / device tokens (theme independent) */
   --radius: 1rem;
+
+  /*
+   * Motion. Three durations and one curve, so nothing hand-picks a timing.
+   * The curve is a decelerating ease — movement starts quickly and settles,
+   * which is what makes a transition read as physical rather than animated.
+   */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --motion-ease: cubic-bezier(0.32, 0.72, 0, 1);
 
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -100,6 +130,12 @@
   --surface: #111318;
   --surface-foreground: #f7f8fa;
 
+  --surface-subtle: #1b1e26;
+  --surface-raised: #1e212a;
+  --surface-overlay: rgb(11 12 16 / 0.85);
+
+  --scrim: rgb(0 0 0 / 0.6);
+
   --card: #17191f;
   --card-foreground: #f7f8fa;
 
@@ -124,6 +160,7 @@
   --muted-foreground: #9ba1ae;
 
   --border: #262a34;
+  --border-strong: #363b47;
   --input: #2c313c;
   --ring: #c4ff3d;
 
@@ -154,6 +191,10 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-foreground: var(--surface-foreground);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-scrim: var(--scrim);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -167,6 +208,7 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-success: var(--success);
@@ -191,6 +233,8 @@
   --shadow-lg: var(--elevation-lg);
   --shadow-floating: var(--elevation-floating);
   --shadow-hover: var(--elevation-hover);
+
+  --ease-ui: var(--motion-ease);
 
   --spacing-page: var(--mobile-page-padding);
   --spacing-bottom-nav: var(--bottom-navigation-height);
@@ -335,4 +379,63 @@
   );
   background-clip: text;
   color: transparent;
+}
+
+/*
+ * The tinted companion to `bg-primary-gradient`. For SURFACES that need to
+ * feel selected or celebratory without becoming a solid lime slab: the
+ * mutual-connection panel, an agreed proposal, a chosen venue.
+ */
+@utility bg-primary-gradient-soft {
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--primary-gradient-start) 14%, transparent),
+    color-mix(in oklch, var(--primary-gradient-end) 8%, transparent)
+  );
+}
+
+/* ---------------------------------------------------------------- MOTION */
+
+/*
+ * THE interaction transition. Every hover, press, selection and state change
+ * uses this instead of picking its own `transition-colors duration-150`, so
+ * the whole app moves at one speed on one curve.
+ */
+@utility transition-ui {
+  transition-property: color, background-color, border-color, box-shadow,
+    transform, opacity;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease);
+}
+
+/*
+ * Touch feedback. The press is faster than the release, which is what makes
+ * a control feel like it has weight rather than like it is animating.
+ */
+@utility pressable {
+  transition:
+    transform var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease);
+
+  &:active {
+    transform: scale(0.97);
+    transition-duration: var(--motion-fast);
+  }
+}
+
+/* ---------------------------------------------------------------- SURFACES */
+
+/*
+ * Card grids size themselves from the cards, not from the breakpoint. Two
+ * pages were counting columns by hand (`sm:grid-cols-2 xl:grid-cols-3`), and
+ * on Discover — where a 14rem filter rail eats the left of the row — that
+ * produced three ~265px columns and cards whose content wrapped mid-phrase.
+ *
+ * `auto-fill` also means a lone card in a section keeps a readable width
+ * instead of stretching across the whole row.
+ */
+@utility grid-cards {
+  display: grid;
+  gap: --spacing(4);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
 }

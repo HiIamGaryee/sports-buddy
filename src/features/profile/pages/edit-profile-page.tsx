@@ -2,6 +2,7 @@ import { ShieldCheck } from 'lucide-react'
 import { useMemo, useReducer, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { FormField } from '@/components/common/form-field'
 import { EditLayout } from '@/components/layout/edit-layout'
 import { AreaSelector } from '@/components/profile/area-selector'
 import { AvailabilitySelector } from '@/components/profile/availability-selector'
@@ -82,10 +83,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
       onCancel={close}
     >
       <EditSection title="Basic info">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="edit-name" className="text-label text-foreground">
-            Display name
-          </label>
+        <FormField id="edit-name" label="Display name">
           <Input
             id="edit-name"
             value={draft.displayName}
@@ -94,7 +92,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
             }
             autoComplete="name"
           />
-        </div>
+        </FormField>
         <BioField
           id="edit-bio"
           value={draft.bio}
@@ -172,7 +170,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
           value={draft.radiusKm}
           onChange={(radiusKm) => dispatch({ type: 'set-radius', radiusKm })}
         />
-        <p className="flex items-start gap-2 rounded-xl bg-muted/50 p-3 text-body-small text-muted-foreground">
+        <p className="flex items-start gap-2 rounded-xl bg-surface-subtle p-3 text-body-small text-muted-foreground">
           <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
           Your exact location is never shown — only your general area.
         </p>
