@@ -637,7 +637,93 @@ Three distinct empty states, all `EmptyState` with the `Users` icon:
 
 Never blame the user, and never surface a provider error string.
 
-## 19. Mobile safe-area rules
+## 19. Chat patterns (STEP 9)
+
+### Chat screen shell
+
+`ChatLayout` is a full-screen column: a compact header, a `min-h-0 flex-1
+overflow-y-auto` message region, and a composer. It uses **`h-dvh`, never
+`100vh`**, so a mobile keyboard shrinks the message area instead of pushing
+the composer off-screen — which also matters inside a Capacitor WebView.
+
+The route sits outside `AppShell`, so there is no bottom navigation and the
+composer owns the bottom safe area (`pb-safe-bottom`). Same reasoning as the
+edit screens, and a deliberate difference from `/discover/:userId`, which
+stays inside the shell.
+
+### Chat header
+
+`pt-safe-top pb-3`, `border-b border-border`, `bg-background/85
+backdrop-blur-xl`: a ghost `icon-sm` back button (returning to `/messages`,
+not browser history), a 36px avatar, and the buddy's name in `text-title`.
+Compact on purpose — vertical room belongs to the conversation. **No presence
+and no "last seen"**, because neither exists.
+
+### Conversation list item
+
+A full-row `Link`: 44px avatar, name in `text-title`, then the preview.
+A thread shows `text-body-small text-muted-foreground` (prefixed "You: " when
+it is your own message); a connected buddy with no thread shows **"Start a
+conversation"** in `text-primary`. Right side: the time in `text-caption
+text-muted-foreground` and a `size-4` chevron. Rows sit in a bordered `Card`
+separated by `Separator`. **No unread dot, no "seen", no typing.**
+
+### Message bubbles
+
+| Side | Treatment |
+| --- | --- |
+| Own | `bg-primary text-primary-foreground`, `rounded-2xl` with `rounded-br-md` |
+| Buddy | `bg-card text-card-foreground border border-border`, `rounded-2xl` with `rounded-bl-md` |
+
+Both `max-w-[80%] min-w-0`, content in `text-body whitespace-pre-wrap
+wrap-anywhere` so line breaks survive and a long URL can never push the page
+sideways. Lime marks *your* voice — no second custom lime, and no
+WhatsApp/iMessage impression.
+
+### Message timestamp
+
+`text-caption`, bottom-right inside the bubble: `text-primary-foreground/70`
+on your own, `text-muted-foreground` on theirs. A message whose server
+timestamp has not resolved reads **"Sending…"** rather than an empty gap.
+
+### Date separator
+
+A centred `text-caption uppercase text-muted-foreground` label between two
+`h-px bg-border` rules — "Today", "Yesterday" or "Sep 4", above the first
+message of each day.
+
+### Message composer
+
+A row of `Textarea` + circular `size="icon"` send button. The textarea is
+`min-h-11 max-h-32 resize-none rounded-2xl` and keeps the shared component's
+**16px base size**, which is what stops iOS auto-zooming on focus. It has an
+`sr-only` label, and the send button an explicit `aria-label`.
+
+Send is disabled while empty, over the limit, or in flight. The character
+counter appears **only** from 900 characters, turning `text-destructive` past
+the limit. A send error renders above the row as `role="alert"
+text-body-small text-destructive`, and the draft stays put.
+
+### Chat empty state
+
+Centred in the message region: `text-title` "Start the conversation." over
+`text-body-small text-muted-foreground` "You connected over sport. Time to
+plan something." The composer stays available, and nothing is ever sent
+automatically.
+
+### Load earlier control
+
+A `ghost` `sm` button centred at the top of the thread — "Load earlier
+messages", "Loading…" while fetching — shown only while more history exists.
+An explicit tap, never infinite scroll.
+
+### New message indicator
+
+When a message arrives while the reader is up in the history, a `sm`
+`sticky bottom-0` pill with an `ArrowDown` icon reading **"New message"**
+appears instead of yanking the view down. Tapping it scrolls to the newest.
+
+## 20. Mobile safe-area rules
 
 - `index.html` sets `viewport-fit=cover`; insets come from
   `env(safe-area-inset-*)`.
@@ -647,7 +733,7 @@ Never blame the user, and never surface a provider error string.
 - Any other fixed/sticky element must add the matching safe inset itself.
 - Never hardcode 44px/34px notch values.
 
-## 20. Accessibility / contrast rules
+## 21. Accessibility / contrast rules
 
 - Body text ≥ 4.5:1, large text ≥ 3:1. Verified pairs: dark
   `--muted-foreground` on background ≈ 7.5:1; light ≈ 5.7:1; light `--primary`
@@ -659,7 +745,7 @@ Never blame the user, and never surface a provider error string.
 - Never encode meaning in color alone; pair with icon or text.
 - `color-scheme` is set on `<html>` so native controls and scrollbars match.
 
-## 21. Allowed usage
+## 22. Allowed usage
 
 ```tsx
 <div className="bg-card text-card-foreground rounded-2xl border border-border p-page">
@@ -670,7 +756,7 @@ Never blame the user, and never surface a provider error string.
 </div>
 ```
 
-## 22. Forbidden usage
+## 23. Forbidden usage
 
 ```tsx
 // raw color values

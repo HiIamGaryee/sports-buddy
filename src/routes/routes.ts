@@ -9,6 +9,7 @@ export const ROUTES = {
   buddyProfile: '/discover/:userId',
   activities: '/activities',
   messages: '/messages',
+  conversation: '/messages/:conversationId',
   profile: '/profile',
   profileEdit: '/profile/edit',
   settings: '/settings',
@@ -18,3 +19,7 @@ export const ROUTES = {
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES]
 
 export const buddyProfilePath = (userId: string) => `/discover/${userId}`
+
+/** The conversation id IS the connection id — see docs/chat.md. */
+export const conversationPath = (conversationId: string) =>
+  `/messages/${conversationId}`

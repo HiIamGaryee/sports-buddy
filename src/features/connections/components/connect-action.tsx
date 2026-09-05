@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { UserCheck } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { MessageCircle, UserCheck } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useConnections } from '@/hooks/use-connections'
 import { cn } from '@/lib/utils'
+import { conversationPath } from '@/routes/routes'
 import type { ConnectionState } from '@/types/connection'
 
 type ActionSize = 'default' | 'lg'
@@ -60,7 +62,11 @@ export function ConnectAction({
   size?: ActionSize
   className?: string
 }) {
-  const { connect, cancelRequest } = useConnections()
+  const { connect, cancelRequest, connections } = useConnections()
+  // The connection id IS the conversation id, so a Message link needs no
+  // lookup and no conversation is created just to render a button — the
+  // chat route ensures the document when it opens.
+  const conversationId = connections.get(userId)?.id ?? null
   const [busy, setBusy] = useState<'idle' | 'connecting' | 'cancelling'>('idle')
   const [error, setError] = useState('')
 
@@ -89,16 +95,29 @@ export function ConnectAction({
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {state === 'connected' ? (
-        <div
-          className={cn(
-            'flex items-center justify-center gap-2 border border-border bg-muted/50 px-4',
-            STATUS_SIZES[size],
+        <>
+          <div
+            className={cn(
+              'flex items-center justify-center gap-2 border border-border bg-muted/50 px-4',
+              STATUS_SIZES[size],
+            )}
+            aria-label={`Connected with ${displayName}`}
+          >
+            <UserCheck className="size-4 text-primary" />
+            <span className="text-label text-foreground">Connected</span>
+          </div>
+          {conversationId && (
+            <Button size={size} asChild>
+              <Link
+                to={conversationPath(conversationId)}
+                aria-label={`Message ${displayName}`}
+              >
+                <MessageCircle className="size-4" />
+                Message
+              </Link>
+            </Button>
           )}
-          aria-label={`Connected with ${displayName}`}
-        >
-          <UserCheck className="size-4 text-primary" />
-          <span className="text-label text-foreground">Connected</span>
-        </div>
+        </>
       ) : (
         <Button
           size={size}

@@ -28,4 +28,10 @@ export const mockDiscoverRepository: DiscoverRepository = {
     await delay(null, 250)
     return allProfiles().find((entry) => entry.userId === userId) ?? null
   },
+
+  async getProfilesByIds(userIds: readonly string[]) {
+    if (userIds.length === 0) return []
+    await delay(null, 150)
+    return allProfiles().filter((entry) => userIds.includes(entry.userId))
+  },
 }

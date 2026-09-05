@@ -49,6 +49,19 @@ export const discoverService = {
     )
   },
 
+  /**
+   * Batched, discovery-safe profiles for a known set of ids. Messages uses it
+   * so a conversation list never does one read per row, and never touches
+   * `users/{uid}`.
+   */
+  async getProfiles(userIds: readonly string[]): Promise<DiscoveryProfile[]> {
+    try {
+      return await discoverRepository.getProfilesByIds(userIds)
+    } catch {
+      throw new Error(LOAD_FAILED_MESSAGE)
+    }
+  },
+
   async getCandidate(userId: string): Promise<DiscoveryProfile | null> {
     try {
       const profile = await discoverRepository.getProfileById(userId)

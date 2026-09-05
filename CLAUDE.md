@@ -339,6 +339,98 @@ listener.
   delivery, a connections list screen.
 - Full walkthrough: `docs/connections.md`.
 
+### Realtime chat (STEP 9)
+
+```
+UI (Messages list / conversation screen)
+  ↓ useConversations() · useConversation(id)
+chatService              authorization + content rules, user-safe errors
+  ↓
+chatRepository           chosen once in repositories.ts
+  ↓
+Firebase (transaction + batch + onSnapshot)  |  Mock (localStorage + listeners)
+```
+
+- **A connection is the permission; a conversation is the channel; a message
+  is an immutable text event.** `chatService` never performs a connection
+  transition and `connectionService` never touches a message. The only thing
+  crossing the line is the pure `canChat()` in `src/lib/chat.ts`, which calls
+  STEP 8's `getConnectionState()` rather than re-deriving it.
+- **`conversationId === connectionId`.** The STEP 8 pair id is the
+  conversation's document id, so authorization is one lookup, navigation
+  needs no lookup, and there is no second pair-id system.
+- `src/types/chat.ts` — `Conversation`, `ChatMessage`, `MessagePage`,
+  `EnsureConversationInput`, `SendMessageInput`. ISO strings in the domain;
+  `Timestamp` and `DocumentSnapshot` never leave the repository.
+  `ChatMessage.createdAt` is `null` while a local write resolves its server
+  timestamp — every consumer tolerates it.
+- `src/lib/chat.ts` is pure — `canChat`, `normalizeMessageContent`,
+  `getMessageError`, `compareMessages`, `mergeMessages` (dedupe by **id**,
+  incoming wins, chronological with a stable tie-break).
+  `src/lib/chat-format.ts` is the only place chat dates are formatted
+  (`Intl` only, no date library).
+- `src/constants/chat.ts` — `MAX_MESSAGE_LENGTH` (1000), `MESSAGE_PAGE_SIZE`
+  (20), `MESSAGE_COUNTER_THRESHOLD`, `SCROLL_BOTTOM_THRESHOLD_PX`. Nothing
+  inlines those numbers.
+- `src/services/chat/chat-service.ts` — every guarded call takes a
+  `Connection`, never a bare user id, so `createConversation('random-user')`
+  does not exist. Validates trimmed content before anything is written and
+  maps every failure to a `ChatError` with a user-safe message
+  (`chat-error.ts`).
+- `src/repositories/chat/*` — contract, document mappers (the one place a
+  malformed conversation or message is rejected), Firebase and mock
+  implementations, plus `mock-conversations.ts` for seeded threads.
+- `useConversations()` builds the Messages list from the **connection list**,
+  so a connected buddy who has never messaged still gets a "Start a
+  conversation" row. `useConversation(id)` owns one open conversation —
+  messages are never held in a global provider.
+  `useChatScroll()` owns scroll behaviour.
+
+**Lazy creation.** `ensureConversation()` runs when a connected pair first
+opens the chat, not when they connect, and is idempotent (a transaction in
+Firebase mode). Buddies who never chat cost no documents.
+
+**Realtime strategy.** Two scoped subscriptions and nothing else: the user's
+own conversations (`participants array-contains uid`, limit 100) and the
+newest 20 messages of the **open** conversation. No whole-history listener,
+no global message listener, and still no listener on `publicProfiles`. With
+STEP 8's connections listener a session holds at most three, all scoped.
+
+**Pagination.** `orderBy('createdAt','desc') limit(20)`, reversed to
+oldest → newest in one function so realtime updates cannot flip the list.
+"Load earlier messages" is an explicit button using
+`startAfter(<cursor doc>)`; the cursor never leaves the repository — the
+service and UI pass a **message id**. `hasMore` comes from the first realtime
+page, then only from pagination.
+
+**Atomic send.** The message and the conversation preview are written
+together (a Firestore `writeBatch`), so the list can never show a preview for
+a message that does not exist. Nothing optimistic is inserted: the composer
+clears only after a confirmed write, which is what preserves the user's text
+on failure.
+
+**Security boundary.** `firestore.rules` reads
+`connections/{conversationId}` on every conversation and message access and
+requires `status == 'connected'` plus `uid in participants`.
+`uid in resource.data.participants` alone would let somebody fabricate a
+conversation with a person they are not connected to. Messages are
+create-only; `senderId` must equal `request.auth.uid`; content must be a
+string that is non-empty after `trim()` and ≤ 1000 characters; key allowlists
+reject any extra field. 23 of the 43 emulator rules tests cover chat.
+
+- The conversation route sits inside `ProtectedRoute` but **outside**
+  `AppShell`, so the bottom navigation is hidden and the composer owns the
+  bottom safe area — the same reasoning as the edit screens, and a deliberate
+  difference from `/discover/:userId`, which stays inside the shell.
+- No index was added: the conversation query is `array-contains` + `limit`
+  with **no `orderBy`** (ordering is client-side because the list merges with
+  buddies who have no conversation), and the message query is single-field
+  inside a subcollection.
+- Deliberately absent: unread state and any nav badge, read receipts, typing,
+  presence, media, replies, reactions, editing, deletion, group chat, push
+  notifications, and structured planning.
+- Full walkthrough: `docs/chat.md`.
+
 ### Profile editing and settings (STEP 5)
 
 - `/profile` (`features/profile/pages/profile-page.tsx`) — hero, derived
@@ -439,17 +531,22 @@ src/
                 sport/skill/intent/intensity/area/radius/budget selectors,
                 availability-selector, bio-field, profile-summary
                 (renders DiscoveryProfile only)
-    layout/     app-shell.tsx, app-header.tsx,
-                bottom-navigation.tsx, page-container.tsx
+    layout/     app-shell.tsx, app-header.tsx, bottom-navigation.tsx,
+                page-container.tsx, edit-layout.tsx, chat-layout.tsx
     ui/         shadcn/ui primitives (customized — see §10)
   config/       env.ts (import.meta.env boundary), navigation.ts (tabs)
   constants/    app.ts (name, tagline, storage keys), sports.ts, areas.ts,
                 profile-options.ts (skills, intents, intensity, days,
-                periods, radius, budget, bio limit)
+                periods, radius, budget, bio limit),
+                chat.ts (message length, page size, scroll threshold)
   features/
     auth/       components/ (auth-field, auth-alert, auth-divider,
                 password-input, google-sign-in-button),
                 pages/ (login-page, register-page), validation.ts
+    chat/       components/ (conversation-list-item, message-bubble,
+                message-composer, date-separator),
+                pages/ (messages-page, conversation-page),
+                use-conversations.ts, use-conversation.ts, use-chat-scroll.ts
     connections/ components/ (connect-action — the only connection wording,
                 connection-success-dialog)
     discover/   components/ (buddy-card, discover-filter-sheet,
@@ -474,10 +571,11 @@ src/
                 profile-draft.ts (shared reducer), preferences.ts,
                 profile-completeness.ts, discovery-profile.ts,
                 discover-filters.ts (+ .test.ts), availability.ts,
-                connection.ts (+ .test.ts)
-  pages/        home-page.tsx, activities-page.tsx, messages-page.tsx
-                (auth, onboarding, profile, settings and discover live
-                under features/)
+                connection.ts (+ .test.ts), chat.ts (+ .test.ts),
+                chat-format.ts
+  pages/        home-page.tsx, activities-page.tsx
+                (auth, onboarding, profile, settings, discover and chat
+                live under features/)
   providers/    theme-context.ts, theme-provider.tsx,
                 auth-context.ts, auth-provider.tsx,
                 profile-context.ts, profile-provider.tsx,
@@ -485,6 +583,9 @@ src/
   repositories/
     auth/       auth-repository.ts (contract),
                 firebase-auth-repository.ts, mock-auth-repository.ts
+    chat/       chat-repository.ts (contract), chat-document.ts,
+                firebase-chat-repository.ts, mock-chat-repository.ts,
+                mock-conversations.ts (seeded threads)
     connection/ connection-repository.ts (contract),
                 connection-document.ts, firebase-connection-repository.ts,
                 mock-connection-repository.ts
@@ -502,6 +603,7 @@ src/
   services/
     auth/       auth-service.ts, auth-error.ts
     profile/    profile-service.ts, profile-validation.ts
+    chat/       chat-service.ts (+ .test.ts), chat-error.ts
     connection/ connection-service.ts (+ .test.ts), connection-error.ts
     discover/   discover-service.ts
     matching/   matching-constants.ts, matching-factors.ts,
@@ -510,7 +612,7 @@ src/
   styles/       theme.css — ONLY file with raw color values
   types/        theme.ts, auth.ts, user.ts, sports-profile.ts,
                 preferences.ts, discovery-profile.ts, discover.ts,
-                matching.ts, connection.ts, data-source.ts
+                matching.ts, connection.ts, chat.ts, data-source.ts
   index.css     Tailwind + shadcn + theme imports, base layer
 ```
 
@@ -658,11 +760,13 @@ collection does not exist yet — do not create it early.
 | `users/{uid}` | owner may `get`/`create`/`update` only their own; delete disabled |
 | `publicProfiles/{uid}` | any signed-in member may read; only the owner may write, and `userId` must match |
 | `connections/{pairId}` | only the two participants may read; create/update/delete are pinned to the exact legal transitions (see §3 and `docs/connections.md`) |
+| `conversations/{connectionId}` | every access reads `connections/{conversationId}` and requires `status == 'connected'` plus `uid in participants`; participants and ids frozen; only the caller's own message preview may be written; delete denied |
+| `conversations/{id}/messages/{messageId}` | same connected-participant check; create-only, `senderId == request.auth.uid`, content non-empty after `trim()` and ≤ 1000 chars; update and delete denied |
 | everything else | read and write denied |
 
 Deploy with `firebase deploy --only firestore:rules`. Verify with
 `npm run test:rules`, which starts the Firestore emulator and runs
-`tests/firestore-rules.test.ts` (20 tests) against the real rules file — it
+`tests/firestore-rules.test.ts` (43 tests) against the real rules file — it
 needs **JDK 21+**, and never runs as part of `npm test`.
 
 ## 12. Mock data architecture
@@ -681,11 +785,16 @@ needs **JDK 21+**, and never runs as part of `npm test`.
   back in restores it. Onboarding is never repeated after a reload. There is
   no fake auth server and no Express backend.
 - `mockConnectionRepository` seeds one relationship of each state per mock
-  account (incoming, connected, outgoing) so every UI branch is reachable,
-  records that it has seeded, and notifies its listeners on every write —
-  the same live behaviour as the Firebase subscription. To simulate the other
-  person connecting back, edit the mock store from the console; there is
-  deliberately no "simulate connection" button (`docs/connections.md` §11).
+  account (incoming, three connected, outgoing) so every UI branch is
+  reachable, records that it has seeded, and notifies its listeners on every
+  write — the same live behaviour as the Firebase subscription. To simulate
+  the other person connecting back, edit the mock store from the console;
+  there is deliberately no "simulate connection" button
+  (`docs/connections.md` §11).
+- `mockChatRepository` seeds threads for the connected buddies: one 28-message
+  history (so the 20-message page and "Load earlier messages" are testable),
+  one short thread, and one connected buddy with no conversation at all.
+  Scripts live in `mock-conversations.ts`, never in UI code.
 
 ## 13. Capacitor rules
 
@@ -817,6 +926,25 @@ it. Feature logic never leaks into `components/ui/`.
   or a "simulate connection" button in production UI.
 - Loosen the connection rules to make a later step easier.
 - Persist a Discover "Not now" dismissal.
+- Let a pending (or absent) connection reach a conversation or a message —
+  the check belongs in the UI, the service AND the rules, never only in a
+  hidden button.
+- Copy a display name, email, photo url or sport into a conversation or a
+  message; resolve display data from `publicProfiles` at render time.
+- Attach a realtime listener to a whole message history, to all messages, or
+  to a conversation the signed-in user is not in.
+- Load messages into a global provider at app start; they belong to the open
+  conversation.
+- Render message content as HTML, or with `dangerouslySetInnerHTML`.
+- Clear the composer before a send is confirmed, or insert an optimistic
+  message.
+- Write a message without updating the conversation preview in the same
+  atomic operation.
+- Edit or delete a message — they are immutable in this step.
+- Show an unread badge, a read receipt, a typing indicator or presence; none
+  of them are implemented, and a fake one is worse than none.
+- Add a second pair-id system for conversations; the conversation id IS the
+  connection id.
 - Attach a realtime listener to `publicProfiles`.
 - Add dependencies that nothing uses yet.
 - Create empty placeholder files/folders or single-implementation
@@ -982,12 +1110,69 @@ and connected-relationship deletion. `tsc -b`, oxlint and the production
 build all pass. **A visual browser pass (dark/light at 390px and 430px) was
 not automated in this environment** — no headless browser is installed.
 
+STEP 9 — Realtime Chat:
+
+- `conversations/{connectionId}` plus a `messages` subcollection added as the
+  fourth collection, readable only by the two participants and only while
+  their connection is `connected`. The conversation id **is** the STEP 8 pair
+  id, so authorization is one lookup and no second pair-id system exists.
+- Pure chat domain in `src/lib/chat.ts` (authorization check, content
+  validation, id-based merge, chronological ordering) and
+  `src/lib/chat-format.ts` (all chat dates, `Intl` only, no date library).
+- `chatService` guards every call with a `Connection` rather than a user id,
+  validates trimmed content, and maps failures to user-safe `ChatError`
+  messages. `ChatRepository` with Firebase and mock implementations.
+- Conversations are created lazily and idempotently the first time a
+  connected pair opens the chat — never when they connect.
+- Two scoped realtime subscriptions only: the user's own conversations, and
+  the newest 20 messages of the open conversation. No whole-history listener,
+  no global message listener, still none on `publicProfiles`.
+- History pages 20 at a time behind an explicit "Load earlier messages";
+  Firestore cursors never leave the repository (the UI passes a message id),
+  and pages merge by id so nothing duplicates or flips order.
+- Sends are atomic (message + conversation preview in one `writeBatch`) and
+  confirmed before the composer clears, so a failed send keeps the text.
+- `/messages` rebuilt from the connection list, so a connected buddy with no
+  messages still gets a "Start a conversation" row; profiles resolve in ONE
+  batched `publicProfiles` query (no N+1, never `users/{uid}`).
+  `/messages/:conversationId` is a full-screen chat outside `AppShell`.
+- Scroll behaviour: lands on the newest message, follows your own sends, only
+  pulls you down on an incoming message if you were already at the bottom
+  (otherwise a "New message" button), and preserves position when loading
+  history.
+- Connected states gained a **Message** CTA, and the STEP 8 success dialog
+  now leads with "Message <name>".
+- Firestore rules read the connection on every conversation and message
+  access; messages are create-only with `senderId == request.auth.uid`,
+  non-empty after `trim()`, ≤ 1000 characters, and an exact key allowlist.
+- Vitest suite grew to 127 unit tests; emulator rules tests grew to 43.
+- Full walkthrough: `docs/chat.md`.
+
+Verified in mock mode through the same repository the app uses: a pending
+connection refused at the service in both directions and for an outsider with
+nothing written, a conversation opening on the connection id and staying a
+single document across repeated opens from both sides, blank / whitespace /
+over-length messages rejected with nothing reaching storage, a valid message
+trimmed and stored with the conversation preview updated in the same
+operation, an open subscription receiving the other person's message without
+a refetch and going quiet after unsubscribe, 25 messages paginating as
+20 + 5 with `hasMore` correct at every step and no overlap between pages,
+everything surviving a reload, and the seeded mock threads giving one long
+(paginating) thread, one short one and one connected buddy with no
+conversation. Security rules verified against the Firestore emulator (43
+tests, 23 for chat) including unauthenticated and unrelated reads, pending
+users, forged senders, blank and over-length content, participant tampering
+and message edits/deletes. `tsc -b`, oxlint and the production build all
+pass. **A visual browser pass (dark/light at 390px and 430px) was not
+automated in this environment** — no headless browser is installed.
+
 **Live two-user Firebase verification is still outstanding** — no project credentials
 exist in this environment. The firebase-mode paths (auth, profile,
 preferences, projection writes and Discover reads) are implemented and typed
 but have not run against a real project.
 
-Not done (by design): chat, disconnect/unfriend, block and report, activity
+Not done (by design): structured Plan Together, disconnect/unfriend, block and
+report, unread/read receipts, typing and presence, media messages, activity
 planning, maps and precise distance, calendar, notification delivery,
 subscriptions, analytics, native platforms, account deletion, photo upload.
 
@@ -1021,7 +1206,8 @@ STEP 5 — User Profile Experience + Preferences
 STEP 6 — Discover Sports Buddies
 STEP 7 — Compatibility + Matching Engine
 STEP 8 — Connect + Mutual Connection Flow
+STEP 9 — Realtime Chat
 
-**Current Step:** STEP 8 — Connect + Mutual Connection Flow
+**Current Step:** STEP 9 — Realtime Chat
 
-**Next Step:** STEP 9 — Realtime Chat
+**Next Step:** STEP 10 — Plan Together: Sport + Availability + Budget

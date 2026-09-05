@@ -323,28 +323,44 @@ dialog.
   accounts in two browser profiles, Connect from one, and check the other
   shows "Wants to connect" and then "Connected" without a refresh.
 
-## 13. STEP 9: chat
+## 13. Chat (STEP 9)
 
-Chat is **not** implemented — no `messages`, no `chatRooms`, no listeners, no
-message UI, and no "Start chat" button anywhere (a dead control is worse than
-no control). The success dialog offers **View profile** and **Done** only.
+**A connection is the permission to chat.** The relationship semantics from
+this step are unchanged; chat simply reads them.
 
-STEP 8 was shaped so STEP 9 can authorise chat off the connection document:
+| Connection state | Conversation access |
+| --- | --- |
+| `none` | none |
+| `pending-outgoing` | none |
+| `pending-incoming` | none |
+| `connected` | full |
 
-- `connectionId` is deterministic and stable, so it is already a usable
-  relationship key for a conversation.
-- `status == 'connected'` plus `uid in participants` is exactly the predicate
-  a chat rule needs, and both fields are on the document:
+A pending relationship has no conversation, cannot create one, and cannot
+read or write messages — enforced in the UI, in `chatService` and, decisively,
+in the Firestore rules, which read `connections/{conversationId}` on every
+conversation and message access.
 
-  ```
-  // sketch for STEP 9 — not deployed
-  function connected(connectionId) {
-    let c = get(/databases/$(database)/documents/connections/$(connectionId));
-    return c != null
-      && c.data.status == 'connected'
-      && request.auth.uid in c.data.participants;
-  }
-  ```
+That works because **`conversationId === connectionId`**: the deterministic
+pair id from §4 is also the conversation's document id, so authorization is a
+single lookup and no second pair-id system exists.
 
-- Nothing in the connection model needs to change to add it, and the
-  connection rules must not be loosened to make chat easier.
+```
+connections/{pairId}   status == 'connected'
+        ↓  permission
+conversations/{pairId}
+        ↓
+conversations/{pairId}/messages/{messageId}
+```
+
+Conversations are created **lazily** — the first time a connected pair opens
+the chat, never when they connect — so connected buddies who do not talk cost
+no documents.
+
+Two things this step's model deliberately still does not do: there is no
+disconnect, so a conversation cannot be revoked through the UI (chat handles a
+missing or no-longer-connected relationship anyway), and connection documents
+gained no chat fields. Details: `docs/chat.md`.
+
+The mock seeds gained two more connected buddies (Jason and Chloe) so chat has
+a long thread, a short one and one never messaged; the pending seeds are
+unchanged.

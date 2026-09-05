@@ -2,13 +2,14 @@
 
 One document per user. Nothing else is persisted yet.
 
-Three collections exist, with three different audiences:
+Four collections exist, with four different audiences:
 
 | Shape | Where | Who may see it |
 | --- | --- | --- |
 | `SportsProfile` (`users/{uid}`) | Firestore / mock store | **PRIVATE** — the owner only |
 | `DiscoveryProfile` (`publicProfiles/{uid}`) | Firestore / mock store | any signed-in member |
 | `Connection` (`connections/{pairId}`) | Firestore / mock store | **the two participants only** |
+| `Conversation` + `messages` (`conversations/{connectionId}`) | Firestore / mock store | **the two participants, and only while connected** |
 
 ## `users/{uid}` — PRIVATE profile
 
@@ -222,6 +223,79 @@ depend on a client clock. The domain object exposes ISO strings; Firestore
 
 The security rules enforce an exact key allowlist, so a client cannot add any
 of the above. Full walkthrough: `docs/connections.md`.
+
+## `conversations/{connectionId}` — CHAT channel
+
+The conversation id **is** the connection id (`createConnectionId(a, b)`), so
+authorization is a single lookup at `connections/{conversationId}` and no
+second pair-id system exists. Types live in `src/types/chat.ts`.
+
+A conversation is only valid while its connection is `connected`: the
+security rules read the connection document on **every** access, so a pending
+or missing connection means no read and no write, whoever asks.
+
+Documents are created **lazily** — the first time a connected pair opens the
+chat, not when they connect. Buddies who never chat cost nothing.
+
+```jsonc
+{
+  "id": "aina__gary",                // equals the document id
+  "connectionId": "aina__gary",      // and the connection
+  "participants": ["aina", "gary"],  // exactly the connection's, immutable
+  "lastMessageText": "Saturday evening works.",
+  "lastMessageSenderId": "aina",
+  "lastMessageAt": "<serverTimestamp>",
+  "createdAt": "<serverTimestamp>",
+  "updatedAt": "<serverTimestamp>"
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | equals the document id; frozen after create |
+| `connectionId` | `string` | equals the document id; frozen after create |
+| `participants` | `[string, string]` | must equal the connection's participants; can never change |
+| `lastMessageText` | `string \| null` | denormalized preview for the Messages list; `null` until the first message |
+| `lastMessageSenderId` | `string \| null` | the rules require it to equal the writer's uid |
+| `lastMessageAt` | server timestamp \| `null` | drives conversation ordering |
+| `createdAt` | server timestamp | set once |
+| `updatedAt` | server timestamp | `request.time` on every write |
+
+### `conversations/{connectionId}/messages/{messageId}` — IMMUTABLE text
+
+```jsonc
+{
+  "id": "hT3k...",                // equals the document id
+  "conversationId": "aina__gary",
+  "senderId": "gary",
+  "content": "Badminton Saturday?",
+  "createdAt": "<serverTimestamp>"
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Firestore-generated, pre-allocated so it can be written into the document |
+| `conversationId` | `string` | must match the parent |
+| `senderId` | `string` | must equal `request.auth.uid` — nobody can post as another user |
+| `content` | `string` | trimmed, non-empty after trimming, ≤ 1000 characters |
+| `createdAt` | server timestamp | `null` in the domain only while a local write resolves |
+
+Messages are **create-only**: update and delete are denied for both
+participants. The message and the conversation preview are written as one
+atomic batch, so the list can never disagree with the history.
+
+### Never stored in a conversation or message
+
+- **No profile data** — no display name, email, photo url, sports or bio.
+  Chat resolves display data from `publicProfiles/{uid}` at render time;
+  a copy here would be a second, stale one outside the privacy boundary.
+- **No compatibility score or matching reasons** (derived per viewer).
+- **No unread, read or seen markers**, no typing state, no presence — none of
+  those are implemented, and the rules' key allowlist rejects any extra
+  field.
+
+Full walkthrough: `docs/chat.md`.
 
 ## `CompatibilityResult` — DERIVED, never persisted
 

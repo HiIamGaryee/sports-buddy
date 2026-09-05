@@ -116,6 +116,96 @@ service cloud.firestore {
         && current().requestedBy == [request.auth.uid];
     }
 
+    // CONVERSATIONS live at the connection's own id, so every access check is
+    // a single lookup at `connections/{conversationId}`. That lookup is the
+    // whole authorization model: `uid in participants` alone would let a user
+    // fabricate a conversation with somebody they are not connected to.
+    //
+    // Messages are IMMUTABLE: create only, never update, never delete.
+    match /conversations/{conversationId} {
+      function connectionPath() {
+        return /databases/$(database)/documents/connections/$(conversationId);
+      }
+
+      // Costs one document read per rule evaluation — the price of not
+      // trusting the client about who may talk to whom.
+      function connection() {
+        return get(connectionPath()).data;
+      }
+
+      function connectedParticipant() {
+        return request.auth != null
+          && exists(connectionPath())
+          && connection().status == 'connected'
+          && request.auth.uid in connection().participants;
+      }
+
+      function conversationFields() {
+        return ['id', 'connectionId', 'participants', 'lastMessageText',
+                'lastMessageSenderId', 'lastMessageAt', 'createdAt',
+                'updatedAt'];
+      }
+
+      allow get, list: if connectedParticipant();
+
+      allow create: if connectedParticipant()
+        && request.resource.data.keys().hasOnly(conversationFields())
+        && request.resource.data.keys().hasAll(conversationFields())
+        && request.resource.data.id == conversationId
+        && request.resource.data.connectionId == conversationId
+        // Exactly the connection's participants — no invented third person.
+        && request.resource.data.participants == connection().participants
+        && request.resource.data.lastMessageText == null
+        && request.resource.data.lastMessageSenderId == null
+        && request.resource.data.lastMessageAt == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // Only the message preview may move, and only to the caller's own
+      // message. Identity fields are frozen after creation.
+      allow update: if connectedParticipant()
+        && request.resource.data.keys().hasOnly(conversationFields())
+        && request.resource.data.keys().hasAll(conversationFields())
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.connectionId == resource.data.connectionId
+        && request.resource.data.participants == resource.data.participants
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.lastMessageSenderId == request.auth.uid
+        && request.resource.data.lastMessageText is string
+        && request.resource.data.lastMessageText.size() > 0
+        // Mirrors MAX_MESSAGE_LENGTH in src/constants/chat.ts.
+        && request.resource.data.lastMessageText.size() <= 1000
+        && request.resource.data.lastMessageAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function messageFields() {
+          return ['id', 'conversationId', 'senderId', 'content', 'createdAt'];
+        }
+
+        allow get, list: if connectedParticipant();
+
+        allow create: if connectedParticipant()
+          && request.resource.data.keys().hasOnly(messageFields())
+          && request.resource.data.keys().hasAll(messageFields())
+          && request.resource.data.id == messageId
+          && request.resource.data.conversationId == conversationId
+          // Nobody can post as somebody else.
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.content is string
+          // `trim()` so a whitespace-only message is rejected server-side too.
+          && request.resource.data.content.trim().size() > 0
+          // Mirrors MAX_MESSAGE_LENGTH in src/constants/chat.ts.
+          && request.resource.data.content.size() <= 1000
+          && request.resource.data.createdAt == request.time;
+
+        // Messages are immutable in this step.
+        allow update, delete: if false;
+      }
+    }
+
     // Collections for later steps stay closed until their model exists.
     match /{document=**} {
       allow read, write: if false;

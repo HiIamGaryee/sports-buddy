@@ -1,6 +1,8 @@
 import { env } from '@/config/env'
 import { firebaseAuthRepository } from '@/repositories/auth/firebase-auth-repository'
 import { mockAuthRepository } from '@/repositories/auth/mock-auth-repository'
+import { firebaseChatRepository } from '@/repositories/chat/firebase-chat-repository'
+import { mockChatRepository } from '@/repositories/chat/mock-chat-repository'
 import { firebaseConnectionRepository } from '@/repositories/connection/firebase-connection-repository'
 import { mockConnectionRepository } from '@/repositories/connection/mock-connection-repository'
 import { firebaseDiscoverRepository } from '@/repositories/discover/firebase-discover-repository'
@@ -36,3 +38,8 @@ export const discoverRepository = useFirebase
 export const connectionRepository = useFirebase
   ? firebaseConnectionRepository
   : mockConnectionRepository
+
+/** `conversations/{connectionId}` and its `messages` subcollection. */
+export const chatRepository = useFirebase
+  ? firebaseChatRepository
+  : mockChatRepository

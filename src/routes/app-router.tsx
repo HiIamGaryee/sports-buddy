@@ -4,6 +4,8 @@ import { AppShell } from '@/components/layout/app-shell'
 import { AuthLayout } from '@/components/layout/auth-layout'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { RegisterPage } from '@/features/auth/pages/register-page'
+import { ConversationPage } from '@/features/chat/pages/conversation-page'
+import { MessagesPage } from '@/features/chat/pages/messages-page'
 import { OnboardingPage } from '@/features/onboarding/pages/onboarding-page'
 import { BuddyProfilePage } from '@/features/discover/pages/buddy-profile-page'
 import { DiscoverPage } from '@/features/discover/pages/discover-page'
@@ -13,7 +15,6 @@ import { DiscoverySettingsPage } from '@/features/settings/pages/discovery-setti
 import { SettingsPage } from '@/features/settings/pages/settings-page'
 import { ActivitiesPage } from '@/pages/activities-page'
 import { HomePage } from '@/pages/home-page'
-import { MessagesPage } from '@/pages/messages-page'
 import { GuestRoute } from '@/routes/guest-route'
 import { OnboardingRoute } from '@/routes/onboarding-route'
 import { ProtectedRoute } from '@/routes/protected-route'
@@ -47,6 +48,10 @@ export function AppRouter() {
             <Route path={ROUTES.profile} element={<ProfilePage />} />
             <Route path={ROUTES.settings} element={<SettingsPage />} />
           </Route>
+
+          {/* Outside AppShell: the chat screen hides the bottom navigation
+              so the composer owns the bottom safe area. */}
+          <Route path={ROUTES.conversation} element={<ConversationPage />} />
 
           <Route path={ROUTES.profileEdit} element={<EditProfilePage />} />
           <Route

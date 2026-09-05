@@ -30,10 +30,15 @@ const writeMockStore = (store: MockConnectionStore) =>
  * One of each state, so every branch of the UI is reachable in mock mode
  * without touching a real backend. `requestedBy` says who has asked:
  * `them` → pending-incoming, `me` → pending-outgoing, `both` → connected.
+ *
+ * Three connected buddies exist because chat (STEP 9) needs them: one with a
+ * long history, one with a short one, and one who has never messaged.
  */
 const SEEDS = [
   { userId: 'buddy_aina', requestedBy: 'them' },
   { userId: 'buddy_mei', requestedBy: 'both' },
+  { userId: 'buddy_jason', requestedBy: 'both' },
+  { userId: 'buddy_chloe', requestedBy: 'both' },
   { userId: 'buddy_ryan', requestedBy: 'me' },
 ] as const satisfies readonly {
   userId: string

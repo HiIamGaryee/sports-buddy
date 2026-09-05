@@ -49,9 +49,10 @@ Authentication → Settings → **Authorized domains**.
 ## 6. Create the Firestore database
 
 Firestore Database → **Create database** → production mode → pick a region
-close to your users (e.g. `asia-southeast1`). Three collections are used:
-`users` (private), `publicProfiles` (discovery-safe projections) and
-`connections` (relationship state).
+close to your users (e.g. `asia-southeast1`). Four collections are used:
+`users` (private), `publicProfiles` (discovery-safe projections),
+`connections` (relationship state) and `conversations` with its `messages`
+subcollection (chat).
 
 ## 7. Deploy the security rules
 
@@ -69,11 +70,15 @@ firebase deploy --only firestore:rules
 | `users/{uid}` | owner reads/creates/updates their own only; delete disabled |
 | `publicProfiles/{uid}` | any signed-in member reads; only the owner writes |
 | `connections/{pairId}` | only the two participants read; writes are pinned to the legal transitions (`docs/connections.md` §9) |
+| `conversations/{connectionId}` | every access reads the connection and requires `status == 'connected'`; ids and participants frozen (`docs/chat.md` §12) |
+| `conversations/{id}/messages/{messageId}` | same check; create-only, sender must be the caller, content non-empty and ≤ 1000 chars |
 
-`firestore.indexes.json` is intentionally empty. The only queries used are
-`publicProfiles orderBy updatedAt` and
-`connections where participants array-contains <uid>`, and neither needs a
-composite index.
+`firestore.indexes.json` is intentionally empty. The queries used are
+`publicProfiles orderBy updatedAt`, `publicProfiles where documentId() in […]`,
+`connections where participants array-contains <uid>`,
+`conversations where participants array-contains <uid>` (no `orderBy` — the
+list is sorted client-side) and `messages orderBy createdAt` inside a
+subcollection. None of them needs a composite index.
 
 ## 8. Switching modes
 
@@ -101,8 +106,8 @@ npm run test:rules
 ```
 
 This starts the Firestore emulator (`firebase.json` → `emulators.firestore`,
-port 8080), runs `tests/firestore-rules.test.ts` against the real
-`firestore.rules`, and shuts the emulator down. It uses the project id
+port 8080), runs `tests/firestore-rules.test.ts` (43 tests: connections and chat) against
+the real `firestore.rules`, and shuts the emulator down. It uses the project id
 `demo-sports-buddy`, so **no credentials and no real project are involved**.
 
 Requirements:
@@ -134,6 +139,22 @@ single session:
 
 Both accounts must have completed onboarding and be discoverable, otherwise
 they will not appear in each other's feed.
+
+## 9c. Two-user chat verification
+
+Chat needs the same two accounts, already connected:
+
+1. A opens Messages → the connected buddy → sends "Hello".
+2. B, with the same conversation open, should see it **without refreshing**
+   (the conversation screen holds a scoped listener on the newest 20
+   messages), and B's Messages list should show the new preview.
+3. B replies. A sees it live.
+4. Send more than 20 messages, reload, and check that only the newest 20 load
+   and **Load earlier messages** fetches the rest without duplicates and
+   without jumping the scroll position.
+5. Sign in as a third account that is not connected to either and open
+   `/messages/<their conversation id>`: it must show the generic
+   "This conversation is unavailable." and read nothing.
 
 ## 10. Security notes
 

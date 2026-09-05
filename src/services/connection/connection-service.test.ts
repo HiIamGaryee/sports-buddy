@@ -184,12 +184,16 @@ describe('mock persistence', () => {
     expect(stateBetween(GARY, AINA)).toBe('connected')
   })
 
-  it('seeds one of each state for a mock account, and only once', async () => {
+  it('seeds every state for a mock account, and only once', async () => {
     const seeded = loadFor(GARY)
     const states = seeded
       .map((connection) => getConnectionState(connection, GARY))
       .sort()
+    // Three connected buddies exist so chat (STEP 9) has a long thread, a
+    // short one, and one that has never been messaged.
     expect(states).toEqual([
+      'connected',
+      'connected',
       'connected',
       'pending-incoming',
       'pending-outgoing',
@@ -202,7 +206,7 @@ describe('mock persistence', () => {
         getConnectionState(connection, GARY) === 'pending-outgoing',
     )?.[0]
     await connectionService.cancelRequest(GARY, outgoingId ?? '')
-    expect(loadFor(GARY)).toHaveLength(2)
+    expect(loadFor(GARY)).toHaveLength(seeded.length - 1)
   })
 })
 

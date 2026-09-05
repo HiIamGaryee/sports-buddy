@@ -10,7 +10,7 @@ npm run dev        # web dev server
 npm run build      # typecheck + production build
 npm run typecheck  # tsc only
 npm run lint       # oxlint
-npm test           # vitest unit tests (matching, connections, filters)
+npm test           # vitest unit tests (matching, connections, chat, filters)
 npm run test:rules # firestore rules against the emulator (needs JDK 21+)
 npm run cap:sync   # build + cap sync (native shell)
 ```
@@ -36,7 +36,8 @@ The app runs against mock repositories by default. To use a real backend set
 - `docs/discover.md` — the discovery pipeline and public projection.
 - `docs/matching.md` — the compatibility engine: weights, formulas, limits.
 - `docs/connections.md` — Connect, mutual connections, rules, realtime.
+- `docs/chat.md` — conversations, messages, pagination, chat security.
 
-Current status: **STEP 8 — Connect + Mutual Connection Flow** (auth,
-onboarding, profile, preferences, ranked discovery and mutual connections;
-chat comes later).
+Current status: **STEP 9 — Realtime Chat** (auth, onboarding, profile,
+preferences, ranked discovery, mutual connections and text chat; structured
+activity planning comes later).

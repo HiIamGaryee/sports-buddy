@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { UserCheck } from 'lucide-react'
+import { MessageCircle, UserCheck } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -12,7 +12,7 @@ import {
 import { useConnections } from '@/hooks/use-connections'
 import { useProfile } from '@/hooks/use-profile'
 import { getSportName } from '@/lib/profile-format'
-import { buddyProfilePath } from '@/routes/routes'
+import { buddyProfilePath, conversationPath } from '@/routes/routes'
 import { discoverService } from '@/services/discover/discover-service'
 import {
   calculateCompatibility,
@@ -21,6 +21,8 @@ import {
 
 interface BuddyState {
   userId: string
+  /** The connection id, which is also the conversation id. */
+  conversationId: string
   displayName: string
   sharedSport: string | null
 }
@@ -35,7 +37,8 @@ interface BuddyState {
  * two of them actually share.
  */
 export function ConnectionSuccessDialog() {
-  const { justConnectedUserId, clearJustConnected } = useConnections()
+  const { justConnectedUserId, clearJustConnected, connections } =
+    useConnections()
   const { profile } = useProfile()
   const [buddy, setBuddy] = useState<BuddyState | null>(null)
 
@@ -54,6 +57,7 @@ export function ConnectionSuccessDialog() {
         )
         setBuddy({
           userId: candidate.userId,
+          conversationId: connections.get(candidate.userId)?.id ?? '',
           displayName: candidate.displayName,
           sharedSport: bestSportMatch ? getSportName(bestSportMatch) : null,
         })
@@ -65,7 +69,7 @@ export function ConnectionSuccessDialog() {
     return () => {
       active = false
     }
-  }, [justConnectedUserId, profile])
+  }, [justConnectedUserId, profile, connections])
 
   const close = () => {
     clearJustConnected()
@@ -98,13 +102,23 @@ export function ConnectionSuccessDialog() {
               )}
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={close}>
-                Done
-              </Button>
-              <Button asChild className="flex-1" onClick={close}>
-                <Link to={buddyProfilePath(buddy.userId)}>View profile</Link>
-              </Button>
+            <div className="flex flex-col gap-2">
+              {buddy.conversationId && (
+                <Button size="lg" asChild onClick={close}>
+                  <Link to={conversationPath(buddy.conversationId)}>
+                    <MessageCircle className="size-4" />
+                    Message {buddy.displayName}
+                  </Link>
+                </Button>
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={close}>
+                  Done
+                </Button>
+                <Button variant="outline" className="flex-1" asChild onClick={close}>
+                  <Link to={buddyProfilePath(buddy.userId)}>View profile</Link>
+                </Button>
+              </div>
             </div>
           </>
         )}
