@@ -592,3 +592,42 @@ private field cannot leak into the public projection by accident.
 - Connection `participants`, `createdAt` and plan identity fields — frozen
   after creation.
 - A `confirmed` plan — read-only.
+
+---
+
+## Activity state (STEP 13)
+
+Two different questions, deliberately not one field:
+
+| | Question | Where it lives |
+| --- | --- | --- |
+| `Activity.status` | Did the two people agree to go? | PERSISTED, always `'confirmed'` |
+| `ActivityTemporalState` | Where is it on the timeline? | DERIVED from `endAt` + now, never stored |
+
+### Why temporal state is not persisted
+
+Storing `past` would require something to write it when time passed — a
+scheduled job, a Cloud Function, or a client update — and the value would be
+stale between runs. Deriving it from `endAt` is always correct, needs no
+infrastructure, and lets the security rules refuse a temporal status
+outright.
+
+`firestore.rules` requires `status == 'confirmed'` on create and denies every
+update, so no client can backdate its own history or fake a state.
+
+### Legacy normalization
+
+STEP 12 persisted `status: 'upcoming'`. Those documents are untouched;
+`normalizeActivityStatus()` maps `upcoming`, `completed`, `cancelled` — and
+anything unrecognised — to `confirmed` when a document is read. No migration
+and no manual deletion is required.
+
+`completed` and `cancelled` are no longer declared as states the app can
+hold: nothing produces them, and a declared state nothing produces invites
+code that pretends it exists.
+
+### Indexes
+
+The two composite indexes on `activities` (see `docs/activities.md`) are the
+only ones in `firestore.indexes.json`. Every other query in the app remains
+index-free by design.

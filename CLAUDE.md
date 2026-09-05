@@ -665,9 +665,9 @@ transition is `venue-agreed → confirmed` with every other field frozen.
 requires the caller to be a plan participant; update and delete are denied
 outright. 16 of the 86 emulator rules tests cover activities and the plan lock.
 
-- `getForUser` queries `participants array-contains uid` with a limit and no
-  `orderBy`, so no composite index is needed; status filtering and
-  soonest-first ordering happen in the service (`docs/activities.md` §11).
+- Superseded by STEP 13: `getForUser` became `getUpcomingForUser` /
+  `getPastForUser`, both bounded by `endAt` in the query and backed by a
+  composite index. See "Activity history + calendar (STEP 13)" above.
 - One-time reads, not subscriptions — a confirmed activity is immutable.
   `useUpcomingActivities` does one scoped read plus ONE batched
   `publicProfiles` query for every buddy on the list (no N+1, never
@@ -682,6 +682,82 @@ outright. 16 of the 86 emulator rules tests cover activities and the plan lock.
   completion and history; ratings or attendance; calendar; notifications;
   manual activity creation.
 - Full walkthrough: `docs/activities.md`.
+
+### Activity history + calendar (STEP 13)
+
+```
+Activities UI                     Calendar UI
+  ↓ useUpcomingActivities()         ↓ AddToCalendar
+    usePastActivities()           calendarService   validate → map → provider
+  ↓                                 ↓
+activityService                   CalendarProvider
+  ↓                                 ↓
+activityRepository                IcsCalendarProvider  (native: not built)
+  ↓
+Firebase (time-bound query) | Mock
+```
+
+**`Activity.status` is business state; temporal state is derived.** The
+document says only `confirmed`. `getActivityTemporalState(activity, now)`
+(`src/lib/activity.ts`) answers upcoming/past from `endAt`, and `now` is
+always **injected** — no domain function reads the clock. `now < endAt` is
+`upcoming` (a session in progress is still something you are going to);
+`now >= endAt` is `past`. `isActivityHappeningNow()` is presentation only.
+
+**PAST IS NOT COMPLETED.** It means the end time passed and nothing else —
+not that the session happened, that anyone attended, or that a reliability
+score should move. No rating, attendance or "mark completed" control exists,
+and the UI never says "Completed".
+
+Because it is derived, **no background job, Cloud Function or scheduled
+migration exists**, and the rules refuse a client-written temporal status.
+Legacy STEP 12 documents (`status: 'upcoming'`) pass through
+`normalizeActivityStatus()` on read — no migration, no manual deletion.
+
+- Queries are scoped and time-bounded in Firestore, never "load all and
+  filter": upcoming is `participants array-contains uid` + `endAt >= now`
+  ordered `endAt, startAt`; past is `endAt < now` ordered `endAt desc`. Both
+  composite indexes are in `firestore.indexes.json` — the project's first.
+- `ACTIVITY_PAGE_SIZE` (20) lives in `src/constants/activities.ts`. One
+  explicit **Load more**, no infinite scroll. The cursor is an **activity
+  id**; a Firestore snapshot never leaves the repository (the STEP 9 rule).
+- One-time reads with explicit refresh. Activities are immutable, so **no
+  realtime listener** is attached to history.
+- Home renders the head of the bounded upcoming list, so it cannot surface an
+  ended session. `getNextActivity()` is the same rule as a pure function.
+- `useCoarseNow()` re-derives classification once a minute
+  (`TEMPORAL_REFRESH_MS`). Never a per-second timer.
+- `groupActivitiesByMonth()` is pure; `ActivityHistory` renders groups rather
+  than building them in JSX.
+
+**Calendar.** `calendarService` maps `Activity` → `CalendarEventData` and
+picks the provider; the UI never branches on platform. It reads **only the
+Activity** — never the source plan — so an export needs no read and works
+offline. Providers receive `CalendarEventData`, never an `Activity`, so
+participant ids, the connection id and the source plan id cannot reach a file.
+
+- `src/lib/ics.ts` is pure: `escapeIcsText`, `formatIcsDateTime` (UTC),
+  folding at 75 **octets**, `buildIcsCalendar`, `buildIcsFilename`.
+- **ICS is a separate escaping context.** React escaping does nothing there.
+  Escape backslash first, then `;`, `,`, then collapse every line ending to a
+  literal `\n`; property NAMES are only ever written by `lib/ics.ts`, so no
+  user input can create one. This is what blocks CRLF injection.
+- The UID is an opaque stable digest of the activity id — stable so a
+  re-import can be recognised, opaque because the id contains both
+  participants' account ids and a file can be forwarded. Never random, never
+  the title.
+- ICS timestamps are UTC (`YYYYMMDDTHHMMSSZ`); no `VTIMEZONE`. The UI still
+  formats local time through `Intl`. **Display strings are never reused in a
+  file, and ICS strings are never shown to anyone.**
+- No `X-ALT-DESC` HTML description; the MIME type, extension and filename are
+  developer literals.
+- **No shared calendar state.** `Activity` has no `calendarAdded` flag and no
+  `calendarAddedBy` array — whether one person exported a session is not a
+  fact about the session. Nothing is written to Firestore at all.
+- Native provider: **not implemented** (no maintained Capacitor calendar
+  plugin is installed). ICS is the universal path, including inside a
+  WebView. `selectProvider()` is the one function that changes later.
+- Full walkthrough: `docs/calendar.md`.
 
 ### Profile editing and settings (STEP 5)
 
@@ -825,9 +901,11 @@ src/
                 periods, radius, budget, bio limit),
                 chat.ts (message length, page size, scroll threshold),
                 planning.ts (period windows, session length, suggestions),
-                venues.ts (sport search terms, radius, limits, debounce)
+                venues.ts (sport search terms, radius, limits, debounce),
+                activities.ts (page size, temporal refresh interval)
   features/
-    activities/ components/ (activity-card, activity-status-badge),
+    activities/ components/ (activity-card, activity-status-badge,
+                activity-history, add-to-calendar),
                 pages/ (activities-page, activity-detail-page),
                 use-activities.ts, use-activity.ts
     auth/       components/ (auth-field, auth-alert, auth-divider,
@@ -871,8 +949,9 @@ src/
                 connection.ts (+ .test.ts), chat.ts (+ .test.ts),
                 chat-format.ts, budget.ts (shared with matching),
                 planning.ts (+ .test.ts), plan-format.ts,
-                geo.ts (+ .test.ts), activity.ts (+ .test.ts),
-                activity-format.ts
+                geo.ts (+ .test.ts), activity.ts
+                (+ activity-temporal.test.ts), activity-format.ts,
+                ics.ts (+ .test.ts)
   pages/        home-page.tsx
                 (auth, onboarding, profile, settings, discover, chat,
                 planning and activities live under features/)
@@ -882,7 +961,8 @@ src/
                 connection-context.ts, connection-provider.tsx
   repositories/
     activity/   activity-repository.ts (contract), activity-document.ts,
-                firebase-activity-repository.ts, mock-activity-repository.ts
+                firebase-activity-repository.ts, mock-activity-repository.ts,
+                mock-activities.ts (relative dev fixtures)
     activity-plan/ activity-plan-repository.ts (contract),
                 activity-plan-document.ts,
                 firebase-activity-plan-repository.ts,
@@ -913,6 +993,8 @@ src/
     auth/       auth-service.ts, auth-error.ts
     profile/    profile-service.ts, profile-validation.ts
     activity/   activity-service.ts (+ .test.ts), activity-error.ts
+    calendar/   calendar-service.ts (+ .test.ts), calendar-error.ts,
+                providers/ics-calendar-provider.ts
     chat/       chat-service.ts (+ .test.ts), chat-error.ts
     planning/   activity-plan-service.ts (+ .test.ts), planning-error.ts
     venue/      venue-service.ts (+ .test.ts), venue-error.ts
@@ -926,7 +1008,7 @@ src/
   types/        theme.ts, auth.ts, user.ts, sports-profile.ts,
                 preferences.ts, discovery-profile.ts, discover.ts,
                 matching.ts, connection.ts, chat.ts, planning.ts,
-                venue.ts, activity.ts, data-source.ts
+                venue.ts, activity.ts, calendar.ts, data-source.ts
   index.css     Tailwind + shadcn + theme imports, base layer
 ```
 
@@ -1327,6 +1409,21 @@ it. Feature logic never leaks into `components/ui/`.
 
 ## 19. Things that must NOT be done
 
+- Persist a temporal state on an activity (`past`, `upcoming`), or add a job
+  that migrates one; derive it from `endAt` and an injected `now`.
+- Treat `past` as completed, attended or cancelled, or add a rating,
+  attendance or "mark completed" control.
+- Read the clock inside a domain function; `now` is a parameter.
+- Load every activity and filter client-side instead of bounding the query.
+- Let a Firestore cursor or snapshot leave a repository.
+- Attach a realtime listener to activity history.
+- Build calendar content outside `src/lib/ics.ts`, or concatenate user text
+  into ICS without `escapeIcsText`.
+- Let user input become an ICS property name, or emit an HTML description.
+- Use a random or title-derived ICS UID, or one that contains account ids.
+- Write calendar state into `Activity`, or claim an event was added when a
+  file was only downloaded.
+- Read the source `ActivityPlan` to build a calendar event.
 - Render user content as HTML, or use `dangerouslySetInnerHTML` / `innerHTML`
   / `document.write` with any data.
 - Put a URL into an `href` or `<img src>` without `safeLinkUrl` /
@@ -1964,6 +2061,63 @@ CSP/security headers documented but not applied because no hosting config
 exists; account deletion still absent. Live Firebase and Google Places remain
 unverified in this environment.
 
+STEP 13 — Calendar + Upcoming/Past Activity History:
+
+- `Activity.status` narrowed to the single business state `confirmed`;
+  upcoming/past became `ActivityTemporalState`, DERIVED from `endAt` and an
+  injected `now`. Legacy `upcoming` / `completed` / `cancelled` documents are
+  read-normalized by `normalizeActivityStatus()`, so nothing had to be
+  migrated or deleted. `firestore.rules` now requires `status == 'confirmed'`
+  on create and still denies every update and delete.
+- No background job, Cloud Function or scheduled migration was added, and no
+  client can write a temporal state — two new emulator tests prove it.
+- `ActivityRepository` replaced `getForUser` with `getUpcomingForUser` and
+  `getPastForUser`: both scoped by `participants array-contains uid` and
+  bounded by `endAt` in the QUERY, ordered `endAt, startAt` ascending and
+  `endAt` descending. Two composite indexes added — the project's first.
+- Pagination is an opaque **activity id** cursor plus one explicit "Load
+  more"; a Firestore snapshot never leaves the repository, pages merge by id,
+  and a stale cursor restarts the page rather than failing the read.
+- `/activities` Past is real: month-grouped history via the pure
+  `groupActivitiesByMonth()`, calmer card styling, a neutral `Past` pill and
+  `Happening now` for a session in progress. Both tabs share one body
+  component, so their loading, error and empty states cannot drift.
+- Home's next activity now comes from the bounded upcoming list, so an ended
+  session can no longer appear there — the regression a stored
+  `status: 'upcoming'` allowed. Covered by a unit test.
+- Calendar: `calendarService` → `CalendarProvider` → `IcsCalendarProvider`.
+  It reads **only the Activity**, never the source plan, so an export costs no
+  reads and works offline. `src/lib/ics.ts` is pure and owns escaping, UTC
+  formatting, 75-octet folding, CRLF line endings and safe filenames.
+- ICS treated as its own injection surface: property names are developer-only,
+  every line ending collapses to a literal escape, the UID is an opaque stable
+  digest (a raw one carried both participants' account ids into a forwardable
+  file), and the optional URL passes the STEP 12.6 maps-host allowlist.
+- **Native calendar provider: NOT IMPLEMENTED** — no maintained Capacitor
+  calendar plugin is installed, and one was not added to satisfy a checkbox.
+  ICS works on every platform including inside a WebView, needs no permission,
+  and `selectProvider()` is the single function that changes later.
+  **Native device verification: NOT RUN.**
+- Mock mode seeds relative history (one session in progress, two upcoming,
+  four across three past months) so both tabs and month grouping are always
+  populated; offsets are resolved at seed time, never fixed dates.
+- Vitest grew to 419 tests; emulator rules tests to 97.
+- Full walkthroughs: `docs/calendar.md`, `docs/activities.md`.
+
+Verified with a headless browser in mock mode at 390 / 430 / 768 / 820 /
+1024 / 1280 / 1440 px, dark and light: no horizontal overflow and no console
+errors at any width; Upcoming and Past both populated; month groups rendering
+newest-first; a past activity's detail page showing every field while hiding
+the calendar action; and **a real `.ics` file downloaded through the browser**
+and checked byte for byte — CRLF throughout, folding at ≤75 octets, escaped
+comma and semicolon, only developer-written properties, and no account id,
+email or profile field anywhere in it.
+
+Not verified: live Firebase (no credentials in this environment), Google
+Places/Maps (no API key), native calendar (no provider), and importing the
+generated `.ics` into Apple Calendar, Google Calendar or Outlook — so no
+compatibility claim is made for those clients.
+
 ## 21. Local development credentials (mock mode only)
 
 `VITE_DATA_SOURCE=mock` seeds one demo account. These are development-only
@@ -2001,7 +2155,8 @@ STEP 11 — Venue Discovery + Google Maps / Places
 STEP 12 — Confirmed Activity + Activity Card
 STEP 12.5 — Design System Refactor + Theme-First Styling
 STEP 12.6 — Security Hardening + Input Validation
+STEP 13 — Calendar + Upcoming/Past Activity History
 
-**Current Step:** STEP 12.6 — Security Hardening
+**Current Step:** STEP 13 — Calendar + Activity History
 
-**Next Step:** STEP 13 — Calendar + Upcoming/Past Activity Experience
+**Next Step:** STEP 14 — Notifications + RevenueCat + Safety

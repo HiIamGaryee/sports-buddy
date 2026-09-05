@@ -179,6 +179,49 @@ SQL-looking strings in user content are therefore harmless text, and are
 tested as such. **If SQL is ever introduced**, parameterized queries are
 mandatory and string concatenation is forbidden — recorded in `CLAUDE.md`.
 
+## 8.5 ICS / calendar output (STEP 13)
+
+Calendar export added a THIRD output context with its own escaping rules.
+React escaping protects HTML and does nothing here: a venue name that renders
+harmlessly on screen can still terminate a property line inside a `.ics` file.
+
+| Control | Where |
+| --- | --- |
+| Text escaping (backslash, `;`, `,`, newlines) | `escapeIcsText`, `src/lib/ics.ts` |
+| Control characters stripped, values bounded at 512 chars | same |
+| Property NAMES written only by the module | `property()` — no `input + ':'` exists anywhere |
+| Line folding at 75 **octets** (UTF-8 bytes, not characters) | `foldLine` |
+| CRLF line endings throughout | `buildIcsCalendar` |
+
+**CRLF injection.** A venue name of
+`Court A\r\nATTENDEE:mailto:attacker@example.com` must not create an
+`ATTENDEE` property. Two independent defences: every line-ending form
+collapses to a literal escape inside the value, and no code path lets user
+input become a property name. Tested through `buildIcsCalendar` directly and
+through `calendarService` with a hostile buddy display name.
+
+**URL.** The optional `URL` property carries the venue's `googleMapsUri` only
+when `isTrustedMapsUrl` passes — the same STEP 12.6 allowlist that guards the
+"Open in Maps" link. A `javascript:` or look-alike-host URI is dropped.
+
+**Filename.** `buildIcsFilename` slugs everything outside `a-z0-9` to a
+separator, removing path separators, `..`, control characters and quotes in
+one rule rather than an escapable blocklist. The prefix, the extension and
+the MIME type (`text/calendar;charset=utf-8`) are developer literals.
+
+**No HTML description.** `X-ALT-DESC;FMTTYPE=text/html` is deliberately never
+emitted: one escaping context instead of two.
+
+**Privacy.** The UID is an opaque digest, not the activity id — the id is
+`{userA}__{userB}__active`, so a raw UID would carry both participants'
+account ids into a file the user can forward. Providers receive
+`CalendarEventData`, never an `Activity`, so participant ids, the connection
+id and the source plan id are structurally unable to reach a file.
+
+**No shared state.** Nothing about calendar export is written to Firestore —
+no `calendarAdded` flag, no `calendarAddedBy` array. Whether one person
+exported a session is not a fact about the session.
+
 ## 9. XML / XXE
 
 **Not applicable — no XML parsing surface exists.** No `DOMParser`,
@@ -365,6 +408,8 @@ browsers, was itself a vulnerability.
 | **Low** | Venue search | Unbounded query length | Oversized provider request and cache key | 120-character cap | Fixed |
 | **Info** | Dependencies | 13 moderate, all dev-only | None in the shipped bundle | Documented, not force-fixed | Accepted |
 | **Info** | Headers/CSP | No hosting config exists | — | Documented for deployment | Deferred |
+| **Low** | Calendar UID (STEP 13) | Raw activity id as ICS UID carried both participants' account ids into an exportable file | Identifier disclosure to anyone the file is forwarded to | Opaque stable digest | Fixed |
+| **Info** | ICS output (STEP 13) | A new escaping context | Property injection via a venue name or a display name | `escapeIcsText`, developer-only property names, safe filename | Controlled |
 | **Info** | Rate limiting | Client-side only | Abuse and cost | Documented in §20 | Deferred |
 
 ## 19. OWASP-style mapping
@@ -430,7 +475,7 @@ If a server or API is ever added:
 
 ## 22. Tests
 
-**355 unit tests** (was 270) and **95 emulator rules tests** (was 86).
+**419 unit tests** and **97 emulator rules tests** (355 / 95 after STEP 12.6).
 
 New security suites:
 
@@ -442,7 +487,9 @@ New security suites:
 | `src/lib/storage.test.ts` | corrupt JSON, failed guards, `__proto__`/`constructor`/`prototype` stripping, per-entry array recovery |
 | `src/services/profile/profile-schema.test.ts` | enum membership, `NaN`/`Infinity`/negative/inverted budgets, duplicate and oversized arrays, write allowlist dropping `admin`/`role`/`email` |
 | `src/services/venue/venue-service.test.ts` (extended) | untrusted maps URI, path-like place id, oversized name/address |
-| `tests/firestore-rules.test.ts` (extended) | profile and projection key allowlists, field size caps, private fields refused in the public projection |
+| `tests/firestore-rules.test.ts` (extended) | profile and projection key allowlists, field size caps, private fields refused in the public projection; a client-written temporal status refused, and an activity still immutable after creation |
+| `src/lib/ics.test.ts` (STEP 13) | ICS escaping in order, CRLF injection, early `END:VEVENT` termination, folding at 75 octets, safe filename, path traversal |
+| `src/services/calendar/calendar-service.test.ts` (STEP 13) | stable and opaque UID, untrusted maps URL dropped, no ids/email/profile fields in an event, injection through a display name |
 
 Payloads used as **test data only**, never executed:
 `<script>alert(1)</script>`, `"><img src=x onerror=alert(1)>`,
@@ -458,6 +505,6 @@ Payloads used as **test data only**, never executed:
 | `tsc -b --noEmit` | clean |
 | `oxlint src tests` | 4 pre-existing `only-export-components` warnings |
 | `vite build` | succeeds |
-| `vitest run` | 17 files, 355 tests passing |
-| `npm run test:rules` | 95 tests passing against the emulator |
+| `vitest run` | 20 files, 419 tests passing |
+| `npm run test:rules` | 97 tests passing against the emulator |
 | `npm audit --omit=dev` | 0 vulnerabilities |

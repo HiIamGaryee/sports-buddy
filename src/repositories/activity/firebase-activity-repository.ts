@@ -4,15 +4,21 @@ import {
   getDoc,
   getDocs,
   limit as firestoreLimit,
+  orderBy,
   query,
   runTransaction,
   serverTimestamp,
+  startAfter,
+  Timestamp,
   where,
+  type DocumentSnapshot,
   type Firestore,
+  type Query,
 } from 'firebase/firestore'
 
 import {
   ACTIVITIES_COLLECTION,
+  type ActivityQuery,
   type ActivityRepository,
 } from '@/repositories/activity/activity-repository'
 import { toActivityDocument } from '@/repositories/activity/activity-document'
@@ -26,13 +32,59 @@ import {
   ACTIVITY_ERROR_CODES,
   activityError,
 } from '@/services/activity/activity-error'
-import type { Activity, CreateActivityInput } from '@/types/activity'
+import type {
+  Activity,
+  ActivityPage,
+  CreateActivityInput,
+} from '@/types/activity'
 
 const activityRef = (db: Firestore, activityId: string) =>
   doc(db, ACTIVITIES_COLLECTION, activityId)
 
 const planRef = (db: Firestore, planId: string) =>
   doc(db, ACTIVITY_PLANS_COLLECTION, planId)
+
+/**
+ * Both list queries are the same shape: scoped to the caller, bounded by
+ * `endAt`, ordered, limited, and continued from an opaque cursor. Only the
+ * time bound and the ordering differ, so they are passed in.
+ *
+ * The cursor is resolved back to a document snapshot HERE. A Firestore
+ * snapshot never leaves the repository — callers hold an activity ID, exactly
+ * as STEP 9's chat pagination does.
+ */
+async function readPage(
+  { userId, now, limit, cursor }: ActivityQuery,
+  applyBounds: (base: Query, now: Timestamp) => Query,
+): Promise<ActivityPage> {
+  const db = getFirebaseDb()
+  const base = query(
+    collection(db, ACTIVITIES_COLLECTION),
+    where('participants', 'array-contains', userId),
+  )
+
+  let bounded = applyBounds(base, Timestamp.fromDate(now))
+
+  if (cursor) {
+    const anchor: DocumentSnapshot = await getDoc(activityRef(db, cursor))
+    // A cursor pointing at a deleted or unreadable document simply starts the
+    // page from the beginning rather than failing the whole read.
+    if (anchor.exists()) bounded = query(bounded, startAfter(anchor))
+  }
+
+  const snapshot = await getDocs(query(bounded, firestoreLimit(limit)))
+  const activities = snapshot.docs.flatMap((entry) => {
+    const activity = toActivityDocument(entry.id, entry.data())
+    return activity ? [activity] : []
+  })
+
+  // A full page means there may be more; a short page is definitively the end.
+  const last = snapshot.docs.at(-1)
+  return {
+    activities,
+    nextCursor: snapshot.docs.length === limit && last ? last.id : null,
+  }
+}
 
 export const firebaseActivityRepository: ActivityRepository = {
   /**
@@ -79,7 +131,7 @@ export const firebaseActivityRepository: ActivityRepository = {
         endAt: new Date(input.endAt),
         budget: input.budget,
         venue: input.venue,
-        status: 'upcoming',
+        status: 'confirmed',
         createdBy: input.createdBy,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -94,7 +146,7 @@ export const firebaseActivityRepository: ActivityRepository = {
       const now = new Date().toISOString()
       return {
         ...input,
-        status: 'upcoming',
+        status: 'confirmed',
         createdAt: now,
         updatedAt: now,
       } satisfies Activity
@@ -108,19 +160,18 @@ export const firebaseActivityRepository: ActivityRepository = {
       : null
   },
 
-  async getForUser(userId: string, limit: number) {
-    // Scoped to this user. No `orderBy`, so no composite index is needed —
-    // status filtering and start-time ordering happen in the service.
-    const snapshot = await getDocs(
-      query(
-        collection(getFirebaseDb(), ACTIVITIES_COLLECTION),
-        where('participants', 'array-contains', userId),
-        firestoreLimit(limit),
-      ),
+  getUpcomingForUser(request: ActivityQuery) {
+    // `endAt >= now` keeps a session that is currently in progress in the
+    // upcoming list, and ordering by `startAt` puts the soonest first.
+    return readPage(request, (base, now) =>
+      query(base, where('endAt', '>=', now), orderBy('endAt'), orderBy('startAt')),
     )
-    return snapshot.docs.flatMap((entry) => {
-      const activity = toActivityDocument(entry.id, entry.data())
-      return activity ? [activity] : []
-    })
+  },
+
+  getPastForUser(request: ActivityQuery) {
+    // Most recently finished first, so history opens on what just happened.
+    return readPage(request, (base, now) =>
+      query(base, where('endAt', '<', now), orderBy('endAt', 'desc')),
+    )
   },
 }

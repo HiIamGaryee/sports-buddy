@@ -156,3 +156,54 @@ avoids tearing down and recreating the subscription on every navigation.
 - **Tablet landscape** (1024×1366 portrait vs landscape) resolves to the `lg`
   desktop layout at ≥1024px width, which is intended, but has not been seen on
   hardware.
+
+---
+
+## Activities and calendar (STEP 13)
+
+Verified with a headless browser in mock mode at every listed width, dark and
+light, with seeded activity history. **No horizontal overflow and no console
+errors at any width.**
+
+### `/activities` — Upcoming and Past
+
+| Width | Navigation | Card grid | Notes |
+| --- | --- | --- | --- |
+| 390 | bottom bar | 1 column | tabs full-width, safe-area clearance intact |
+| 430 | bottom bar | 1 column | |
+| 768 | rail | 1 column | the rail plus gutters leave < 2 card widths; `grid-cards` decides from space, not a breakpoint |
+| 820 | rail | 2 columns | |
+| 1024 | sidebar | 2 columns | |
+| 1280 | sidebar | 2 columns | |
+| 1440 | sidebar | 3 columns | |
+
+Both tabs share one body component, so loading, error, empty and "Load more"
+states cannot drift apart between them. Column counts come from `grid-cards`
+(`auto-fill`, 20rem floor) rather than per-breakpoint classes, which is why
+768 correctly stays at one column instead of squeezing two.
+
+Past history renders month groups (`SEPTEMBER 2026`, `AUGUST 2026`, …) with
+the same grid inside each group, so grouping costs no separate responsive
+treatment.
+
+### `/activities/:activityId`
+
+| Width | Layout |
+| --- | --- |
+| < 1024 | single column: details, venue, then the calendar card |
+| ≥ 1024 | `grid-aside-end` — details and venue in the main column, the calendar card in the sticky aside |
+
+The calendar card is **absent** for a past activity at every width, so no
+layout has to accommodate a disabled control.
+
+### Calendar interaction
+
+The `Add to Calendar` CTA is a `size="lg"` primary button (44px+ target,
+primary gradient) inside its own card. The result line is `role="status"` on
+success and `role="alert"` on failure, so it is announced rather than only
+seen. The accessible name is "Add to Calendar, downloads a calendar file" —
+the visible text plus the one fact a sighted user gets from the surrounding
+copy.
+
+Temporal status is always TEXT (`Upcoming`, `Past`, `Happening now`) with an
+icon, never colour alone.

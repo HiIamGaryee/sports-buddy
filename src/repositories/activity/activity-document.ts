@@ -1,12 +1,9 @@
 import type { DocumentData } from 'firebase/firestore'
 import { Timestamp } from 'firebase/firestore'
 
+import { normalizeActivityStatus } from '@/lib/activity'
 import { isValidCoordinate } from '@/lib/geo'
-import type {
-  Activity,
-  ActivityBudget,
-  ActivityStatus,
-} from '@/types/activity'
+import type { Activity, ActivityBudget } from '@/types/activity'
 import type { SportId } from '@/types/sports-profile'
 import type { VenueSelection } from '@/types/venue'
 
@@ -22,12 +19,6 @@ const asString = (value: unknown, fallback = '') =>
 
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((entry) => typeof entry === 'string') : []
-
-const ACTIVITY_STATUSES: readonly ActivityStatus[] = [
-  'upcoming',
-  'completed',
-  'cancelled',
-]
 
 function readVenue(value: unknown): VenueSelection | null {
   if (!value || typeof value !== 'object') return null
@@ -100,8 +91,10 @@ export function toActivityDocument(
     endAt,
     budget,
     venue,
-    status:
-      ACTIVITY_STATUSES.find((status) => status === data.status) ?? 'upcoming',
+    // STEP 12 wrote `status: 'upcoming'`, which mixed business state with
+    // time. Normalized on read, so existing documents keep working and
+    // nobody has to migrate or delete data.
+    status: normalizeActivityStatus(data.status),
     createdBy: asString(data.createdBy),
     createdAt,
     updatedAt: toIsoOrNull(data.updatedAt) ?? createdAt,

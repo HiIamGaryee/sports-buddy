@@ -1,7 +1,13 @@
-import { buildActivityFromPlan, canConfirmActivity, compareByStart } from '@/lib/activity'
+import {
+  buildActivityFromPlan,
+  canConfirmActivity,
+  getActivityTemporalState,
+  getNextActivity,
+  isActivityHappeningNow,
+} from '@/lib/activity'
 import { getOtherParticipantId } from '@/lib/connection'
 import { isValidDocumentId } from '@/lib/ids'
-import { ACTIVITY_BATCH_LIMIT } from '@/repositories/activity/activity-repository'
+import { ACTIVITY_PAGE_SIZE } from '@/constants/activities'
 import { activityRepository } from '@/repositories/repositories'
 import {
   ACTIVITY_ERROR_CODES,
@@ -9,8 +15,37 @@ import {
   activityError,
   toActivityError,
 } from '@/services/activity/activity-error'
-import type { Activity } from '@/types/activity'
+import type { Activity, ActivityPage } from '@/types/activity'
 import type { ActivityPlan } from '@/types/planning'
+
+/**
+ * Both lists are the same call with a different time bound, so the guard
+ * clauses and the error mapping live once. An invalid user id returns an
+ * empty page rather than reaching a query.
+ */
+async function readPage(
+  kind: 'upcoming' | 'past',
+  userId: string,
+  now: Date,
+  cursor?: string | null,
+): Promise<ActivityPage> {
+  if (!isValidDocumentId(userId)) return { activities: [], nextCursor: null }
+
+  const request = {
+    userId,
+    now,
+    limit: ACTIVITY_PAGE_SIZE,
+    cursor: cursor && isValidDocumentId(cursor) ? cursor : null,
+  }
+
+  try {
+    return kind === 'upcoming'
+      ? await activityRepository.getUpcomingForUser(request)
+      : await activityRepository.getPastForUser(request)
+  } catch (error) {
+    throw toActivityError(error, ACTIVITY_FALLBACK_MESSAGES.load)
+  }
+}
 
 /**
  * The domain rules for a confirmed activity. No React state, no Firebase.
@@ -54,22 +89,34 @@ export const activityService = {
   },
 
   /**
-   * The signed-in user's upcoming activities, soonest first. Filtering and
-   * ordering happen here rather than in the query, which keeps the read
-   * index-free (see docs/activities.md §11).
+   * The signed-in user's sessions that have not finished, soonest first.
+   *
+   * `now` is INJECTED, and the bound is applied in the QUERY rather than by
+   * loading everything and filtering. That is what stops Home showing
+   * yesterday's session, and it is why time passing never needs a write.
    */
-  async getUpcoming(userId: string): Promise<Activity[]> {
-    try {
-      const activities = await activityRepository.getForUser(
-        userId,
-        ACTIVITY_BATCH_LIMIT,
-      )
-      return activities
-        .filter((activity) => activity.status === 'upcoming')
-        .sort(compareByStart)
-    } catch (error) {
-      throw toActivityError(error, ACTIVITY_FALLBACK_MESSAGES.load)
-    }
+  getUpcoming(userId: string, now: Date, cursor?: string | null) {
+    return readPage('upcoming', userId, now, cursor)
+  },
+
+  /**
+   * Finished sessions, most recent first.
+   *
+   * PAST MEANS THE END TIME HAS PASSED — nothing more. It does not mean the
+   * session happened, that anyone attended, or that it was completed. No code
+   * here may treat it as evidence of any of those.
+   */
+  getPast(userId: string, now: Date, cursor?: string | null) {
+    return readPage('past', userId, now, cursor)
+  },
+
+  /**
+   * The one session Home leads with: the soonest that has not ended. `null`
+   * when there is nothing coming up.
+   */
+  async getNext(userId: string, now: Date): Promise<Activity | null> {
+    const { activities } = await readPage('upcoming', userId, now, null)
+    return getNextActivity(activities, now)
   },
 
   /**
@@ -97,4 +144,8 @@ export const activityService = {
   /** The other person, using the STEP 8 helper rather than a second one. */
   getBuddyId: (activity: Activity, currentUserId: string) =>
     getOtherParticipantId(activity, currentUserId),
+
+  /** Re-exported so a page never imports the temporal rule from two places. */
+  getTemporalState: getActivityTemporalState,
+  isHappeningNow: isActivityHappeningNow,
 }

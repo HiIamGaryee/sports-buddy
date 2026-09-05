@@ -176,9 +176,13 @@ cannot pass on fixtures alone.
 activities where participants array-contains <uid>  limit 50
 ```
 
-Status filtering and start-time ordering happen in the **service**, not the
-query, which keeps this index-free (`firestore.indexes.json` stays empty) —
-the same choice STEP 9 made for conversations.
+> **Superseded by STEP 13.** This section describes the original STEP 12
+> read. `getForUser` no longer exists: upcoming and past are separate
+> time-bounded queries backed by two composite indexes. See
+> "Upcoming and Past (STEP 13)" at the end of this document.
+
+Status filtering and start-time ordering originally happened in the
+**service**, not the query, which kept the read index-free.
 
 The trade: it fetches a user's activities and filters client-side. At MVP
 volume (a handful per user) that is cheaper than maintaining a composite
@@ -298,3 +302,96 @@ participants — as stable values.
 **Calendar integration should never need to read `ActivityPlan`.** The
 activity is the source of truth for a confirmed event, which is exactly why
 the snapshot is taken.
+
+---
+
+## Upcoming and Past (STEP 13)
+
+### Past is not Completed
+
+An activity appears under **Past** because its `endAt` has passed. That is
+all it means. It does **not** mean the session happened, that either person
+turned up, that nobody cancelled, or that anything should count towards a
+reliability score. Attendance, completion and cancellation do not exist.
+
+The UI never says "Completed" — the pill reads **Past**, in a neutral tone,
+and there is no rating, no "did they show up", and no "mark completed".
+
+### Temporal state is derived, never stored
+
+```
+Activity.status        = 'confirmed'        PERSISTED business state
+ActivityTemporalState  = upcoming | past    DERIVED from endAt + now
+```
+
+`getActivityTemporalState(activity, now)` is the one rule, and `now` is
+always **injected** — no domain function reads the clock, which is what makes
+the boundary testable and keeps a single definition.
+
+| Condition | State |
+| --- | --- |
+| `now < endAt` | `upcoming` |
+| `now >= endAt` | `past` |
+
+A session in progress is still `upcoming`: you are still going to it. The
+boundary is `endAt`, never `startAt`. `startAt <= now < endAt` additionally
+renders **Happening now**, which is presentation only and never persisted.
+
+Because the classification is derived, **no background job, Cloud Function or
+scheduled migration exists**. Time passing requires no write, and the
+Firestore rules refuse any client-written temporal status.
+
+### Legacy STEP 12 documents
+
+STEP 12 wrote `status: 'upcoming'`, mixing business state with time.
+`normalizeActivityStatus()` maps every legacy value to `confirmed` at READ
+time in `activity-document.ts` and in the mock repository, so existing
+documents keep working and nothing has to be migrated or deleted.
+
+### Queries
+
+Both are scoped to the caller and bounded by time in the query itself — never
+"load everything and filter".
+
+| List | Where | Order | Index |
+| --- | --- | --- | --- |
+| Upcoming | `participants array-contains uid` + `endAt >= now` | `endAt`, then `startAt` ascending | `participants` + `endAt ASC` + `startAt ASC` |
+| Past | `participants array-contains uid` + `endAt < now` | `endAt` descending | `participants` + `endAt DESC` |
+
+Both composite indexes are declared in `firestore.indexes.json`. They are the
+first indexes the project has needed; every earlier query was deliberately
+index-free.
+
+### Pagination
+
+`ACTIVITY_PAGE_SIZE` (20) in `src/constants/activities.ts`, and one explicit
+**Load more** button. No infinite scroll.
+
+The cursor is an **activity id**, never a Firestore snapshot — the same rule
+STEP 9 chat pagination follows. The repository resolves it back to a document
+internally, so the SDK's cursor type never leaves that layer. A cursor
+pointing at a document that no longer exists restarts the page rather than
+failing the read, and pages merge by id so a shifted boundary cannot
+duplicate a row.
+
+Activities are immutable, so both lists are **one-time reads with explicit
+refresh**. No realtime listener is attached to activity history.
+
+### Home's next activity
+
+Home renders the head of the upcoming list. Because that list is bounded by
+`endAt >= now` in the query and sorted soonest-first, it **cannot** surface
+yesterday's session — which is exactly what a stored `status: 'upcoming'`
+would have allowed. `getNextActivity()` applies the same rule as a pure
+function, and is unit-tested against that regression.
+
+### Calendar action
+
+The detail page offers **Add to Calendar** only while
+`calendarService.canAddToCalendar(activity, now)` is true — that is, until
+the session ends. Past activities **hide** the action rather than disabling
+it: a dead control is worse than none, and there is nothing useful about
+putting a finished event in a calendar. Every other detail stays visible, so
+the historical record is complete.
+
+Full walkthrough: `docs/calendar.md`.

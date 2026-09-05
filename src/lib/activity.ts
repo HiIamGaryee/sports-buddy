@@ -1,7 +1,11 @@
 import { isValidCoordinate } from '@/lib/geo'
 import { isProposalAgreed, isVenueAgreed, isPlanReady } from '@/lib/planning'
 import type { ActivityPlan, PlannedTime } from '@/types/planning'
-import type { CreateActivityInput } from '@/types/activity'
+import type {
+  ActivityStatus,
+  ActivityTemporalState,
+  CreateActivityInput,
+} from '@/types/activity'
 
 /**
  * Pure activity rules. No Firebase, no React — turning an agreed plan into a
@@ -148,10 +152,137 @@ export function buildActivityFromPlan(
   }
 }
 
-/** Soonest first — never creation order. */
+/* ------------------------------------------------------------------ ORDER */
+
+/** Soonest first — never creation order. Upcoming reads this way. */
 export const compareByStart = (
   a: { startAt: string },
   b: { startAt: string },
 ) => a.startAt.localeCompare(b.startAt)
+
+/** Most recently finished first. History reads this way. */
+export const compareByEndDescending = (
+  a: { endAt: string },
+  b: { endAt: string },
+) => b.endAt.localeCompare(a.endAt)
+
+/* --------------------------------------------------------------- TEMPORAL */
+
+/**
+ * WHERE a confirmed activity sits on the timeline.
+ *
+ * `now` is INJECTED rather than read from the clock, which is what makes
+ * every caller testable and keeps the rule in one place instead of a
+ * `new Date()` scattered through the UI.
+ *
+ * The boundary is `endAt`, not `startAt`: a session in progress is still
+ * something you are going to, so it stays `upcoming` until it ends. `now`
+ * exactly equal to `endAt` is `past` — the session is over at its end time.
+ *
+ * `past` means the end time has passed and NOTHING else. It does not mean
+ * anyone attended, that the session happened, or that it was completed.
+ */
+export function getActivityTemporalState(
+  activity: { endAt: string },
+  now: Date,
+): ActivityTemporalState {
+  const end = Date.parse(activity.endAt)
+  // A corrupted timestamp is treated as upcoming rather than silently
+  // vanishing into history where nobody would look for it.
+  if (Number.isNaN(end)) return 'upcoming'
+  return now.getTime() >= end ? 'past' : 'upcoming'
+}
+
+export const isActivityPast = (activity: { endAt: string }, now: Date) =>
+  getActivityTemporalState(activity, now) === 'past'
+
+/**
+ * Started but not finished. A display refinement only — it is never persisted
+ * and never changes which tab an activity belongs to.
+ */
+export function isActivityHappeningNow(
+  activity: { startAt: string; endAt: string },
+  now: Date,
+): boolean {
+  const start = Date.parse(activity.startAt)
+  const end = Date.parse(activity.endAt)
+  if (Number.isNaN(start) || Number.isNaN(end)) return false
+  const time = now.getTime()
+  return time >= start && time < end
+}
+
+/**
+ * The soonest activity that has not finished. This is what Home shows, and
+ * why it cannot surface yesterday's session: the filter is the clock, not a
+ * stored status.
+ */
+export function getNextActivity<T extends { startAt: string; endAt: string }>(
+  activities: readonly T[],
+  now: Date,
+): T | null {
+  return (
+    [...activities]
+      .filter((activity) => !isActivityPast(activity, now))
+      .sort(compareByStart)[0] ?? null
+  )
+}
+
+/* ----------------------------------------------------------------- LEGACY */
+
+/**
+ * STEP 12 persisted `status: 'upcoming'`, mixing business state with time.
+ * STEP 13 separates them: the document records only that the session is
+ * `confirmed`, and upcoming/past is derived from `endAt`.
+ *
+ * Existing documents are normalized on READ so nobody has to migrate or
+ * delete data. `cancelled` and `completed` were never produced by any code
+ * path, so they normalize too rather than inventing a state the app cannot
+ * render.
+ */
+/* eslint-disable-next-line @typescript-eslint/no-unused-vars -- see below */
+export const normalizeActivityStatus = (
+  // Deliberately ignored: every value a document can hold today means the
+  // same thing. The parameter stays so the ONE place that would need to
+  // distinguish a future `cancelled` already exists and is already called.
+  _status: unknown,
+): ActivityStatus => 'confirmed'
+
+/* ---------------------------------------------------------------- HISTORY */
+
+const monthLabelFormat = new Intl.DateTimeFormat(undefined, {
+  month: 'long',
+  year: 'numeric',
+})
+
+/**
+ * History grouped by the month a session took place, newest month first and
+ * newest activity first inside each month.
+ *
+ * Pure, and separate from JSX so the page renders groups rather than building
+ * them. The key is `YYYY-MM` so groups order without parsing their label.
+ */
+export function groupActivitiesByMonth<T extends { endAt: string }>(
+  activities: readonly T[],
+): { key: string; label: string; activities: T[] }[] {
+  const groups = new Map<string, { label: string; activities: T[] }>()
+
+  for (const activity of [...activities].sort(compareByEndDescending)) {
+    const date = new Date(activity.endAt)
+    if (Number.isNaN(date.getTime())) continue
+
+    // Local month, matching the date the reader sees on the card.
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    const group = groups.get(key)
+    if (group) {
+      group.activities.push(activity)
+    } else {
+      groups.set(key, { label: monthLabelFormat.format(date), activities: [activity] })
+    }
+  }
+
+  return [...groups.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([key, group]) => ({ key, ...group }))
+}
 
 export { isProposalAgreed }

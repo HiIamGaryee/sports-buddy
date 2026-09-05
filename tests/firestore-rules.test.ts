@@ -92,7 +92,9 @@ beforeAll(async () => {
     firestore: {
       rules: readFileSync('firestore.rules', 'utf8'),
       host: '127.0.0.1',
-      port: 8080,
+      // Overridable so the suite can still run when something else already
+      // holds 8080 on the machine.
+      port: Number(process.env.FIRESTORE_EMULATOR_PORT ?? 8080),
     },
   })
 })
@@ -1193,7 +1195,7 @@ describe('confirmed activities', () => {
     endAt: END,
     budget: { ...BUDGET, currency: 'MYR', unit: 'per-person' },
     venue: VENUE,
-    status: 'upcoming',
+    status: 'confirmed',
     createdBy: GARY,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -1231,6 +1233,35 @@ describe('confirmed activities', () => {
     await seedVenueAgreedPlan()
     await assertSucceeds(
       setDoc(doc(asUser(GARY), activityPath()), newActivity()),
+    )
+  })
+
+  /**
+   * STEP 13. Upcoming/past is DERIVED from `endAt` at read time. Nothing may
+   * write a temporal state, which is what makes a background migration job
+   * unnecessary — and what stops a client backdating its own history.
+   */
+  it('refuses a client-written temporal status', async () => {
+    await seedVenueAgreedPlan()
+
+    for (const status of ['upcoming', 'past', 'completed', 'cancelled']) {
+      await assertFails(
+        setDoc(doc(asUser(GARY), activityPath()), newActivity({ status })),
+      )
+    }
+  })
+
+  it('cannot be updated to a fake past state after creation', async () => {
+    await seedActivity()
+
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), { status: 'past' }),
+    )
+    // Nor by moving the timestamps the classification reads.
+    await assertFails(
+      updateDoc(doc(asUser(AINA), activityPath()), {
+        endAt: new Date('2020-01-01T00:00:00Z'),
+      }),
     )
   })
 

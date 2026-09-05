@@ -2,6 +2,10 @@ import { Link, useParams } from 'react-router-dom'
 import { CalendarDays, Clock, Users, Wallet } from 'lucide-react'
 
 import { DetailTile } from '@/components/common/detail-tile'
+import { AddToCalendar } from '@/features/activities/components/add-to-calendar'
+import { useCoarseNow } from '@/features/activities/use-activities'
+import { activityService } from '@/services/activity/activity-service'
+import { calendarService } from '@/services/calendar/calendar-service'
 import { SafeExternalLink } from '@/components/common/external-link'
 import { validDocumentId } from '@/lib/ids'
 import { isTrustedMapsUrl } from '@/lib/safe-url'
@@ -24,6 +28,7 @@ import { ROUTES } from '@/routes/routes'
 import { isMapsConfigured } from '@/services/google/maps-loader'
 
 export function ActivityDetailPage() {
+  const now = useCoarseNow()
   const { activityId: rawActivityId } = useParams<{ activityId: string }>()
   // A route param is untrusted input on its way to `doc(db, COLLECTION, id)`.
   // An invalid id becomes `undefined`, which the hook already treats as
@@ -63,6 +68,9 @@ export function ActivityDetailPage() {
     )
   }
 
+  const state = activityService.getTemporalState(activity, now)
+  const happeningNow = activityService.isHappeningNow(activity, now)
+
   // The stored URI was written by whichever participant proposed the venue,
   // so it is only used when it is a real Google Maps link.
   const mapsUrl =
@@ -93,7 +101,10 @@ export function ActivityDetailPage() {
                 <h2 className="text-heading-2 text-card-foreground">
                   {getSportName(activity.sportId)}
                 </h2>
-                <ActivityStatusBadge status={activity.status} />
+                <ActivityStatusBadge
+                  state={state}
+                  happeningNow={happeningNow}
+                />
               </div>
 
               <dl className="flex flex-col gap-2.5">
@@ -173,6 +184,27 @@ export function ActivityDetailPage() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Hidden rather than disabled once the session has ended: there is
+              nothing useful about putting a finished event in a calendar, and
+              a dead control is worse than no control. Past activities keep
+              every other detail — the record stays complete. */}
+          {calendarService.canAddToCalendar(activity, now) && (
+            <Card variant="elevated" className="lg:col-start-2 lg:row-start-1">
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-caption text-muted-foreground uppercase">
+                    Calendar
+                  </h2>
+                  <p className="text-body-small text-muted-foreground">
+                    Save this session to your own calendar. Sports Buddy
+                    doesn't stay in sync with it afterwards.
+                  </p>
+                </div>
+                <AddToCalendar activity={activity} buddyName={buddyName} />
+              </CardContent>
+            </Card>
+          )}
         </div>
       </PageContainer>
     </>

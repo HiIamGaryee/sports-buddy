@@ -521,7 +521,10 @@ service cloud.firestore {
         && incoming().startAt is timestamp
         && incoming().endAt is timestamp
         && incoming().endAt > incoming().startAt
-        && incoming().status == 'upcoming'
+        // The document records BUSINESS state only. Upcoming/past is derived
+        // from `endAt` at read time, so no client ever writes a temporal
+        // state and time passing never requires a write.
+        && incoming().status == 'confirmed'
         && incoming().createdBy == request.auth.uid
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;

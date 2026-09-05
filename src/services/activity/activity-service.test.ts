@@ -17,6 +17,20 @@ const PAIR = sortConnectionPair(GARY, AINA)
 const CONNECTION_ID = createConnectionId(GARY, AINA)
 const PLAN_ID = `${CONNECTION_ID}__active`
 
+/**
+ * A fixed clock. Every query bound is injected, so these tests never depend
+ * on when they run — and the mock repository seeds relative history, which
+ * would otherwise drift into whichever tab today happens to put it in.
+ */
+const NOW = new Date('2029-06-01T00:00:00.000Z')
+
+/** The seeded mock fixtures belong to other buddies; these tests own PLAN_ID. */
+const idsFor = async (
+  read: (userId: string, now: Date) => Promise<{ activities: { id: string }[] }>,
+  userId: string,
+  now: Date = NOW,
+) => (await read(userId, now)).activities.map((entry) => entry.id)
+
 const storage = new Map<string, string>()
 
 beforeAll(() => {
@@ -125,7 +139,11 @@ describe('confirming', () => {
     await expect(activityService.confirm(plan, GARY)).rejects.toThrow(
       /agree the sport, time, budget and venue/i,
     )
-    expect(await activityService.getUpcoming(GARY)).toEqual([])
+    // Asserting absence of THIS plan's activity, not an empty list: the mock
+    // repository seeds development history for every account.
+    expect(await idsFor(activityService.getUpcoming, GARY)).not.toContain(
+      PLAN_ID,
+    )
   })
 
   it('refuses somebody outside the plan', async () => {
@@ -133,7 +151,9 @@ describe('confirming', () => {
     await expect(activityService.confirm(plan, STRANGER)).rejects.toThrow(
       /part of/i,
     )
-    expect(await activityService.getUpcoming(STRANGER)).toEqual([])
+    expect(await idsFor(activityService.getUpcoming, STRANGER)).not.toContain(
+      PLAN_ID,
+    )
   })
 
   it('refuses when there is no plan', async () => {
@@ -150,7 +170,7 @@ describe('confirming', () => {
     expect(activity.sourcePlanId).toBe(PLAN_ID)
     expect(activity.connectionId).toBe(CONNECTION_ID)
     expect(activity.participants).toEqual(PAIR)
-    expect(activity.status).toBe('upcoming')
+    expect(activity.status).toBe('confirmed')
     expect(activity.createdBy).toBe(GARY)
   })
 
@@ -186,7 +206,11 @@ describe('confirming', () => {
     const second = await activityService.confirm(plan, GARY)
 
     expect(second).toEqual(first)
-    expect(await activityService.getUpcoming(GARY)).toHaveLength(1)
+    expect(
+      (await idsFor(activityService.getUpcoming, GARY)).filter(
+        (id) => id === PLAN_ID,
+      ),
+    ).toHaveLength(1)
   })
 
   it('creates ONE activity when both people confirm at once', async () => {
@@ -198,8 +222,13 @@ describe('confirming', () => {
     ])
 
     expect(fromGary.id).toBe(fromAina.id)
-    expect(await activityService.getUpcoming(GARY)).toHaveLength(1)
-    expect(await activityService.getUpcoming(AINA)).toHaveLength(1)
+    for (const user of [GARY, AINA]) {
+      expect(
+        (await idsFor(activityService.getUpcoming, user)).filter(
+          (id) => id === PLAN_ID,
+        ),
+      ).toHaveLength(1)
+    }
   })
 
   it('stores no profile data on the activity', async () => {
@@ -240,9 +269,9 @@ describe('reading activities', () => {
     await activityService.confirm(plan, GARY)
 
     // A fresh read is exactly what a refresh does.
-    const upcoming = await activityService.getUpcoming(GARY)
-    expect(upcoming).toHaveLength(1)
-    expect(upcoming[0].venue.name).toBe(VENUE.name)
+    const { activities } = await activityService.getUpcoming(GARY, NOW)
+    const reloaded = activities.find((entry) => entry.id === PLAN_ID)
+    expect(reloaded?.venue.name).toBe(VENUE.name)
   })
 
   it('orders upcoming activities soonest first', async () => {
@@ -251,7 +280,9 @@ describe('reading activities', () => {
 
     // A second, earlier activity written straight into the mock store.
     const key = 'sports-buddy.mock-activities'
-    const store = JSON.parse(storage.get(key) ?? '{"activities":[]}')
+    const store = JSON.parse(
+      storage.get(key) ?? '{"seededUserIds":[],"activities":[]}',
+    )
     store.activities.push({
       ...activity,
       id: 'earlier__active',
@@ -261,11 +292,8 @@ describe('reading activities', () => {
     })
     storage.set(key, JSON.stringify(store))
 
-    const upcoming = await activityService.getUpcoming(GARY)
-    expect(upcoming.map((entry) => entry.id)).toEqual([
-      'earlier__active',
-      PLAN_ID,
-    ])
+    const ids = await idsFor(activityService.getUpcoming, GARY)
+    expect(ids.indexOf('earlier__active')).toBeLessThan(ids.indexOf(PLAN_ID))
   })
 
   it('resolves the other participant with the shared helper', async () => {
