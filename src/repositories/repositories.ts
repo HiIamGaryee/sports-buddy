@@ -1,6 +1,8 @@
 import { env } from '@/config/env'
 import { firebaseAuthRepository } from '@/repositories/auth/firebase-auth-repository'
 import { mockAuthRepository } from '@/repositories/auth/mock-auth-repository'
+import { firebaseActivityPlanRepository } from '@/repositories/activity-plan/firebase-activity-plan-repository'
+import { mockActivityPlanRepository } from '@/repositories/activity-plan/mock-activity-plan-repository'
 import { firebaseChatRepository } from '@/repositories/chat/firebase-chat-repository'
 import { mockChatRepository } from '@/repositories/chat/mock-chat-repository'
 import { firebaseConnectionRepository } from '@/repositories/connection/firebase-connection-repository'
@@ -43,3 +45,8 @@ export const connectionRepository = useFirebase
 export const chatRepository = useFirebase
   ? firebaseChatRepository
   : mockChatRepository
+
+/** `activityPlans/{connectionId}__active` — the shared session plan. */
+export const activityPlanRepository = useFirebase
+  ? firebaseActivityPlanRepository
+  : mockActivityPlanRepository

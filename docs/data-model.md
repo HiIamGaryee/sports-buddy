@@ -2,7 +2,7 @@
 
 One document per user. Nothing else is persisted yet.
 
-Four collections exist, with four different audiences:
+Five collections exist, with five different audiences:
 
 | Shape | Where | Who may see it |
 | --- | --- | --- |
@@ -10,6 +10,7 @@ Four collections exist, with four different audiences:
 | `DiscoveryProfile` (`publicProfiles/{uid}`) | Firestore / mock store | any signed-in member |
 | `Connection` (`connections/{pairId}`) | Firestore / mock store | **the two participants only** |
 | `Conversation` + `messages` (`conversations/{connectionId}`) | Firestore / mock store | **the two participants, and only while connected** |
+| `ActivityPlan` (`activityPlans/{connectionId}__active`) | Firestore / mock store | **the two participants, and only while connected** |
 
 ## `users/{uid}` — PRIVATE profile
 
@@ -296,6 +297,93 @@ atomic batch, so the list can never disagree with the history.
   field.
 
 Full walkthrough: `docs/chat.md`.
+
+## `activityPlans/{planId}` — the shared session plan
+
+One **active** plan per connection, at the deterministic id
+`{connectionId}__active`, so authorization is a single lookup at
+`connections/{connectionId}` and two people tapping "Plan a session" at once
+share one draft. The id is derived from the connection but is not equal to it,
+leaving room for archived plans at other ids once a history step exists.
+
+A plan is only valid while its connection is `connected`: the rules read the
+connection document on **every** access. Types live in `src/types/planning.ts`.
+
+```jsonc
+{
+  "id": "aina__gary__active",
+  "connectionId": "aina__gary",
+  "participants": ["aina", "gary"],
+  "status": "draft",
+  "sportProposal": {
+    "value": "badminton",
+    "proposedBy": "gary",
+    "acceptedBy": ["gary", "aina"],
+    "version": 1,
+    "updatedAt": "<serverTimestamp>"
+  },
+  "timeProposal": {
+    "value": {
+      "date": "2026-09-12",
+      "startTime": "17:00",
+      "endTime": "19:00",
+      "timeZone": "Asia/Kuala_Lumpur"
+    },
+    "proposedBy": "aina",
+    "acceptedBy": ["aina"],
+    "version": 2,
+    "updatedAt": "<serverTimestamp>"
+  },
+  "budgetProposal": {
+    "value": { "min": 20, "max": 40 },
+    "proposedBy": "gary",
+    "acceptedBy": ["gary"],
+    "version": 1,
+    "updatedAt": "<serverTimestamp>"
+  },
+  "createdBy": "gary",
+  "createdAt": "<serverTimestamp>",
+  "updatedAt": "<serverTimestamp>"
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | equals the document id; frozen after create |
+| `connectionId` | `string` | the STEP 8 pair id; frozen after create |
+| `participants` | `[string, string]` | must equal the connection's; can never change |
+| `status` | `'draft' \| 'ready'` | `ready` **only** when all three proposals are agreed by both; the rules recompute it rather than trusting the client |
+| `sportProposal` | `Proposal<SportId>` | only a sport both people list |
+| `timeProposal` | `Proposal<PlannedTime>` | a real future date + local times + IANA zone |
+| `budgetProposal` | `Proposal<BudgetPreference>` | per person, for this session |
+| `createdBy` | `string` | frozen after create |
+| `createdAt` / `updatedAt` | server timestamp | `updatedAt` is `request.time` on every write |
+
+### `Proposal<T>`
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `value` | `T \| null` | `null` while `version` is 0 |
+| `proposedBy` | `string` | who suggested it |
+| `acceptedBy` | `string[]` | a user may only ever add or remove **their own** id |
+| `version` | `number` | `0` = untouched; a new proposal bumps it and resets `acceptedBy` to the proposer |
+| `updatedAt` | server timestamp \| `null` | informational |
+
+`version` is what makes a stale acceptance impossible: an accept names the
+version it saw, and the transaction refuses if it has moved on.
+
+### Never stored in a plan
+
+- **No profile data** — no display name, email, photo url, sports, area or
+  bio. Those live in `publicProfiles/{uid}`.
+- **No compatibility score or matching reasons** (derived per viewer).
+- **No venue.** Not `venue: null` — the field does not exist until STEP 11
+  designs it. The UI renders the venue row as "Not decided yet".
+- **No chat messages.** Plan state is structured data; a conversation stays
+  text. Nothing writes "Gary selected badminton" into the message history.
+
+The rules enforce an exact key allowlist, so none of the above can be
+smuggled in. Full walkthrough: `docs/planning.md`.
 
 ## `CompatibilityResult` — DERIVED, never persisted
 

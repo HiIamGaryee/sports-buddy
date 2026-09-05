@@ -24,7 +24,8 @@ Only presentation adapts. No page was duplicated per breakpoint.
 ## Test matrix
 
 Layouts were reasoned through at 390, 430, 768, 820, 1024, 1280 and 1440px
-against the compiled breakpoint ranges. Dark is the primary theme; every
+against the compiled breakpoint ranges. STEP 10's planner route was added to
+the same matrix. Dark is the primary theme; every
 change uses semantic tokens, so light follows automatically (no
 breakpoint-specific colour exists anywhere).
 
@@ -41,6 +42,7 @@ breakpoint-specific colour exists anywhere).
 | `/activities` | tabs + empty state | wider | wider, tabs at natural width | full-width phone tab bar stretched across the page | `size="wide"`; `TabsList` `w-full sm:w-auto` | PASS |
 | `/messages` | conversation list | list ∣ "select a buddy" detail | same, wider detail | behaved like a phone at every width | `MessagesLayout` master–detail; `ConversationEmptyPage` for the detail pane | PASS |
 | `/messages/:conversationId` | full-screen chat, no bottom nav | list ∣ conversation | list ∣ conversation, wider | chat locked to phone width on a MacBook; route lived outside `AppShell`, so desktop had no navigation | route moved inside `AppShell` under `MessagesLayout`; `ChatLayout` fills the pane (`md:h-full`), back button `md:hidden`, messages in a centred `max-w-default` column; bubbles capped `md:max-w-[70%] lg:max-w-md` | PASS |
+| `/messages/:conversationId/plan` | focused step flow: progress, one step, summary at the end | wider step content, 2-column time and budget steps | planner ∣ sticky live summary (`grid-aside-end`) | new in STEP 10 | `size="wide"`; `lg:grid-aside-end` with a sticky `PlanSummary`; sport grid 1/2/3; time and budget steps split into suggestions ∣ editor at `lg`; sits beside the app sidebar rather than inside the chat pane | PASS |
 | `/profile` | stacked sections | 2-column detail sections | hero/actions ∣ 2-column details, sticky left | full-width cards in one long column | `size="wide"`; `lg:grid-aside-start` with a sticky left column; details `md:grid-cols-2`; Discovery spans both | PASS |
 | `/profile/edit` | single column, sticky save bar | readable column, actions in header | same | phone-width form; sticky bottom bar under a tall desktop window | `EditLayout` `max-w-default`, actions move to the header from `md`; playing style + budget pair at `md` | PASS |
 | `/settings` | grouped list | grouped list, wider | section nav ∣ content | one very long vertical mobile list on desktop | `size="wide"`; `lg:grid-nav-start` with a sticky anchor nav; sections carry ids; Sign Out stops being full width from `sm` | PASS |
@@ -65,6 +67,13 @@ breakpoint-specific colour exists anywhere).
 | `ConversationListItem` | no selected state (needed for master–detail); no hover | `isSelected` + `aria-current`, `md:rounded-xl`, hover tint | PASS |
 | `MessageBubble` | `max-w-[80%]` stretched across a desktop pane | capped at `md:max-w-[70%] lg:max-w-md` | PASS |
 | `MessageComposer` | none — 16px base size and safe area already correct | none | PASS |
+| `ChatLayout` (STEP 10) | no room for a planning entry point | `action` slot in the header, `banner` slot above the composer; header title flexes so the action never squashes it | PASS |
+| `PlanProgress` | new | three equal-width steps, tick + label (never colour alone), tappable to revisit a step | PASS |
+| `PlanSummary` | new | stacked rows; becomes a sticky side panel at `lg` | PASS |
+| `SportStep` | new | 1 / 2 / 3 column grid reusing `SelectableCard` | PASS |
+| `TimeStep` | new | stacked on a phone; suggestions ∣ exact date/time editor from `lg` | PASS |
+| `BudgetStep` | new | stacked on a phone; shared-budget context ∣ preset grid from `lg` | PASS |
+| `PlanChatCard` | new | single compact row at every width, truncating the decisions line | PASS |
 | `MessagesListPane` | was a whole page | pane-aware: scrolls internally, card frame dropped from `md` | PASS |
 | `DiscoverFilterSheet` | was the only filter presentation | fields extracted; sheet is now `< lg` only | PASS |
 | `DiscoverFilterFields` | did not exist | new — the single filter implementation | PASS |

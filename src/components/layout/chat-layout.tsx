@@ -24,6 +24,8 @@ export function ChatLayout({
   title,
   subtitle,
   photoUrl,
+  action,
+  banner,
   scrollRef,
   footer,
   children,
@@ -31,6 +33,10 @@ export function ChatLayout({
   title: string
   subtitle?: string
   photoUrl?: string | null
+  /** Header-right slot — the planning entry point lives here. */
+  action?: React.ReactNode
+  /** Pinned above the composer, so it stays visible as messages scroll. */
+  banner?: React.ReactNode
   scrollRef?: React.Ref<HTMLDivElement>
   footer?: React.ReactNode
   children: React.ReactNode
@@ -55,7 +61,7 @@ export function ChatLayout({
             {getInitials(title)}
           </AvatarFallback>
         </Avatar>
-        <div className="flex min-w-0 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <h1 className="truncate text-title text-foreground md:text-heading-3">
             {title}
           </h1>
@@ -65,6 +71,7 @@ export function ChatLayout({
             </p>
           )}
         </div>
+        {action && <div className="shrink-0">{action}</div>}
       </header>
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-gutter">
@@ -74,9 +81,12 @@ export function ChatLayout({
         </div>
       </div>
 
-      {footer && (
+      {(banner ?? footer) && (
         <footer className="shrink-0 border-t border-border bg-background px-gutter pt-3 pb-safe-bottom md:pb-4">
-          <div className="mx-auto w-full max-w-default">{footer}</div>
+          <div className="mx-auto flex w-full max-w-default flex-col gap-3">
+            {banner}
+            {footer}
+          </div>
           <span className="block h-3 md:hidden" />
         </footer>
       )}

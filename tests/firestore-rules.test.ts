@@ -612,6 +612,321 @@ describe('messages', () => {
   })
 })
 
+describe('activity plans', () => {
+  const PLAN_ID = `${PAIR}__active`
+  const planPath = (id = PLAN_ID) => `activityPlans/${id}`
+
+  const emptyProposal = () => ({
+    value: null,
+    proposedBy: '',
+    acceptedBy: [],
+    version: 0,
+    updatedAt: null,
+  })
+
+  const newPlan = (overrides: Record<string, unknown> = {}) => ({
+    id: PLAN_ID,
+    connectionId: PAIR,
+    participants: sortConnectionPair(GARY, AINA),
+    status: 'draft',
+    sportProposal: emptyProposal(),
+    timeProposal: emptyProposal(),
+    budgetProposal: emptyProposal(),
+    createdBy: GARY,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  async function seedConnected() {
+    await seed(PAIR, {
+      id: PAIR,
+      participants: sortConnectionPair(GARY, AINA),
+      requestedBy: sortConnectionPair(GARY, AINA),
+      status: 'connected',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      connectedAt: new Date(),
+    })
+  }
+
+  /** Seeds a plan straight past the rules, with plain dates. */
+  async function seedPlan(overrides: Record<string, unknown> = {}) {
+    await seedConnected()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), planPath()), {
+        ...newPlan(overrides),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    })
+  }
+
+  const sportProposedByGary = () => ({
+    value: 'badminton',
+    proposedBy: GARY,
+    acceptedBy: [GARY],
+    version: 1,
+    updatedAt: new Date(),
+  })
+
+  it('cannot be read by an unauthenticated caller', async () => {
+    await seedPlan()
+    await assertFails(getDoc(doc(asGuest(), planPath())))
+  })
+
+  it('cannot be read by an unrelated user who knows the id', async () => {
+    await seedPlan()
+    await assertFails(getDoc(doc(asUser(STRANGER), planPath())))
+  })
+
+  it('can be read by both connected participants', async () => {
+    await seedPlan()
+    await assertSucceeds(getDoc(doc(asUser(GARY), planPath())))
+    await assertSucceeds(getDoc(doc(asUser(AINA), planPath())))
+  })
+
+  it('can be created by a connected participant', async () => {
+    await seedConnected()
+    await assertSucceeds(setDoc(doc(asUser(GARY), planPath()), newPlan()))
+  })
+
+  it('cannot be created while the connection is only pending', async () => {
+    await seed(PAIR, {
+      id: PAIR,
+      participants: sortConnectionPair(GARY, AINA),
+      requestedBy: [GARY],
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      connectedAt: null,
+    })
+    await assertFails(setDoc(doc(asUser(GARY), planPath()), newPlan()))
+  })
+
+  it('cannot be created when no connection exists', async () => {
+    await assertFails(setDoc(doc(asUser(GARY), planPath()), newPlan()))
+  })
+
+  it('cannot be created by an outsider', async () => {
+    await seedConnected()
+    await assertFails(
+      setDoc(doc(asUser(STRANGER), planPath()), newPlan({ createdBy: STRANGER })),
+    )
+  })
+
+  it('cannot invent participants that differ from the connection', async () => {
+    await seedConnected()
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), planPath()),
+        newPlan({ participants: sortConnectionPair(GARY, STRANGER) }),
+      ),
+    )
+  })
+
+  it('cannot be created at an id that does not match its connection', async () => {
+    await seedConnected()
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), planPath('made-up-plan')),
+        newPlan({ id: 'made-up-plan' }),
+      ),
+    )
+  })
+
+  it('cannot arrive already agreed', async () => {
+    await seedConnected()
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), planPath()),
+        newPlan({
+          sportProposal: {
+            value: 'badminton',
+            proposedBy: GARY,
+            acceptedBy: sortConnectionPair(GARY, AINA),
+            version: 1,
+            updatedAt: serverTimestamp(),
+          },
+        }),
+      ),
+    )
+  })
+
+  it('lets a participant propose a value, accepting it implicitly', async () => {
+    await seedPlan()
+    await assertSucceeds(
+      updateDoc(doc(asUser(GARY), planPath()), {
+        sportProposal: {
+          value: 'badminton',
+          proposedBy: GARY,
+          acceptedBy: [GARY],
+          version: 1,
+          // The real client writes a server timestamp inside the map.
+          updatedAt: serverTimestamp(),
+        },
+        status: 'draft',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('lets the other participant agree', async () => {
+    await seedPlan({ sportProposal: sportProposedByGary() })
+    await assertSucceeds(
+      updateDoc(doc(asUser(AINA), planPath()), {
+        sportProposal: {
+          value: 'badminton',
+          proposedBy: GARY,
+          acceptedBy: [GARY, AINA],
+          version: 1,
+          updatedAt: serverTimestamp(),
+        },
+        status: 'draft',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('stops a participant agreeing on the other person’s behalf', async () => {
+    await seedPlan({ sportProposal: sportProposedByGary() })
+    // Gary proposed; only Aina may add Aina.
+    await assertFails(
+      updateDoc(doc(asUser(GARY), planPath()), {
+        sportProposal: {
+          value: 'badminton',
+          proposedBy: GARY,
+          acceptedBy: [GARY, AINA],
+          version: 1,
+          updatedAt: serverTimestamp(),
+        },
+        status: 'draft',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('stops a participant removing the other person’s agreement', async () => {
+    await seedPlan({
+      sportProposal: {
+        ...sportProposedByGary(),
+        acceptedBy: sortConnectionPair(GARY, AINA),
+      },
+    })
+    await assertFails(
+      updateDoc(doc(asUser(GARY), planPath()), {
+        sportProposal: {
+          value: 'badminton',
+          proposedBy: GARY,
+          acceptedBy: [GARY],
+          version: 1,
+          updatedAt: serverTimestamp(),
+        },
+        status: 'draft',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('stops participants, connectionId and creator being changed', async () => {
+    await seedPlan()
+    const patch = {
+      status: 'draft',
+      updatedAt: serverTimestamp(),
+    }
+    await assertFails(
+      updateDoc(doc(asUser(GARY), planPath()), {
+        ...patch,
+        participants: sortConnectionPair(GARY, STRANGER),
+      }),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), planPath()), {
+        ...patch,
+        connectionId: 'somebody__else',
+      }),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), planPath()), {
+        ...patch,
+        createdBy: AINA,
+      }),
+    )
+  })
+
+  it('stops ready being claimed without agreement', async () => {
+    await seedPlan({ sportProposal: sportProposedByGary() })
+    await assertFails(
+      updateDoc(doc(asUser(AINA), planPath()), {
+        status: 'ready',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('allows ready once all three are agreed by both', async () => {
+    const both = sortConnectionPair(GARY, AINA)
+    await seedPlan({
+      sportProposal: { ...sportProposedByGary(), acceptedBy: both },
+      timeProposal: {
+        value: {
+          date: '2030-01-05',
+          startTime: '17:00',
+          endTime: '19:00',
+          timeZone: 'Asia/Kuala_Lumpur',
+        },
+        proposedBy: GARY,
+        acceptedBy: [GARY],
+        version: 1,
+        updatedAt: new Date(),
+      },
+      budgetProposal: {
+        value: { min: 20, max: 40 },
+        proposedBy: GARY,
+        acceptedBy: both,
+        version: 1,
+        updatedAt: new Date(),
+      },
+    })
+
+    // Aina agreeing to the time is the write that makes the plan ready.
+    await assertSucceeds(
+      updateDoc(doc(asUser(AINA), planPath()), {
+        timeProposal: {
+          value: {
+            date: '2030-01-05',
+            startTime: '17:00',
+            endTime: '19:00',
+            timeZone: 'Asia/Kuala_Lumpur',
+          },
+          proposedBy: GARY,
+          acceptedBy: [GARY, AINA],
+          version: 1,
+          updatedAt: serverTimestamp(),
+        },
+        status: 'ready',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('cannot be updated by an unrelated user', async () => {
+    await seedPlan()
+    await assertFails(
+      updateDoc(doc(asUser(STRANGER), planPath()), {
+        status: 'draft',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('cannot be deleted', async () => {
+    await seedPlan()
+    await assertFails(deleteDoc(doc(asUser(GARY), planPath())))
+    await assertFails(deleteDoc(doc(asUser(AINA), planPath())))
+  })
+})
+
 describe('the pair id', () => {
   it('agrees with the rules, whichever way round it is built', () => {
     expect(createConnectionId(AINA, GARY)).toBe(PAIR)

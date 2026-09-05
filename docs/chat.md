@@ -378,12 +378,29 @@ there — `lastMessageAt`, `lastMessageSenderId` and `participants` — and
 unread semantics (a per-participant read marker) should be designed with the
 notification step rather than faked now.
 
-## 17. Future: Plan Together
+## 17. Plan Together (STEP 10)
 
-STEP 10 turns a conversation into a structured activity: sport, shared
-availability, budget, later a venue, then a confirmed activity. The chat
-screen is where a **"Plan a session"** action will live.
+Chat is the entry point for structured planning, because planning happens
+after a conversation:
 
-Nothing in this step needs to change to add it: the conversation is already
-keyed by the connection, both participants are known, and structured planning
-will be its own collection rather than a special message type.
+- the conversation header carries **Plan a session** (**Plan** once one
+  exists), linking to `/messages/:conversationId/plan`
+- an active plan shows as a compact card pinned above the composer, with the
+  decisions so far and **Continue** / **View plan**
+
+`ChatLayout` grew an `action` slot (header) and a `banner` slot (above the
+composer) for exactly this; nothing else about chat changed.
+
+**Chat stays text messaging.** Plan state is separate structured data in
+`activityPlans/{planId}`:
+
+- no plan state is ever written into the message history — there is no
+  "Gary selected badminton" message, and no system-message architecture
+- `chatService` never touches a plan and `activityPlanService` never sends a
+  message
+- the plan card reads its state from the plan's own scoped subscription, not
+  from messages
+
+Both features share the same permission and the same id: a `connected`
+connection, and `conversationId === connectionId === the plan's connectionId`.
+Details: `docs/planning.md`.

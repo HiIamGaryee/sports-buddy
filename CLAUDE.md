@@ -442,6 +442,88 @@ reject any extra field. 23 of the 43 emulator rules tests cover chat.
   notifications, and structured planning.
 - Full walkthrough: `docs/chat.md`.
 
+### Plan Together (STEP 10)
+
+```
+UI (planner page / chat plan card)
+  ↓ useActivityPlan(id) · usePlanPreview(id)
+activityPlanService     authorization + validation, user-safe errors
+  ↓
+activityPlanRepository  chosen once in repositories.ts
+  ↓
+Firebase (transactions + onSnapshot)  |  Mock (localStorage + listeners)
+```
+
+- **Connection is the permission, chat is the conversation, the plan is the
+  decisions.** `activityPlanService` never sends a message, `chatService`
+  never touches a plan, and no plan state is written into message history.
+  `canPlanTogether()` calls STEP 8's `getConnectionState()` rather than
+  re-deriving the rule.
+- `src/types/planning.ts` — `Proposal<T>` (`value`, `proposedBy`,
+  `acceptedBy`, `version`, `updatedAt`), `PlannedTime`, `PlanStatus`
+  (`draft | ready`), `ProposalKind`, `ActivityPlan`, `SharedSportOption`,
+  `SuggestedSlot`.
+- `src/lib/planning.ts` is pure — `getSharedSportOptions`,
+  `getSharedAvailabilitySlots` (re-exported STEP 9 helper, not a second
+  implementation), `getUpcomingDatesForAvailability`, `getTimeRangeError`,
+  `getSuggestedBudget`, `applyProposal`, `applyAcceptance`, `isAcceptStale`,
+  `isProposalAgreed`, `isPlanReady`, `getProposalState`.
+  `src/lib/plan-format.ts` is the only place plan values become words.
+- `src/lib/budget.ts` is new and **shared**: the compatibility engine and the
+  planner now use one overlap formula (`getBudgetRangeOverlap`,
+  `getSharedBudget`), extracted from `matching-factors.ts` in this step.
+- `src/constants/planning.ts` — `PERIOD_TIME_WINDOWS`,
+  `DEFAULT_SESSION_MINUTES`, `MIN_SESSION_MINUTES`, `SUGGESTED_DATES_PER_SLOT`,
+  `SUGGESTION_HORIZON_DAYS`, `PLAN_STEPS`. Nothing inlines those.
+
+**Active-draft strategy.** One active plan per connection, at the
+deterministic id `{connectionId}__active`. `ensureActivePlan()` is a
+transaction on that exact document, so two people tapping "Plan a session" at
+once share one draft — no query, no composite index, and the STEP 8 connection
+schema and rules were **not** touched (no `activePlanId` pointer). The id is
+derived from the connection but not equal to it, leaving room for archived
+plans later.
+
+**Proposal model.** Proposing accepts implicitly and bumps `version`, resetting
+`acceptedBy` to the proposer; a value is agreed only when both participants
+have accepted at its current version. Both operations are idempotent.
+`version` closes the stale-acceptance race — an accept names the version it
+saw, checked inside the transaction — so agreeing to a screen that has since
+changed is refused, not silently applied.
+
+**Readiness.** `ready` ⟺ sport, time AND budget each agreed by both. Status is
+recomputed in the same transaction as the change, and the rules recompute it
+independently, so a participant cannot claim `ready`. Replacing an agreed
+value drops the plan back to `draft`.
+
+**Time.** `PlannedTime` stores a local date, local start/end and the IANA zone
+— deliberately not a UTC instant, and nothing hardcodes UTC+8. Suggestions are
+REAL upcoming dates walked forward from today, never hardcoded, never in the
+past. The copy says "Based on your Sports Buddy availability" because we have
+no access to anyone's actual calendar.
+
+**Realtime.** One `onSnapshot` on ONE document while the planner (or a chat
+showing the plan card) is open. No query over `activityPlans`, no global
+listener.
+
+**Security.** `match /activityPlans/{planId}` reads
+`connections/{connectionId}` on every access and requires
+`status == 'connected'`. A proposal may change in exactly three ways:
+unchanged, a new proposal by the caller, or the caller adding **only
+themselves** to `acceptedBy` — so one participant can never agree on the
+other's behalf, remove their agreement, or fake `ready`. Identity fields are
+frozen; delete is denied. 19 of the 62 emulator rules tests cover plans.
+
+- The planner is a `size="wide"` page inside `AppShell` (not the chat pane):
+  focused steps on a phone, and `grid-aside-end` with a sticky `PlanSummary`
+  from `lg`.
+- Chat is the single entry point: a header action and a plan card above the
+  composer, via `ChatLayout`'s new `action` and `banner` slots.
+- `PlanSummary` already renders a venue row so STEP 11 can fill it in.
+- Deliberately absent: venue, maps/places, GPS, confirmed activity, calendar,
+  notifications, plan history, cancellation, AI suggestions.
+- Full walkthrough: `docs/planning.md`.
+
 ### Profile editing and settings (STEP 5)
 
 - `/profile` (`features/profile/pages/profile-page.tsx`) — hero, derived
@@ -580,7 +662,8 @@ src/
   constants/    app.ts (name, tagline, storage keys), sports.ts, areas.ts,
                 profile-options.ts (skills, intents, intensity, days,
                 periods, radius, budget, bio limit),
-                chat.ts (message length, page size, scroll threshold)
+                chat.ts (message length, page size, scroll threshold),
+                planning.ts (period windows, session length, suggestions)
   features/
     auth/       components/ (auth-field, auth-alert, auth-divider,
                 password-input, google-sign-in-button),
@@ -592,6 +675,9 @@ src/
                 use-conversations.ts, use-conversation.ts, use-chat-scroll.ts
     connections/ components/ (connect-action — the only connection wording,
                 connection-success-dialog)
+    planning/   components/ (plan-progress, proposal-status, plan-summary,
+                sport-step, time-step, budget-step, plan-chat-card),
+                pages/ (plan-page), use-activity-plan.ts, use-plan-preview.ts
     discover/   components/ (buddy-card, discover-filters — the shared filter
                 fields, discover-filter-sheet (<lg), discover-filter-panel
                 (lg+), active-filter-chips, compatibility-score,
@@ -616,7 +702,8 @@ src/
                 profile-completeness.ts, discovery-profile.ts,
                 discover-filters.ts (+ .test.ts), availability.ts,
                 connection.ts (+ .test.ts), chat.ts (+ .test.ts),
-                chat-format.ts
+                chat-format.ts, budget.ts (shared with matching),
+                planning.ts (+ .test.ts), plan-format.ts
   pages/        home-page.tsx, activities-page.tsx
                 (auth, onboarding, profile, settings, discover and chat
                 live under features/)
@@ -625,6 +712,10 @@ src/
                 profile-context.ts, profile-provider.tsx,
                 connection-context.ts, connection-provider.tsx
   repositories/
+    activity-plan/ activity-plan-repository.ts (contract),
+                activity-plan-document.ts,
+                firebase-activity-plan-repository.ts,
+                mock-activity-plan-repository.ts
     auth/       auth-repository.ts (contract),
                 firebase-auth-repository.ts, mock-auth-repository.ts
     chat/       chat-repository.ts (contract), chat-document.ts,
@@ -648,6 +739,7 @@ src/
     auth/       auth-service.ts, auth-error.ts
     profile/    profile-service.ts, profile-validation.ts
     chat/       chat-service.ts (+ .test.ts), chat-error.ts
+    planning/   activity-plan-service.ts (+ .test.ts), planning-error.ts
     connection/ connection-service.ts (+ .test.ts), connection-error.ts
     discover/   discover-service.ts
     matching/   matching-constants.ts, matching-factors.ts,
@@ -656,7 +748,8 @@ src/
   styles/       theme.css — ONLY file with raw color values
   types/        theme.ts, auth.ts, user.ts, sports-profile.ts,
                 preferences.ts, discovery-profile.ts, discover.ts,
-                matching.ts, connection.ts, chat.ts, data-source.ts
+                matching.ts, connection.ts, chat.ts, planning.ts,
+                data-source.ts
   index.css     Tailwind + shadcn + theme imports, base layer
 ```
 
@@ -822,11 +915,12 @@ collection does not exist yet — do not create it early.
 | `connections/{pairId}` | only the two participants may read; create/update/delete are pinned to the exact legal transitions (see §3 and `docs/connections.md`) |
 | `conversations/{connectionId}` | every access reads `connections/{conversationId}` and requires `status == 'connected'` plus `uid in participants`; participants and ids frozen; only the caller's own message preview may be written; delete denied |
 | `conversations/{id}/messages/{messageId}` | same connected-participant check; create-only, `senderId == request.auth.uid`, content non-empty after `trim()` and ≤ 1000 chars; update and delete denied |
+| `activityPlans/{connectionId}__active` | same connected-participant check; identity frozen; a proposal may only be unchanged, replaced by its proposer, or accepted by the caller adding **only themselves**; `status` recomputed by the rules; delete denied |
 | everything else | read and write denied |
 
 Deploy with `firebase deploy --only firestore:rules`. Verify with
 `npm run test:rules`, which starts the Firestore emulator and runs
-`tests/firestore-rules.test.ts` (43 tests) against the real rules file — it
+`tests/firestore-rules.test.ts` (62 tests) against the real rules file — it
 needs **JDK 21+**, and never runs as part of `npm test`.
 
 ## 12. Mock data architecture
@@ -1005,6 +1099,22 @@ it. Feature logic never leaks into `components/ui/`.
   of them are implemented, and a fake one is worse than none.
 - Add a second pair-id system for conversations; the conversation id IS the
   connection id.
+- Let a pending (or absent) connection reach an activity plan — the check
+  belongs in the UI, the service AND the rules.
+- Write plan state into the message history, or add system messages.
+- Offer a sport the other person does not list, or claim a real calendar is
+  free — availability is recurring Sports Buddy availability, nothing more.
+- Store a UTC instant for a planned time, or hardcode a UTC offset.
+- Mark a plan `ready` because fields have values; `ready` means both people
+  agreed at the proposal's current version.
+- Accept a proposal without naming the version that was on screen.
+- Add or remove the OTHER participant's entry in `acceptedBy`.
+- Suggest a date in the past, or a hardcoded one.
+- Copy profile data or a compatibility score into a plan.
+- Add a venue field, a maps/places call, a calendar entry or a notification —
+  those are STEPS 11, 13 and 14.
+- Overwrite a whole plan document from a stale local copy; patch the one
+  proposal that changed, inside a transaction.
 - Attach a realtime listener to `publicProfiles`.
 - Add dependencies that nothing uses yet.
 - Create empty placeholder files/folders or single-implementation
@@ -1271,15 +1381,63 @@ No product logic, data flow, service, repository or subscription changed in
 this step — only presentation. All 127 unit tests and 43 emulator rules tests
 still pass.
 
+STEP 10 — Plan Together: Sport + Shared Availability + Budget:
+
+- `activityPlans/{connectionId}__active` added as the fifth collection,
+  readable only by the two participants and only while their connection is
+  `connected`. One active plan per connection, created by a transaction on a
+  deterministic id, so simultaneous "Plan a session" taps share one draft —
+  no query, no index, and STEP 8's connection schema and rules untouched.
+- Collaborative `Proposal<T>` model with implicit proposer acceptance,
+  agreement only when both accept, idempotent propose and accept, and
+  `version`-based stale-acceptance protection enforced inside the transaction.
+- Pure domain in `src/lib/planning.ts` and `src/lib/plan-format.ts`;
+  `src/lib/budget.ts` extracted so the matching engine and the planner share
+  one budget-overlap formula.
+- Sport step offers only sports both people list, with both skill levels.
+  Time step turns recurring availability into REAL upcoming dates (never
+  hardcoded, never past) with editable start/end, storing local date + local
+  time + IANA zone. Budget step suggests the profile overlap and still works
+  when there is none.
+- `ready` only when sport, time and budget are each agreed by both; the rules
+  recompute it independently so it cannot be claimed. Venue stays absent.
+- One scoped `onSnapshot` per plan document powers live collaboration; chat
+  gained a header action and a plan card above the composer via `ChatLayout`'s
+  new `action` / `banner` slots. No plan state is ever a chat message.
+- Planner is a `size="wide"` route inside `AppShell`: focused steps on a
+  phone, two-column time/budget steps and a sticky `PlanSummary` from `lg`.
+- Vitest suite grew to 186 unit tests; emulator rules tests to 62.
+- Full walkthrough: `docs/planning.md`.
+
+Verified in mock mode through the same repository the app uses: pending and
+unrelated users refused at the service with nothing written; a draft created
+on the deterministic id and resumed rather than duplicated when either person
+opens it; a sport outside the shared set rejected; proposing accepting
+implicitly and the second acceptance completing agreement; an acceptance aimed
+at a replaced version refused with the plan left untouched; past dates,
+reversed ranges and sub-30-minute sessions rejected; open-ended budgets
+accepted; a replaced value dropping the plan back to `draft`; readiness only
+after all three; an open subscription receiving the other participant's change
+without a refetch and going quiet after unsubscribe; state surviving a reload;
+and no profile field appearing anywhere in a serialized plan. Security rules
+verified against the Firestore emulator (62 tests, 19 for plans) including
+impersonated acceptance, removed agreement, forged `ready`, tampered identity
+fields, invented participants and a mismatched plan id — exercising the real
+client write shape, server timestamps nested in proposal maps included.
+`tsc -b`, oxlint and the production build all pass. **A visual browser pass
+(dark/light at 390px and 430px) was not automated in this environment** — no
+headless browser is installed.
+
 **Live two-user Firebase verification is still outstanding** — no project credentials
 exist in this environment. The firebase-mode paths (auth, profile,
 preferences, projection writes and Discover reads) are implemented and typed
 but have not run against a real project.
 
-Not done (by design): structured Plan Together, disconnect/unfriend, block and
-report, unread/read receipts, typing and presence, media messages, activity
-planning, maps and precise distance, calendar, notification delivery,
-subscriptions, analytics, native platforms, account deletion, photo upload.
+Not done (by design): venue discovery, maps/places and precise distance,
+confirmed activities and history, plan cancellation, calendar integration,
+disconnect/unfriend, block and report, unread/read receipts, typing and
+presence, media messages, notification delivery, subscriptions, analytics,
+native platforms, account deletion, photo upload.
 
 ## 21. Local development credentials (mock mode only)
 
@@ -1313,7 +1471,8 @@ STEP 7 — Compatibility + Matching Engine
 STEP 8 — Connect + Mutual Connection Flow
 STEP 9 — Realtime Chat
 STEP 9.5 — Responsive UI + Tablet/Desktop + Gradient Polish
+STEP 10 — Plan Together: Sport + Availability + Budget
 
-**Current Step:** STEP 9.5 — Responsive UI Audit
+**Current Step:** STEP 10 — Plan Together
 
-**Next Step:** STEP 10 — Plan Together: Sport + Availability + Budget
+**Next Step:** STEP 11 — Venue Discovery + Google Maps / Places

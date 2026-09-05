@@ -8,6 +8,7 @@ import { MessagesLayout } from '@/features/chat/components/messages-layout'
 import { ConversationEmptyPage } from '@/features/chat/pages/conversation-empty-page'
 import { ConversationPage } from '@/features/chat/pages/conversation-page'
 import { OnboardingPage } from '@/features/onboarding/pages/onboarding-page'
+import { PlanPage } from '@/features/planning/pages/plan-page'
 import { BuddyProfilePage } from '@/features/discover/pages/buddy-profile-page'
 import { DiscoverPage } from '@/features/discover/pages/discover-page'
 import { EditProfilePage } from '@/features/profile/pages/edit-profile-page'
@@ -57,6 +58,10 @@ export function AppRouter() {
                 element={<ConversationPage />}
               />
             </Route>
+            {/* A sibling of the messages workspace, not a child of it: the
+                planner needs the whole content column, not a chat pane. */}
+            <Route path={ROUTES.plan} element={<PlanPage />} />
+
             <Route path={ROUTES.profile} element={<ProfilePage />} />
             <Route path={ROUTES.settings} element={<SettingsPage />} />
           </Route>

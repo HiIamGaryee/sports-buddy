@@ -1,6 +1,7 @@
 import { getAreaRegion } from '@/constants/areas'
 import { WEEK_DAYS } from '@/constants/profile-options'
 import { countSharedPeriods, getSharedAvailability } from '@/lib/availability'
+import { getBudgetRangeOverlap } from '@/lib/budget'
 import {
   formatBudget,
   getAreaName,
@@ -24,7 +25,6 @@ import type { MatchingSubject } from '@/types/matching'
 import type {
   AreaId,
   AvailabilitySlot,
-  BudgetPreference,
   SkillLevel,
   SportId,
 } from '@/types/sports-profile'
@@ -268,10 +268,11 @@ const isSameRegion = (a: AreaId, b: AreaId) => {
   return region !== null && region === getAreaRegion(b)
 }
 
-/** `null` max means open ended (RM60+), so arithmetic uses Infinity. */
-const upperBound = (budget: BudgetPreference) => budget.max ?? Infinity
-
-/** 10% — structured ranges only; never parses a display string. */
+/**
+ * 10% — structured ranges only; never parses a display string. The overlap
+ * itself comes from `src/lib/budget.ts`, which the planner also uses, so the
+ * two features can never disagree about what "overlapping budgets" means.
+ */
 export function calculateBudgetCompatibility(
   subject: Pick<MatchingSubject, 'budget'>,
   candidate: Pick<DiscoveryProfile, 'budget'>,
@@ -287,8 +288,10 @@ export function calculateBudgetCompatibility(
     }
   }
 
-  const from = Math.max(mine.min, theirs.min)
-  const to = Math.min(upperBound(mine), upperBound(theirs))
+  const { from, to } = getBudgetRangeOverlap(mine, theirs) ?? {
+    from: 0,
+    to: 0,
+  }
   const comparison = `${formatBudget(theirs)} vs your ${formatBudget(mine)}`
 
   if (to > from) {

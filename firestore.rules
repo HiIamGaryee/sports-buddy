@@ -206,6 +206,137 @@ service cloud.firestore {
       }
     }
 
+    // ACTIVITY PLANS. One active plan per connection, at the deterministic id
+    // `<connectionId>__active`, so authorization is a single lookup at
+    // `connections/{connectionId}` — the same trick conversations use.
+    //
+    // The rule that matters most: a participant may only ever move their OWN
+    // acceptance. Gary cannot add Aina to `acceptedBy`, and cannot mark a
+    // plan `ready` that Aina has not agreed to.
+    match /activityPlans/{planId} {
+      function incoming() { return request.resource.data; }
+      function current() { return resource.data; }
+
+      function connectionPath(connectionId) {
+        return /databases/$(database)/documents/connections/$(connectionId);
+      }
+
+      function connection(connectionId) {
+        return get(connectionPath(connectionId)).data;
+      }
+
+      // Costs one document read per rule evaluation — the price of not
+      // trusting the client about who may plan with whom.
+      function connectedParticipant(connectionId) {
+        return request.auth != null
+          && planId == connectionId + '__active'
+          && exists(connectionPath(connectionId))
+          && connection(connectionId).status == 'connected'
+          && request.auth.uid in connection(connectionId).participants;
+      }
+
+      function planFields() {
+        return ['id', 'connectionId', 'participants', 'status',
+                'sportProposal', 'timeProposal', 'budgetProposal',
+                'createdBy', 'createdAt', 'updatedAt'];
+      }
+
+      function proposalFields() {
+        return ['value', 'proposedBy', 'acceptedBy', 'version', 'updatedAt'];
+      }
+
+      function wellFormedProposal(proposal) {
+        return proposal.keys().hasOnly(proposalFields())
+          && proposal.keys().hasAll(proposalFields())
+          && proposal.version is int
+          && proposal.version >= 0
+          && proposal.acceptedBy is list
+          && proposal.acceptedBy.size() <= 2
+          && incoming().participants.hasAll(proposal.acceptedBy);
+      }
+
+      function emptyProposal(proposal) {
+        return proposal.version == 0
+          && proposal.value == null
+          && proposal.acceptedBy.size() == 0;
+      }
+
+      function agreed(proposal) {
+        return proposal.version > 0
+          && proposal.value != null
+          && proposal.acceptedBy.hasAll(incoming().participants);
+      }
+
+      // `ready` is a claim about AGREEMENT, so the rules verify it rather
+      // than trusting whatever status the client sent.
+      function statusMatchesAgreement() {
+        return (agreed(incoming().sportProposal)
+                && agreed(incoming().timeProposal)
+                && agreed(incoming().budgetProposal))
+          ? incoming().status == 'ready'
+          : incoming().status == 'draft';
+      }
+
+      // Either untouched, or a new proposal by the caller (version + 1,
+      // acceptance reset to just them), or the caller adding only themselves.
+      function proposalChangeIsLegal(before, after) {
+        return after == before
+          || (after.proposedBy == request.auth.uid
+              && after.value != null
+              && after.acceptedBy == [request.auth.uid]
+              && after.version == before.version + 1)
+          || (after.value == before.value
+              && after.proposedBy == before.proposedBy
+              && after.version == before.version
+              && after.acceptedBy.removeAll(before.acceptedBy)
+                   == [request.auth.uid]
+              && before.acceptedBy.removeAll(after.acceptedBy).size() == 0);
+      }
+
+      allow get, list: if connectedParticipant(current().connectionId);
+
+      allow create: if connectedParticipant(incoming().connectionId)
+        && incoming().keys().hasOnly(planFields())
+        && incoming().keys().hasAll(planFields())
+        && incoming().id == planId
+        // Exactly the connection's participants — no invented third person.
+        && incoming().participants
+             == connection(incoming().connectionId).participants
+        && incoming().createdBy == request.auth.uid
+        && incoming().status == 'draft'
+        && wellFormedProposal(incoming().sportProposal)
+        && wellFormedProposal(incoming().timeProposal)
+        && wellFormedProposal(incoming().budgetProposal)
+        && emptyProposal(incoming().sportProposal)
+        && emptyProposal(incoming().timeProposal)
+        && emptyProposal(incoming().budgetProposal)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if connectedParticipant(current().connectionId)
+        && incoming().keys().hasOnly(planFields())
+        && incoming().keys().hasAll(planFields())
+        // Identity is frozen after creation.
+        && incoming().id == current().id
+        && incoming().connectionId == current().connectionId
+        && incoming().participants == current().participants
+        && incoming().createdBy == current().createdBy
+        && incoming().createdAt == current().createdAt
+        && wellFormedProposal(incoming().sportProposal)
+        && wellFormedProposal(incoming().timeProposal)
+        && wellFormedProposal(incoming().budgetProposal)
+        && proposalChangeIsLegal(current().sportProposal,
+                                 incoming().sportProposal)
+        && proposalChangeIsLegal(current().timeProposal,
+                                 incoming().timeProposal)
+        && proposalChangeIsLegal(current().budgetProposal,
+                                 incoming().budgetProposal)
+        && statusMatchesAgreement()
+        && incoming().updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
     // Collections for later steps stay closed until their model exists.
     match /{document=**} {
       allow read, write: if false;

@@ -895,7 +895,70 @@ When a message arrives while the reader is up in the history, a `sm`
 `sticky bottom-0` pill with an `ArrowDown` icon reading **"New message"**
 appears instead of yanking the view down. Tapping it scrolls to the newest.
 
-## 22. Mobile safe-area rules
+## 22. Planner patterns (STEP 10)
+
+### Planner layout
+
+`/messages/:conversationId/plan` is a `size="wide"` page inside `AppShell`,
+not a chat pane: the planner needs the whole content column. From `lg` it is
+`grid-aside-end` — steps on the left, the live `PlanSummary` sticky on the
+right. Below that, summary follows the steps in flow.
+
+### Planner progress
+
+Three equal-width buttons in an `<ol aria-label="Plan steps">`. Agreed steps
+show a `size-4 text-primary` `Check`, unagreed show their number; the active
+one is `border-primary bg-primary/10 text-primary` with `aria-current="step"`.
+Each carries an `sr-only` "— agreed" / "— not agreed yet", so the state never
+depends on the tick's colour. Tapping revisits a step. **No XP, no streaks, no
+gamified bar.**
+
+### Proposal card
+
+`ProposalStatus` renders one of three sentences, each with its own icon:
+
+| State | Treatment |
+| --- | --- |
+| Agreed | `Check` + `text-body-small text-primary` — "You both agreed on Badminton." |
+| Waiting | `Clock` + `text-body-small text-muted-foreground` — "You suggested … Waiting for Aina." |
+| Needs you | `UserCheck` in a `rounded-2xl border-border bg-muted/50 p-4` card, with a primary Agree button |
+
+The Agree button names what is being agreed (`Agree to Sat, Sep 12 · 5:00–7:00 PM`)
+and repeats it in `aria-label`, so it is never a bare "Agree".
+
+### Live plan summary
+
+`PlanSummary` is `bg-muted/50 rounded-xl` rows — icon, `text-caption uppercase`
+label, `text-title` value — with an `Agreed` / `Pending` marker in
+`text-caption uppercase`. An undecided row reads "Not decided yet" in
+`text-muted-foreground`. A `Draft` / `Ready` badge sits in the header.
+
+The **venue row is always present and always empty** in this step: shown
+honestly as undecided rather than hidden, and ready for STEP 11 to fill in.
+
+### Ready state
+
+A `border-primary/30` card with a single `bg-primary-gradient` pill reading
+**Plan ready** in `text-caption uppercase text-primary-foreground` — the one
+gradient on the page besides the primary buttons. Copy states plainly that
+venue selection is next and nothing is booked; the CTA returns to chat rather
+than being a dead "Continue to venue".
+
+### Plan card in chat
+
+A single `rounded-xl border-border bg-muted/50` row pinned above the composer
+via `ChatLayout`'s `banner` slot: `CalendarCheck` in `text-primary`, an
+eyebrow ("Session plan · draft"), the decisions truncated to one line, and an
+outline **Continue** / **View plan** button.
+
+### Gradient discipline, unchanged
+
+The planner adds gradient in exactly two places: primary CTA buttons (via the
+`Button` `default` variant, §20) and the "Plan ready" pill. Sport cards,
+selection chips, progress steps, summary rows and agreement states all stay
+**flat** `primary`. A gradient is still an accent.
+
+## 23. Mobile safe-area rules
 
 - `index.html` sets `viewport-fit=cover`; insets come from
   `env(safe-area-inset-*)`.
@@ -905,7 +968,7 @@ appears instead of yanking the view down. Tapping it scrolls to the newest.
 - Any other fixed/sticky element must add the matching safe inset itself.
 - Never hardcode 44px/34px notch values.
 
-## 23. Accessibility / contrast rules
+## 24. Accessibility / contrast rules
 
 - Body text ≥ 4.5:1, large text ≥ 3:1. Verified pairs: dark
   `--muted-foreground` on background ≈ 7.5:1; light ≈ 5.7:1; light `--primary`
@@ -917,7 +980,7 @@ appears instead of yanking the view down. Tapping it scrolls to the newest.
 - Never encode meaning in color alone; pair with icon or text.
 - `color-scheme` is set on `<html>` so native controls and scrollbars match.
 
-## 24. Allowed usage
+## 25. Allowed usage
 
 ```tsx
 <div className="bg-card text-card-foreground rounded-2xl border border-border p-page">
@@ -928,7 +991,7 @@ appears instead of yanking the view down. Tapping it scrolls to the newest.
 </div>
 ```
 
-## 25. Forbidden usage
+## 26. Forbidden usage
 
 ```tsx
 // raw color values

@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowDown } from 'lucide-react'
+import { ArrowDown, CalendarPlus } from 'lucide-react'
 
 import { ChatLayout } from '@/components/layout/chat-layout'
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,10 @@ import { MessageBubble } from '@/features/chat/components/message-bubble'
 import { MessageComposer } from '@/features/chat/components/message-composer'
 import { useChatScroll } from '@/features/chat/use-chat-scroll'
 import { useConversation } from '@/features/chat/use-conversation'
+import { PlanChatCard } from '@/features/planning/components/plan-chat-card'
+import { usePlanPreview } from '@/features/planning/use-plan-preview'
 import { formatDateSeparator, isSameDay } from '@/lib/chat-format'
-import { ROUTES } from '@/routes/routes'
+import { planPath, ROUTES } from '@/routes/routes'
 
 const SKELETON_BUBBLES = [
   { key: 0, own: false, width: 'w-40' },
@@ -41,6 +43,9 @@ export function ConversationPage() {
 
   const { scrollRef, hasNewMessages, scrollToBottom, preserveScroll } =
     useChatScroll(messages, currentUserId)
+  // Planning is the primary next step after a conversation, so the entry
+  // point lives here rather than being scattered across the app.
+  const plan = usePlanPreview(conversationId, isAuthorized)
 
   // Nothing is requested until access is resolved, so an unauthorized route
   // can never flash someone else's messages. The placeholder fills the pane
@@ -86,6 +91,28 @@ export function ConversationPage() {
     <ChatLayout
       title={buddyName}
       photoUrl={buddyPhotoUrl}
+      action={
+        conversationId && (
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              to={planPath(conversationId)}
+              aria-label={
+                plan ? 'Continue planning a session' : 'Plan a session'
+              }
+            >
+              <CalendarPlus className="size-4" />
+              <span className="max-sm:sr-only">
+                {plan ? 'Plan' : 'Plan a session'}
+              </span>
+            </Link>
+          </Button>
+        )
+      }
+      banner={
+        plan && conversationId ? (
+          <PlanChatCard plan={plan} conversationId={conversationId} />
+        ) : undefined
+      }
       scrollRef={scrollRef}
       footer={
         <MessageComposer

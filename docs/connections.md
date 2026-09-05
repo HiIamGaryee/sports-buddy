@@ -323,31 +323,37 @@ dialog.
   accounts in two browser profiles, Connect from one, and check the other
   shows "Wants to connect" and then "Connected" without a refresh.
 
-## 13. Chat (STEP 9)
+## 13. What a connection unlocks (STEPS 9–10)
 
-**A connection is the permission to chat.** The relationship semantics from
-this step are unchanged; chat simply reads them.
+**A connection is the permission** — to chat, and now to plan. The
+relationship semantics from this step are unchanged; both features read them.
 
-| Connection state | Conversation access |
-| --- | --- |
-| `none` | none |
-| `pending-outgoing` | none |
-| `pending-incoming` | none |
-| `connected` | full |
+```
+connected  →  chat allowed  →  planning allowed
+pending    →  no chat       →  no planning
+```
 
-A pending relationship has no conversation, cannot create one, and cannot
-read or write messages — enforced in the UI, in `chatService` and, decisively,
-in the Firestore rules, which read `connections/{conversationId}` on every
-conversation and message access.
+| Connection state | Conversation | Activity plan |
+| --- | --- | --- |
+| `none` | none | none |
+| `pending-outgoing` | none | none |
+| `pending-incoming` | none | none |
+| `connected` | full | full |
 
-That works because **`conversationId === connectionId`**: the deterministic
-pair id from §4 is also the conversation's document id, so authorization is a
-single lookup and no second pair-id system exists.
+A pending relationship has no conversation and no plan, cannot create either,
+and cannot read or write messages or proposals — enforced in the UI, in
+`chatService` / `activityPlanService` and, decisively, in the Firestore rules,
+which read the connection document on every access.
+
+That works because **`conversationId === connectionId`** and the active plan
+lives at `{connectionId}__active`: the deterministic pair id from §4 is the
+root of everything, so every authorization is a single lookup and no second
+pair-id system exists.
 
 ```
 connections/{pairId}   status == 'connected'
         ↓  permission
-conversations/{pairId}
+conversations/{pairId}                    activityPlans/{pairId}__active
         ↓
 conversations/{pairId}/messages/{messageId}
 ```
@@ -357,9 +363,12 @@ the chat, never when they connect — so connected buddies who do not talk cost
 no documents.
 
 Two things this step's model deliberately still does not do: there is no
-disconnect, so a conversation cannot be revoked through the UI (chat handles a
-missing or no-longer-connected relationship anyway), and connection documents
-gained no chat fields. Details: `docs/chat.md`.
+disconnect, so a conversation or plan cannot be revoked through the UI (both
+handle a missing or no-longer-connected relationship anyway), and the
+connection document gained **no** chat or planning fields — STEP 10
+deliberately used a deterministic plan id rather than an `activePlanId`
+pointer, so these rules stayed untouched. Details: `docs/chat.md`,
+`docs/planning.md`.
 
 The mock seeds gained two more connected buddies (Jason and Chloe) so chat has
 a long thread, a short one and one never messaged; the pending seeds are
