@@ -38,9 +38,10 @@ The app runs against mock repositories by default. To use a real backend set
 - `docs/connections.md` — Connect, mutual connections, rules, realtime.
 - `docs/chat.md` — conversations, messages, pagination, chat security.
 - `docs/planning.md` — Plan Together: proposals, agreement, readiness.
+- `docs/venues.md` — venue discovery, area centres, Google config, privacy.
 - `docs/responsive-audit.md` — route-by-route mobile / tablet / desktop audit.
 
-Current status: **STEP 10 — Plan Together** (auth, onboarding, profile,
-preferences, ranked discovery, mutual connections, text chat and structured
-sport/time/budget planning, with dedicated phone, tablet and desktop layouts;
-venue discovery comes later).
+Current status: **STEP 11 — Venue Discovery** (auth, onboarding, profile,
+preferences, ranked discovery, mutual connections, text chat, and structured
+sport/time/budget/venue planning, with dedicated phone, tablet and desktop
+layouts; confirming an activity comes later).

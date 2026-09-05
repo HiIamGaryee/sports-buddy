@@ -341,6 +341,19 @@ connection document on **every** access. Types live in `src/types/planning.ts`.
     "version": 1,
     "updatedAt": "<serverTimestamp>"
   },
+  "venueProposal": {
+    "value": {
+      "placeId": "ChIJ...",
+      "name": "Petaling Jaya Racquet Club",
+      "address": "Jalan 13/6, Seksyen 13, Petaling Jaya",
+      "location": { "lat": 3.1096, "lng": 101.6371 },
+      "googleMapsUri": "https://maps.google.com/?cid=..."
+    },
+    "proposedBy": "gary",
+    "acceptedBy": ["gary"],
+    "version": 1,
+    "updatedAt": "<serverTimestamp>"
+  },
   "createdBy": "gary",
   "createdAt": "<serverTimestamp>",
   "updatedAt": "<serverTimestamp>"
@@ -352,10 +365,11 @@ connection document on **every** access. Types live in `src/types/planning.ts`.
 | `id` | `string` | equals the document id; frozen after create |
 | `connectionId` | `string` | the STEP 8 pair id; frozen after create |
 | `participants` | `[string, string]` | must equal the connection's; can never change |
-| `status` | `'draft' \| 'ready'` | `ready` **only** when all three proposals are agreed by both; the rules recompute it rather than trusting the client |
+| `status` | `'draft' \| 'ready' \| 'venue-agreed'` | derived from agreement and recomputed by the rules, never set by hand: `ready` means "ready for a venue" (sport/time/budget agreed), `venue-agreed` means all four are |
 | `sportProposal` | `Proposal<SportId>` | only a sport both people list |
 | `timeProposal` | `Proposal<PlannedTime>` | a real future date + local times + IANA zone |
 | `budgetProposal` | `Proposal<BudgetPreference>` | per person, for this session |
+| `venueProposal` | `Proposal<VenueSelection>` | STEP 11. **Optional on read**: plans written before it have no such field, and the mapper, the mock normalizer and the security rules all treat it as an empty proposal |
 | `createdBy` | `string` | frozen after create |
 | `createdAt` / `updatedAt` | server timestamp | `updatedAt` is `request.time` on every write |
 
@@ -372,13 +386,36 @@ connection document on **every** access. Types live in `src/types/planning.ts`.
 `version` is what makes a stale acceptance impossible: an accept names the
 version it saw, and the transaction refuses if it has moved on.
 
+### `VenueSelection` — the agreed venue snapshot
+
+The minimal, stable record of the place two people settled on:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `placeId` | `string` | provider place id, enough to reopen the place later |
+| `name` | `string` | non-empty; validated before it is written |
+| `address` | `string` | formatted address as the provider gave it |
+| `location` | `{ lat, lng }` | validated in range; never a user's position |
+| `googleMapsUri` | `string \| null` | provider link, or one built from the place |
+
+It is snapshotted so the plan still shows its venue if the provider is
+unavailable later, re-ranks, or the place changes.
+
+**Raw provider responses are never persisted.** Ratings, review counts,
+categories, price bands, photos and opening hours are deliberately excluded:
+they go stale, and they are not part of what the two people agreed. There is
+also **no `venues` collection** — discovery results are transient, and
+duplicating a places catalogue into Firestore would only create stale records
+to synchronise.
+
 ### Never stored in a plan
 
 - **No profile data** — no display name, email, photo url, sports, area or
   bio. Those live in `publicProfiles/{uid}`.
 - **No compatibility score or matching reasons** (derived per viewer).
-- **No venue.** Not `venue: null` — the field does not exist until STEP 11
-  designs it. The UI renders the venue row as "Not decided yet".
+- **No user coordinates.** A plan holds a VENUE's coordinates — a place on a
+  map — and never a participant's. `users/{uid}` still stores an area id and
+  nothing more.
 - **No chat messages.** Plan state is structured data; a conversation stays
   text. Nothing writes "Gary selected badminton" into the message history.
 

@@ -524,6 +524,83 @@ frozen; delete is denied. 19 of the 62 emulator rules tests cover plans.
   notifications, plan history, cancellation, AI suggestions.
 - Full walkthrough: `docs/planning.md`.
 
+### Venue discovery (STEP 11)
+
+```
+UI (venue step / map)
+  ↓ useVenueSearch(sport, area)
+venueService            search area, ranking, snapshot validation
+  ↓
+venueRepository         chosen once in repositories.ts, from env.venueSource
+  ↓
+Google Places (New) REST  |  Mock venues
+```
+
+- **PRIVACY IS THE DESIGN.** The app still stores an `areaId` and nothing
+  else: no `navigator.geolocation` anywhere, no permission requested, no
+  coordinates on `users/{uid}`, no live or background location.
+- `AreaDefinition` gained `center` — the **public approximate centroid** of
+  the area, the thing a map label points at. It is not anyone's home, it does
+  not move, and it is identical for everyone who picked that area.
+- `venueService.getSearchArea(areaA, areaB)` → `PlanningSearchArea`
+  (`center`, `radiusMeters`, `areaIds`), the midpoint of the two AREA
+  centroids. Transient: never persisted, never stored against a user, never
+  called anyone's location. Copy says "around the midpoint of Subang Jaya and
+  Petaling Jaya", and distance is always "from the search area".
+- `src/lib/geo.ts` is pure: `isValidCoordinate`, `calculateMidpoint`,
+  `calculateHaversineDistance`, `deriveVenueSearchRadius` (5 km base widening
+  with area spread, clamped 3–12 km — deliberately NOT the profile's
+  `radiusKm`), `formatDistance`, `buildGoogleMapsUrl`.
+- `src/types/venue.ts` — `GeoPoint`, `AreaLocation`, `PlanningSearchArea`,
+  `Venue`, `VenueSelection`, `VenueSearchParams`, `VenueSearchResult`.
+- `src/constants/venues.ts` — `SPORT_VENUE_SEARCH` (every `SportId` → search
+  terms + label; running/cycling-style sports map to parks, tracks, stadiums),
+  radius bounds, `VENUE_RESULT_LIMIT`, debounce and minimum query length.
+- `googleVenueRepository` calls **Places API (New)** over REST with a narrow
+  field mask; `mapGooglePlaceToVenue()` is the only boundary, so a raw place
+  object never reaches state or storage. `mockVenueRepository` serves 12 real
+  Klang Valley venues tagged by sport.
+- `src/services/google/maps-loader.ts` is the ONLY place the Maps JavaScript
+  API is loaded — one cached promise, one script tag. Search does not use it,
+  so a page with no map loads no Google JavaScript.
+- `VenueMap` is presentation only: it draws markers and reports a click. It
+  never searches, never touches a plan, never sees Firebase. **If it fails to
+  load it renders nothing and the list is untouched** — nothing is map-only.
+  Marker colours are read from live theme tokens, since the Maps API needs
+  colour strings and cannot take a class.
+
+**Environment.** `VITE_VENUE_SOURCE` (`mock | google`, defaults to `mock`) is
+**independent of `VITE_DATA_SOURCE`**, so Firebase plus mock venues is a
+normal setup and Google billing is never a prerequisite. The key lives only in
+`env.google.mapsApiKey`, is never logged, and a missing key gives a developer
+setup message in dev and a plain unavailable state in production — it never
+crashes the app. Restrict production keys by referrer + API and set quotas
+(`docs/venues.md` §17).
+
+**Cost controls.** A Places request happens when the venue step opens, when
+typing pauses (400 ms, 3+ characters) or on retry — never on render, hover,
+marker click or map pan, and never before the plan is `ready`. A small
+in-memory cache serves repeats, results are capped at 16 in the request and
+again after ranking, and there is no auto-search on map movement.
+
+**Plan integration.** `ActivityPlan` gained
+`venueProposal: Proposal<VenueSelection>` using the STEP 10 machinery
+unchanged, plus status `venue-agreed`. `ready` kept its name and now means
+"ready for a venue" — no migration. Plans predating the field read it as an
+empty proposal (mapper, `normalizeActivityPlan()`, and `data.get(...)` in the
+rules). A venue may only be proposed from `ready`, because the search depends
+on the agreed sport.
+
+**Persistence.** Only the `VenueSelection` snapshot (`placeId`, `name`,
+`address`, `location`, `googleMapsUri`) is stored — ratings, categories and
+price bands are dropped because they go stale and were not agreed to. There is
+**no `venues` collection**; discovery results are transient.
+
+- Deliberately absent: booking, availability, pricing in ringgit, travel time
+  or ETA, Routes API, custom manual venues, confirmed activity, calendar,
+  notifications.
+- Full walkthrough: `docs/venues.md`.
+
 ### Profile editing and settings (STEP 5)
 
 - `/profile` (`features/profile/pages/profile-page.tsx`) — hero, derived
@@ -663,7 +740,8 @@ src/
                 profile-options.ts (skills, intents, intensity, days,
                 periods, radius, budget, bio limit),
                 chat.ts (message length, page size, scroll threshold),
-                planning.ts (period windows, session length, suggestions)
+                planning.ts (period windows, session length, suggestions),
+                venues.ts (sport search terms, radius, limits, debounce)
   features/
     auth/       components/ (auth-field, auth-alert, auth-divider,
                 password-input, google-sign-in-button),
@@ -676,8 +754,10 @@ src/
     connections/ components/ (connect-action — the only connection wording,
                 connection-success-dialog)
     planning/   components/ (plan-progress, proposal-status, plan-summary,
-                sport-step, time-step, budget-step, plan-chat-card),
-                pages/ (plan-page), use-activity-plan.ts, use-plan-preview.ts
+                sport-step, time-step, budget-step, venue-step, venue-card,
+                venue-map, plan-chat-card),
+                pages/ (plan-page), use-activity-plan.ts, use-plan-preview.ts,
+                use-venue-search.ts
     discover/   components/ (buddy-card, discover-filters — the shared filter
                 fields, discover-filter-sheet (<lg), discover-filter-panel
                 (lg+), active-filter-chips, compatibility-score,
@@ -703,7 +783,8 @@ src/
                 discover-filters.ts (+ .test.ts), availability.ts,
                 connection.ts (+ .test.ts), chat.ts (+ .test.ts),
                 chat-format.ts, budget.ts (shared with matching),
-                planning.ts (+ .test.ts), plan-format.ts
+                planning.ts (+ .test.ts), plan-format.ts,
+                geo.ts (+ .test.ts)
   pages/        home-page.tsx, activities-page.tsx
                 (auth, onboarding, profile, settings, discover and chat
                 live under features/)
@@ -724,6 +805,9 @@ src/
     connection/ connection-repository.ts (contract),
                 connection-document.ts, firebase-connection-repository.ts,
                 mock-connection-repository.ts
+    venue/      venue-repository.ts (contract), google-place-mapper.ts,
+                google-venue-repository.ts, mock-venue-repository.ts,
+                mock-venues.ts
     profile/    profile-repository.ts (contract),
                 firebase-profile-repository.ts, mock-profile-repository.ts
     public-profile/  public-profile-repository.ts (contract),
@@ -740,6 +824,8 @@ src/
     profile/    profile-service.ts, profile-validation.ts
     chat/       chat-service.ts (+ .test.ts), chat-error.ts
     planning/   activity-plan-service.ts (+ .test.ts), planning-error.ts
+    venue/      venue-service.ts (+ .test.ts), venue-error.ts
+    google/     maps-loader.ts (the only Maps JS API load)
     connection/ connection-service.ts (+ .test.ts), connection-error.ts
     discover/   discover-service.ts
     matching/   matching-constants.ts, matching-factors.ts,
@@ -749,7 +835,7 @@ src/
   types/        theme.ts, auth.ts, user.ts, sports-profile.ts,
                 preferences.ts, discovery-profile.ts, discover.ts,
                 matching.ts, connection.ts, chat.ts, planning.ts,
-                data-source.ts
+                venue.ts, data-source.ts
   index.css     Tailwind + shadcn + theme imports, base layer
 ```
 
@@ -915,12 +1001,12 @@ collection does not exist yet — do not create it early.
 | `connections/{pairId}` | only the two participants may read; create/update/delete are pinned to the exact legal transitions (see §3 and `docs/connections.md`) |
 | `conversations/{connectionId}` | every access reads `connections/{conversationId}` and requires `status == 'connected'` plus `uid in participants`; participants and ids frozen; only the caller's own message preview may be written; delete denied |
 | `conversations/{id}/messages/{messageId}` | same connected-participant check; create-only, `senderId == request.auth.uid`, content non-empty after `trim()` and ≤ 1000 chars; update and delete denied |
-| `activityPlans/{connectionId}__active` | same connected-participant check; identity frozen; a proposal may only be unchanged, replaced by its proposer, or accepted by the caller adding **only themselves**; `status` recomputed by the rules; delete denied |
+| `activityPlans/{connectionId}__active` | same connected-participant check; identity frozen; each of the FOUR proposals may only be unchanged, replaced by its proposer, or accepted by the caller adding **only themselves**; a venue change requires sport/time/budget already agreed; `status` (incl. `venue-agreed`) recomputed by the rules; delete denied |
 | everything else | read and write denied |
 
 Deploy with `firebase deploy --only firestore:rules`. Verify with
 `npm run test:rules`, which starts the Firestore emulator and runs
-`tests/firestore-rules.test.ts` (62 tests) against the real rules file — it
+`tests/firestore-rules.test.ts` (70 tests) against the real rules file — it
 needs **JDK 21+**, and never runs as part of `npm test`.
 
 ## 12. Mock data architecture
@@ -1115,6 +1201,20 @@ it. Feature logic never leaks into `components/ui/`.
   those are STEPS 11, 13 and 14.
 - Overwrite a whole plan document from a stale local copy; patch the one
   proposal that changed, inside a transaction.
+- Call `navigator.geolocation`, request a location permission, or store any
+  coordinate against a user — profiles hold an `areaId` and nothing else.
+- Describe an area centre or the search midpoint as somebody's location, or
+  show a distance "from Gary" rather than from the search area.
+- Persist a raw provider place object, or create a venues collection; only the
+  `VenueSelection` snapshot is stored.
+- Hardcode a Google API key, log one, or read it anywhere but `config/env.ts`.
+- Call Places on render, hover, marker click or map pan, or before the plan is
+  `ready`.
+- Make a venue reachable only from the map; the list is the primary surface.
+- Show a venue price in ringgit, an availability state, a booking action or a
+  travel time — none of those are real data.
+- Tie `VITE_VENUE_SOURCE` to `VITE_DATA_SOURCE`, or branch on either outside
+  `repositories.ts`.
 - Attach a realtime listener to `publicProfiles`.
 - Add dependencies that nothing uses yet.
 - Create empty placeholder files/folders or single-implementation
@@ -1428,13 +1528,61 @@ client write shape, server timestamps nested in proposal maps included.
 (dark/light at 390px and 430px) was not automated in this environment** — no
 headless browser is installed.
 
+STEP 11 — Venue Discovery + Google Maps / Places:
+
+- `AreaDefinition` gained a public approximate `center`; `src/lib/geo.ts`
+  added midpoint, Haversine, coordinate validation and an adaptive search
+  radius. **No GPS, no permission, no user coordinate is stored** — profiles
+  still hold an `areaId` and nothing else.
+- `Venue` / `VenueSelection` domain, `VenueRepository` with a Places (New)
+  REST implementation (narrow field mask, capped results, mapped through
+  `mapGooglePlaceToVenue`) and a 12-venue Klang Valley mock.
+- `VITE_VENUE_SOURCE` (`mock | google`) chosen independently of the backend,
+  plus `VITE_GOOGLE_MAPS_API_KEY`; `.env.example` updated. A missing key never
+  crashes anything.
+- `ActivityPlan` gained `venueProposal: Proposal<VenueSelection>` and status
+  `venue-agreed`, reusing the STEP 10 propose/accept/version machinery
+  unchanged. `ready` kept its name (now "ready for a venue"), so no data
+  migration was needed; older plans read the field as an empty proposal in the
+  mapper, the mock normalizer and the rules.
+- Venue step: search with debounce, honest "midpoint of your two areas" copy,
+  a venue list that works with no map at all, and a map that renders nothing
+  if it fails. Two-way marker/card selection. `PlanSummary` and the chat plan
+  card now show the venue and a state-aware action.
+- Rules extended: a venue change requires the other three agreed, acceptance
+  cannot be impersonated, and `venue-agreed` cannot be claimed without both.
+- Vitest suite grew to 237 unit tests; emulator rules tests to 70.
+- Full walkthrough: `docs/venues.md`.
+
+Verified in mock mode through the same repository and service the app uses:
+the search area computed as the midpoint of two public area centroids with no
+device position involved; sport-relevant venues only, ordered by distance from
+that centre, capped at the result limit; a manual query narrowing and an
+unmatched query returning nothing rather than inventing results; snapshots
+trimmed to the five stable fields with ratings and price bands dropped;
+impossible coordinates and empty names refused; venue proposals blocked before
+the plan is `ready`, accepted implicitly by the proposer, completed by the
+other participant into `venue-agreed`, reset back to `ready` when the venue is
+replaced, and refused when aimed at a replaced version; everything surviving a
+reload. Security rules verified against the Firestore emulator (70 tests, 8
+for venue) including proposing before readiness, impersonated acceptance,
+claiming `venue-agreed` with one approval, and a pre-STEP-11 plan document
+still accepting updates. `tsc -b`, oxlint and the production build all pass.
+**A visual browser pass (dark/light at 390px and 430px) was not automated in
+this environment** — no headless browser is installed.
+
+**Live Google Maps / Places verification is outstanding** — no API key exists
+in this environment, so the Places request shape, the Maps script load and
+marker rendering are implemented and typed but have not run against Google.
+
 **Live two-user Firebase verification is still outstanding** — no project credentials
 exist in this environment. The firebase-mode paths (auth, profile,
 preferences, projection writes and Discover reads) are implemented and typed
 but have not run against a real project.
 
-Not done (by design): venue discovery, maps/places and precise distance,
-confirmed activities and history, plan cancellation, calendar integration,
+Not done (by design): confirmed activities and history, court booking,
+availability and payment, venue pricing in ringgit, travel time / Routes API,
+live or background location, plan cancellation, calendar integration,
 disconnect/unfriend, block and report, unread/read receipts, typing and
 presence, media messages, notification delivery, subscriptions, analytics,
 native platforms, account deletion, photo upload.
@@ -1472,7 +1620,8 @@ STEP 8 — Connect + Mutual Connection Flow
 STEP 9 — Realtime Chat
 STEP 9.5 — Responsive UI + Tablet/Desktop + Gradient Polish
 STEP 10 — Plan Together: Sport + Availability + Budget
+STEP 11 — Venue Discovery + Google Maps / Places
 
-**Current Step:** STEP 10 — Plan Together
+**Current Step:** STEP 11 — Venue Discovery
 
-**Next Step:** STEP 11 — Venue Discovery + Google Maps / Places
+**Next Step:** STEP 12 — Confirmed Activity + Activity Card

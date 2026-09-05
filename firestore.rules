@@ -235,10 +235,28 @@ service cloud.firestore {
           && request.auth.uid in connection(connectionId).participants;
       }
 
+      // `venueProposal` (STEP 11) is optional on READ so a plan written
+      // before it keeps working; `requiredPlanFields()` is what must exist.
       function planFields() {
         return ['id', 'connectionId', 'participants', 'status',
                 'sportProposal', 'timeProposal', 'budgetProposal',
+                'venueProposal', 'createdBy', 'createdAt', 'updatedAt'];
+      }
+
+      function requiredPlanFields() {
+        return ['id', 'connectionId', 'participants', 'status',
+                'sportProposal', 'timeProposal', 'budgetProposal',
                 'createdBy', 'createdAt', 'updatedAt'];
+      }
+
+      function emptyProposalValue() {
+        return {'value': null, 'proposedBy': '', 'acceptedBy': [],
+                'version': 0, 'updatedAt': null};
+      }
+
+      /** Treats a pre-STEP-11 plan as having an untouched venue proposal. */
+      function venueOf(data) {
+        return data.get('venueProposal', emptyProposalValue());
       }
 
       function proposalFields() {
@@ -267,13 +285,20 @@ service cloud.firestore {
           && proposal.acceptedBy.hasAll(incoming().participants);
       }
 
-      // `ready` is a claim about AGREEMENT, so the rules verify it rather
-      // than trusting whatever status the client sent.
+      // Status is a claim about AGREEMENT, so the rules recompute it rather
+      // than trusting whatever the client sent. `venue-agreed` in particular
+      // is impossible without BOTH participants accepting the venue.
+      function coreAgreed() {
+        return agreed(incoming().sportProposal)
+          && agreed(incoming().timeProposal)
+          && agreed(incoming().budgetProposal);
+      }
+
       function statusMatchesAgreement() {
-        return (agreed(incoming().sportProposal)
-                && agreed(incoming().timeProposal)
-                && agreed(incoming().budgetProposal))
-          ? incoming().status == 'ready'
+        return coreAgreed()
+          ? (agreed(venueOf(incoming()))
+              ? incoming().status == 'venue-agreed'
+              : incoming().status == 'ready')
           : incoming().status == 'draft';
       }
 
@@ -297,7 +322,7 @@ service cloud.firestore {
 
       allow create: if connectedParticipant(incoming().connectionId)
         && incoming().keys().hasOnly(planFields())
-        && incoming().keys().hasAll(planFields())
+        && incoming().keys().hasAll(requiredPlanFields())
         && incoming().id == planId
         // Exactly the connection's participants — no invented third person.
         && incoming().participants
@@ -307,15 +332,17 @@ service cloud.firestore {
         && wellFormedProposal(incoming().sportProposal)
         && wellFormedProposal(incoming().timeProposal)
         && wellFormedProposal(incoming().budgetProposal)
+        && wellFormedProposal(venueOf(incoming()))
         && emptyProposal(incoming().sportProposal)
         && emptyProposal(incoming().timeProposal)
         && emptyProposal(incoming().budgetProposal)
+        && emptyProposal(venueOf(incoming()))
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
 
       allow update: if connectedParticipant(current().connectionId)
         && incoming().keys().hasOnly(planFields())
-        && incoming().keys().hasAll(planFields())
+        && incoming().keys().hasAll(requiredPlanFields())
         // Identity is frozen after creation.
         && incoming().id == current().id
         && incoming().connectionId == current().connectionId
@@ -325,12 +352,17 @@ service cloud.firestore {
         && wellFormedProposal(incoming().sportProposal)
         && wellFormedProposal(incoming().timeProposal)
         && wellFormedProposal(incoming().budgetProposal)
+        && wellFormedProposal(venueOf(incoming()))
         && proposalChangeIsLegal(current().sportProposal,
                                  incoming().sportProposal)
         && proposalChangeIsLegal(current().timeProposal,
                                  incoming().timeProposal)
         && proposalChangeIsLegal(current().budgetProposal,
                                  incoming().budgetProposal)
+        && proposalChangeIsLegal(venueOf(current()), venueOf(incoming()))
+        // A venue only belongs on a plan whose other three are settled.
+        && (venueOf(incoming()).version == venueOf(current()).version
+            || coreAgreed())
         && statusMatchesAgreement()
         && incoming().updatedAt == request.time;
 

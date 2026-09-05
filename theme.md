@@ -958,7 +958,62 @@ The planner adds gradient in exactly two places: primary CTA buttons (via the
 selection chips, progress steps, summary rows and agreement states all stay
 **flat** `primary`. A gradient is still an accent.
 
-## 23. Mobile safe-area rules
+## 23. Venue patterns (STEP 11)
+
+### Venue step layout
+
+The venue browser needs the whole page, so while it is the active step the
+planner drops its `grid-aside-end` summary column and the plan summary moves
+below. Inside the step, list and map are stacked on a phone and
+`lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]` from `lg`.
+
+**The list is the primary surface at every width.** The map is an
+enhancement: it is `order-1` above the list on a phone (a preview), `order-2`
+beside it on desktop, and it renders **nothing at all** if Maps fails to load.
+
+### Map container
+
+`rounded-2xl border border-border overflow-hidden`, `h-60` on a phone and
+`lg:h-[28rem] lg:sticky lg:top-6` on desktop — a responsive height, never a
+fixed `h-[600px]` at every breakpoint. Loading shows an `animate-pulse
+bg-muted` panel with "Loading map…", never a blank white box.
+
+Marker colours come from live theme tokens read at runtime
+(`--primary` selected, `--muted-foreground` unselected, `--background` for the
+stroke), because the Maps API takes colour strings and cannot take a class.
+That is the one place a colour is read rather than applied — no hex is written
+in a component.
+
+### Venue card
+
+`rounded-2xl border bg-card p-4`. The name and address are a single button
+(so the whole identity block is one keyboard target), then metadata in
+`text-body-small text-muted-foreground` — rating with a `size-3.5 text-primary`
+star, and distance with a `MapPin`. Actions are a primary **Suggest venue**
+and an outline **Open in Maps**.
+
+**No price, no availability, no travel time** — none of those are real data.
+
+### Selected venue state
+
+`border-primary bg-primary/5` plus a `text-caption text-primary uppercase`
+"Selected" label and `aria-pressed`, so selection is never colour alone.
+Unselected cards get `hover:shadow-hover` as a desktop affordance.
+
+### Venue proposal state
+
+Reuses §22's `ProposalStatus` unchanged — "You suggested … Waiting for Aina",
+"Aina suggested …" with an Agree button naming the venue. Venue introduced no
+new agreement UI.
+
+### Gradient discipline, unchanged
+
+The venue step adds gradient in **no** new place. Primary CTAs pick it up from
+the `Button` `default` variant (§20) and the "Plan complete" pill is the same
+one §22 already documented. Venue cards, markers, selected states and rating
+stars are all flat `primary`.
+
+## 24. Mobile safe-area rules
 
 - `index.html` sets `viewport-fit=cover`; insets come from
   `env(safe-area-inset-*)`.
@@ -968,7 +1023,7 @@ selection chips, progress steps, summary rows and agreement states all stay
 - Any other fixed/sticky element must add the matching safe inset itself.
 - Never hardcode 44px/34px notch values.
 
-## 24. Accessibility / contrast rules
+## 25. Accessibility / contrast rules
 
 - Body text ≥ 4.5:1, large text ≥ 3:1. Verified pairs: dark
   `--muted-foreground` on background ≈ 7.5:1; light ≈ 5.7:1; light `--primary`
@@ -980,7 +1035,7 @@ selection chips, progress steps, summary rows and agreement states all stay
 - Never encode meaning in color alone; pair with icon or text.
 - `color-scheme` is set on `<html>` so native controls and scrollbars match.
 
-## 25. Allowed usage
+## 26. Allowed usage
 
 ```tsx
 <div className="bg-card text-card-foreground rounded-2xl border border-border p-page">
@@ -991,7 +1046,7 @@ selection chips, progress steps, summary rows and agreement states all stay
 </div>
 ```
 
-## 26. Forbidden usage
+## 27. Forbidden usage
 
 ```tsx
 // raw color values

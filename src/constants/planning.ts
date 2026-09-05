@@ -33,4 +33,10 @@ export const PLAN_STEPS = [
   { kind: 'sport', label: 'Sport', question: 'What are you playing?' },
   { kind: 'time', label: 'Time', question: 'When are you both free?' },
   { kind: 'budget', label: 'Budget', question: 'What will it cost each?' },
+  { kind: 'venue', label: 'Venue', question: 'Where should you play?' },
 ] as const
+
+/** The three that must be agreed before a venue can be chosen. */
+export const CORE_PLAN_STEPS = PLAN_STEPS.filter(
+  (step) => step.kind !== 'venue',
+)

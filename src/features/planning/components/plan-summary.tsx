@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { formatPlannedTime, formatSessionBudget } from '@/lib/plan-format'
 import { getSportName } from '@/lib/profile-format'
-import { isProposalAgreed } from '@/lib/planning'
+import { isProposalAgreed, PLAN_STATUS_LABELS } from '@/lib/planning'
 import { cn } from '@/lib/utils'
 import type { ActivityPlan } from '@/types/planning'
 
@@ -28,6 +28,7 @@ export function PlanSummary({
   const sportAgreed = isProposalAgreed(plan.sportProposal, plan.participants)
   const timeAgreed = isProposalAgreed(plan.timeProposal, plan.participants)
   const budgetAgreed = isProposalAgreed(plan.budgetProposal, plan.participants)
+  const venueAgreed = isProposalAgreed(plan.venueProposal, plan.participants)
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
@@ -35,8 +36,10 @@ export function PlanSummary({
         <h2 className="text-caption text-muted-foreground uppercase">
           Plan so far
         </h2>
-        <Badge variant={plan.status === 'ready' ? 'default' : 'outline'}>
-          {plan.status === 'ready' ? 'Ready' : 'Draft'}
+        <Badge
+          variant={plan.status === 'venue-agreed' ? 'default' : 'outline'}
+        >
+          {PLAN_STATUS_LABELS[plan.status]}
         </Badge>
       </div>
 
@@ -71,9 +74,12 @@ export function PlanSummary({
           }
           agreed={budgetAgreed}
         />
-        {/* Venue is STEP 11. It is shown as genuinely not chosen rather than
-            hidden, so the plan reads honestly. */}
-        <SummaryRow icon={MapPin} label="Venue" value={null} agreed={false} />
+        <SummaryRow
+          icon={MapPin}
+          label="Venue"
+          value={plan.venueProposal.value?.name ?? null}
+          agreed={venueAgreed}
+        />
       </div>
 
       <p className="text-body-small text-muted-foreground">

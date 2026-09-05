@@ -43,6 +43,7 @@ breakpoint-specific colour exists anywhere).
 | `/messages` | conversation list | list ∣ "select a buddy" detail | same, wider detail | behaved like a phone at every width | `MessagesLayout` master–detail; `ConversationEmptyPage` for the detail pane | PASS |
 | `/messages/:conversationId` | full-screen chat, no bottom nav | list ∣ conversation | list ∣ conversation, wider | chat locked to phone width on a MacBook; route lived outside `AppShell`, so desktop had no navigation | route moved inside `AppShell` under `MessagesLayout`; `ChatLayout` fills the pane (`md:h-full`), back button `md:hidden`, messages in a centred `max-w-default` column; bubbles capped `md:max-w-[70%] lg:max-w-md` | PASS |
 | `/messages/:conversationId/plan` | focused step flow: progress, one step, summary at the end | wider step content, 2-column time and budget steps | planner ∣ sticky live summary (`grid-aside-end`) | new in STEP 10 | `size="wide"`; `lg:grid-aside-end` with a sticky `PlanSummary`; sport grid 1/2/3; time and budget steps split into suggestions ∣ editor at `lg`; sits beside the app sidebar rather than inside the chat pane | PASS |
+| `/messages/:conversationId/plan` (venue step) | search + map preview (240px) above a single-column venue list | same, wider cards | list ∣ sticky map, full page width (the plan summary drops below rather than making a third cramped column) | new in STEP 11 | venue step is `lg:grid-cols-[1fr_1.1fr]`; the page drops its `grid-aside-end` aside while the venue step is active; map is `h-60` on a phone and `lg:h-[28rem]` sticky | PASS |
 | `/profile` | stacked sections | 2-column detail sections | hero/actions ∣ 2-column details, sticky left | full-width cards in one long column | `size="wide"`; `lg:grid-aside-start` with a sticky left column; details `md:grid-cols-2`; Discovery spans both | PASS |
 | `/profile/edit` | single column, sticky save bar | readable column, actions in header | same | phone-width form; sticky bottom bar under a tall desktop window | `EditLayout` `max-w-default`, actions move to the header from `md`; playing style + budget pair at `md` | PASS |
 | `/settings` | grouped list | grouped list, wider | section nav ∣ content | one very long vertical mobile list on desktop | `size="wide"`; `lg:grid-nav-start` with a sticky anchor nav; sections carry ids; Sign Out stops being full width from `sm` | PASS |
@@ -74,6 +75,9 @@ breakpoint-specific colour exists anywhere).
 | `TimeStep` | new | stacked on a phone; suggestions ∣ exact date/time editor from `lg` | PASS |
 | `BudgetStep` | new | stacked on a phone; shared-budget context ∣ preset grid from `lg` | PASS |
 | `PlanChatCard` | new | single compact row at every width, truncating the decisions line | PASS |
+| `VenueStep` (STEP 11) | new | search + honest area copy above; list and map stack on a phone, split from `lg` with the list first in source order | PASS |
+| `VenueCard` | new | full-width row; name/address button, rating and distance metadata wrap, actions wrap on a narrow phone | PASS |
+| `VenueMap` | new | `h-60` phone preview, `lg:h-[28rem]` sticky panel; renders **nothing** if Maps fails, leaving the list intact | PASS |
 | `MessagesListPane` | was a whole page | pane-aware: scrolls internally, card frame dropped from `md` | PASS |
 | `DiscoverFilterSheet` | was the only filter presentation | fields extracted; sheet is now `< lg` only | PASS |
 | `DiscoverFilterFields` | did not exist | new — the single filter implementation | PASS |

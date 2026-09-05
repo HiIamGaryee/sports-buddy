@@ -361,13 +361,15 @@ describe('readiness', () => {
     expect(isPlanReady(ready)).toBe(true)
   })
 
-  it('leaves the venue unselected', async () => {
+  it('reaches `ready` with the venue still open', async () => {
     await agree('sport')
     await agree('time')
     const ready = await agree('budget')
-    // STEP 11's job — the plan has no venue field at all yet.
-    expect(Object.keys(ready)).not.toContain('venueProposal')
+    // `ready` means "ready for a venue" — the venue proposal exists but is
+    // untouched, and the status only moves on once it is agreed too.
     expect(ready.status).toBe('ready')
+    expect(ready.venueProposal.version).toBe(0)
+    expect(ready.venueProposal.value).toBeNull()
   })
 
   it('falls back to draft when an agreed value is replaced', async () => {
@@ -382,6 +384,219 @@ describe('readiness', () => {
       SHARED_SPORTS,
     )
     expect(changed.status).toBe('draft')
+  })
+})
+
+describe('venue', () => {
+  const VENUE = {
+    placeId: 'mock_pj_racquet_club',
+    name: 'Petaling Jaya Racquet Club',
+    address: 'Jalan 13/6, Seksyen 13, Petaling Jaya',
+    location: { lat: 3.1096, lng: 101.6371 },
+    googleMapsUri: 'https://maps.google.com/?cid=1',
+  }
+  const OTHER_VENUE = {
+    ...VENUE,
+    placeId: 'mock_usj_sports_arena',
+    name: 'USJ Sports Arena',
+    location: { lat: 3.0421, lng: 101.5836 },
+  }
+
+  /** Gets the plan to `ready`: sport, time and budget agreed by both. */
+  async function makeReady() {
+    await activityPlanService.openPlan(connection(), GARY)
+    const sport = await activityPlanService.proposeSport(
+      connection(),
+      GARY,
+      'badminton',
+      SHARED_SPORTS,
+    )
+    await activityPlanService.accept(
+      connection(),
+      AINA,
+      'sport',
+      sport.sportProposal.version,
+    )
+    const time = await activityPlanService.proposeTime(
+      connection(),
+      GARY,
+      futureTime(),
+    )
+    await activityPlanService.accept(
+      connection(),
+      AINA,
+      'time',
+      time.timeProposal.version,
+    )
+    const budget = await activityPlanService.proposeBudget(connection(), GARY, {
+      min: 20,
+      max: 40,
+    })
+    return activityPlanService.accept(
+      connection(),
+      AINA,
+      'budget',
+      budget.budgetProposal.version,
+    )
+  }
+
+  it('cannot be proposed before sport, time and budget are agreed', async () => {
+    await activityPlanService.openPlan(connection(), GARY)
+    await expect(
+      activityPlanService.proposeVenue(connection(), GARY, VENUE, false),
+    ).rejects.toThrow(/sport, time and budget/i)
+    expect(loadPlan()?.venueProposal.version).toBe(0)
+  })
+
+  it('is accepted implicitly by whoever proposes it', async () => {
+    await makeReady()
+    const plan = await activityPlanService.proposeVenue(
+      connection(),
+      GARY,
+      VENUE,
+      true,
+    )
+    expect(plan.venueProposal.value?.placeId).toBe(VENUE.placeId)
+    expect(plan.venueProposal.acceptedBy).toEqual([GARY])
+    expect(plan.status).toBe('ready')
+  })
+
+  it('reaches venue-agreed once the other person agrees', async () => {
+    await makeReady()
+    const proposed = await activityPlanService.proposeVenue(
+      connection(),
+      GARY,
+      VENUE,
+      true,
+    )
+    const agreed = await activityPlanService.accept(
+      connection(),
+      AINA,
+      'venue',
+      proposed.venueProposal.version,
+    )
+    expect(isProposalAgreed(agreed.venueProposal, PAIR)).toBe(true)
+    expect(agreed.status).toBe('venue-agreed')
+  })
+
+  it('is idempotent when the same person agrees twice', async () => {
+    await makeReady()
+    const proposed = await activityPlanService.proposeVenue(
+      connection(),
+      GARY,
+      VENUE,
+      true,
+    )
+    const once = await activityPlanService.accept(
+      connection(),
+      AINA,
+      'venue',
+      proposed.venueProposal.version,
+    )
+    const twice = await activityPlanService.accept(
+      connection(),
+      AINA,
+      'venue',
+      once.venueProposal.version,
+    )
+    expect(twice.venueProposal.acceptedBy).toHaveLength(2)
+    expect(twice.status).toBe('venue-agreed')
+  })
+
+  it('resets agreement and drops back to ready when the venue changes', async () => {
+    await makeReady()
+    const proposed = await activityPlanService.proposeVenue(
+      connection(),
+      GARY,
+      VENUE,
+      true,
+    )
+    await activityPlanService.accept(
+      connection(),
+      AINA,
+      'venue',
+      proposed.venueProposal.version,
+    )
+
+    const changed = await activityPlanService.proposeVenue(
+      connection(),
+      AINA,
+      OTHER_VENUE,
+      true,
+    )
+    expect(changed.venueProposal.value?.placeId).toBe(OTHER_VENUE.placeId)
+    expect(changed.venueProposal.acceptedBy).toEqual([AINA])
+    expect(changed.status).toBe('ready')
+  })
+
+  it('rejects an agreement aimed at a replaced venue', async () => {
+    await makeReady()
+    const first = await activityPlanService.proposeVenue(
+      connection(),
+      GARY,
+      VENUE,
+      true,
+    )
+    await activityPlanService.proposeVenue(connection(), GARY, OTHER_VENUE, true)
+
+    await expect(
+      activityPlanService.accept(
+        connection(),
+        AINA,
+        'venue',
+        first.venueProposal.version,
+      ),
+    ).rejects.toThrow(/changed/i)
+    expect(loadPlan()?.venueProposal.value?.placeId).toBe(OTHER_VENUE.placeId)
+  })
+
+  it('rejects a snapshot with impossible coordinates', async () => {
+    await makeReady()
+    await expect(
+      activityPlanService.proposeVenue(
+        connection(),
+        GARY,
+        { ...VENUE, location: { lat: 999, lng: 0 } },
+        true,
+      ),
+    ).rejects.toThrow(/details look wrong/i)
+    expect(loadPlan()?.venueProposal.version).toBe(0)
+  })
+
+  it('cannot be proposed by a pending or unrelated user', async () => {
+    await makeReady()
+    await expect(
+      activityPlanService.proposeVenue(pending(), GARY, VENUE, true),
+    ).rejects.toThrow(/connected/i)
+    await expect(
+      activityPlanService.proposeVenue(connection(), STRANGER, VENUE, true),
+    ).rejects.toThrow(/connected/i)
+    expect(loadPlan()?.venueProposal.version).toBe(0)
+  })
+
+  it('persists the snapshot across a reload, with no provider extras', async () => {
+    await makeReady()
+    const proposed = await activityPlanService.proposeVenue(
+      connection(),
+      GARY,
+      VENUE,
+      true,
+    )
+    await activityPlanService.accept(
+      connection(),
+      AINA,
+      'venue',
+      proposed.venueProposal.version,
+    )
+
+    const reloaded = loadPlan()
+    expect(reloaded?.status).toBe('venue-agreed')
+    expect(reloaded?.venueProposal.value).toEqual(VENUE)
+
+    const serialized = JSON.stringify(reloaded?.venueProposal.value)
+    for (const provider of ['rating', 'priceLevel', 'primaryType', 'photos']) {
+      expect(serialized).not.toContain(provider)
+    }
   })
 })
 

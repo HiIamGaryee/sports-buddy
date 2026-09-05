@@ -13,6 +13,8 @@ import { firebaseProfileRepository } from '@/repositories/profile/firebase-profi
 import { mockProfileRepository } from '@/repositories/profile/mock-profile-repository'
 import { firebasePublicProfileRepository } from '@/repositories/public-profile/firebase-public-profile-repository'
 import { mockPublicProfileRepository } from '@/repositories/public-profile/mock-public-profile-repository'
+import { googleVenueRepository } from '@/repositories/venue/google-venue-repository'
+import { mockVenueRepository } from '@/repositories/venue/mock-venue-repository'
 
 /** The single place the backend is chosen. Nothing else reads env.dataSource. */
 const useFirebase = env.dataSource === 'firebase'
@@ -50,3 +52,11 @@ export const chatRepository = useFirebase
 export const activityPlanRepository = useFirebase
   ? firebaseActivityPlanRepository
   : mockActivityPlanRepository
+
+/**
+ * Venue discovery, chosen from `env.venueSource` INDEPENDENTLY of the
+ * backend — Firebase plus mock venues is a normal development setup. This is
+ * the one place the provider is selected; no component branches on it.
+ */
+export const venueRepository =
+  env.venueSource === 'google' ? googleVenueRepository : mockVenueRepository

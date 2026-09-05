@@ -925,6 +925,195 @@ describe('activity plans', () => {
     await assertFails(deleteDoc(doc(asUser(GARY), planPath())))
     await assertFails(deleteDoc(doc(asUser(AINA), planPath())))
   })
+
+  describe('venue (STEP 11)', () => {
+    const both = sortConnectionPair(GARY, AINA)
+    const VENUE = {
+      placeId: 'mock_pj_racquet_club',
+      name: 'Petaling Jaya Racquet Club',
+      address: 'Jalan 13/6, Seksyen 13, Petaling Jaya',
+      location: { lat: 3.1096, lng: 101.6371 },
+      googleMapsUri: 'https://maps.google.com/?cid=1',
+    }
+
+    const agreedProposal = (value: unknown) => ({
+      value,
+      proposedBy: GARY,
+      acceptedBy: both,
+      version: 1,
+      updatedAt: new Date(),
+    })
+
+    /** A plan whose sport, time and budget are all agreed by both. */
+    const readyPlan = () => ({
+      sportProposal: agreedProposal('badminton'),
+      timeProposal: agreedProposal({
+        date: '2030-01-05',
+        startTime: '17:00',
+        endTime: '19:00',
+        timeZone: 'Asia/Kuala_Lumpur',
+      }),
+      budgetProposal: agreedProposal({ min: 20, max: 40 }),
+      status: 'ready',
+    })
+
+    const venueProposedByGary = () => ({
+      value: VENUE,
+      proposedBy: GARY,
+      acceptedBy: [GARY],
+      version: 1,
+      updatedAt: new Date(),
+    })
+
+    it('can be proposed by a participant once the plan is ready', async () => {
+      await seedPlan(readyPlan())
+      await assertSucceeds(
+        updateDoc(doc(asUser(GARY), planPath()), {
+          venueProposal: {
+            value: VENUE,
+            proposedBy: GARY,
+            acceptedBy: [GARY],
+            version: 1,
+            updatedAt: serverTimestamp(),
+          },
+          status: 'ready',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+
+    it('cannot be proposed while sport/time/budget are unagreed', async () => {
+      await seedPlan()
+      await assertFails(
+        updateDoc(doc(asUser(GARY), planPath()), {
+          venueProposal: {
+            value: VENUE,
+            proposedBy: GARY,
+            acceptedBy: [GARY],
+            version: 1,
+            updatedAt: serverTimestamp(),
+          },
+          status: 'draft',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+
+    it('cannot be proposed by an unrelated user', async () => {
+      await seedPlan(readyPlan())
+      await assertFails(
+        updateDoc(doc(asUser(STRANGER), planPath()), {
+          venueProposal: {
+            value: VENUE,
+            proposedBy: STRANGER,
+            acceptedBy: [STRANGER],
+            version: 1,
+            updatedAt: serverTimestamp(),
+          },
+          status: 'ready',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+
+    it('lets the other participant agree, reaching venue-agreed', async () => {
+      await seedPlan({ ...readyPlan(), venueProposal: venueProposedByGary() })
+      await assertSucceeds(
+        updateDoc(doc(asUser(AINA), planPath()), {
+          venueProposal: {
+            value: VENUE,
+            proposedBy: GARY,
+            acceptedBy: [GARY, AINA],
+            version: 1,
+            updatedAt: serverTimestamp(),
+          },
+          status: 'venue-agreed',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+
+    it('stops one participant agreeing for the other', async () => {
+      await seedPlan({ ...readyPlan(), venueProposal: venueProposedByGary() })
+      await assertFails(
+        updateDoc(doc(asUser(GARY), planPath()), {
+          venueProposal: {
+            value: VENUE,
+            proposedBy: GARY,
+            acceptedBy: [GARY, AINA],
+            version: 1,
+            updatedAt: serverTimestamp(),
+          },
+          status: 'venue-agreed',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+
+    it('stops venue-agreed being claimed with only one acceptance', async () => {
+      await seedPlan({ ...readyPlan(), venueProposal: venueProposedByGary() })
+      await assertFails(
+        updateDoc(doc(asUser(AINA), planPath()), {
+          status: 'venue-agreed',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+
+    it('drops back to ready when the venue is replaced', async () => {
+      await seedPlan({
+        ...readyPlan(),
+        venueProposal: { ...venueProposedByGary(), acceptedBy: both },
+        status: 'venue-agreed',
+      })
+      await assertSucceeds(
+        updateDoc(doc(asUser(AINA), planPath()), {
+          venueProposal: {
+            value: { ...VENUE, placeId: 'mock_usj_sports_arena', name: 'USJ Sports Arena' },
+            proposedBy: AINA,
+            acceptedBy: [AINA],
+            version: 2,
+            updatedAt: serverTimestamp(),
+          },
+          status: 'ready',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+
+    it('still accepts a plan written before the venue field existed', async () => {
+      // A pre-STEP-11 document: no `venueProposal` key at all.
+      await seedConnected()
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(modular(context), planPath()), {
+          id: PLAN_ID,
+          connectionId: PAIR,
+          participants: both,
+          status: 'draft',
+          sportProposal: emptyProposal(),
+          timeProposal: emptyProposal(),
+          budgetProposal: emptyProposal(),
+          createdBy: GARY,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      })
+
+      await assertSucceeds(
+        updateDoc(doc(asUser(GARY), planPath()), {
+          sportProposal: {
+            value: 'badminton',
+            proposedBy: GARY,
+            acceptedBy: [GARY],
+            version: 1,
+            updatedAt: serverTimestamp(),
+          },
+          status: 'draft',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+  })
 })
 
 describe('the pair id', () => {

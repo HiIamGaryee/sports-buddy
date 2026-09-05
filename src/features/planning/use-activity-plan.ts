@@ -10,12 +10,15 @@ import {
   getSharedSportOptions,
   getSuggestedBudget,
   getUpcomingDatesForAvailability,
+  isPlanReady,
 } from '@/lib/planning'
 import { activityPlanService } from '@/services/planning/activity-plan-service'
 import { discoverService } from '@/services/discover/discover-service'
+import { venueService } from '@/services/venue/venue-service'
 import type { ActivityPlan, PlannedTime, ProposalKind } from '@/types/planning'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
 import type { BudgetPreference, SportId } from '@/types/sports-profile'
+import type { Venue } from '@/types/venue'
 
 interface PlanState {
   key: string
@@ -66,6 +69,7 @@ export function useActivityPlan(conversationId: string | undefined) {
 
   const requestKey = `${conversationId ?? ''}#${userId ?? ''}`
   const [state, setState] = useState<PlanState>(() => loadingState(requestKey))
+  const plan = state.plan
   // Reset during render when the route or user changes — no effect needed.
   if (state.key !== requestKey) setState(loadingState(requestKey))
 
@@ -159,6 +163,16 @@ export function useActivityPlan(conversationId: string | undefined) {
     [sharedSlots],
   )
 
+  // Derived from the two PROFILE areas, so venue search never needs (or
+  // asks for) a device position.
+  const searchArea = useMemo(
+    () =>
+      profile && buddy
+        ? venueService.getSearchArea(profile.area, buddy.area)
+        : null,
+    [profile, buddy],
+  )
+
   const suggestedBudget = useMemo(
     () => (profile && buddy ? getSuggestedBudget(profile.budget, buddy.budget) : null),
     [profile, buddy],
@@ -208,6 +222,19 @@ export function useActivityPlan(conversationId: string | undefined) {
     [run, connection, userId],
   )
 
+  const proposeVenue = useCallback(
+    (venue: Venue) =>
+      run(() =>
+        activityPlanService.proposeVenue(
+          connection,
+          userId ?? '',
+          venueService.toSelection(venue),
+          plan !== null && isPlanReady(plan),
+        ),
+      ),
+    [run, connection, userId, plan],
+  )
+
   const proposeBudget = useCallback(
     (budget: BudgetPreference) =>
       run(() =>
@@ -231,7 +258,7 @@ export function useActivityPlan(conversationId: string | undefined) {
     /** False for a missing, pending or someone else's plan alike. */
     isAuthorized,
     isResolvingAccess: isLoadingConnections,
-    plan: state.plan,
+    plan,
     isLoading: state.isLoading,
     error: state.error,
     isSaving,
@@ -243,6 +270,9 @@ export function useActivityPlan(conversationId: string | undefined) {
     proposeSport,
     proposeTime,
     proposeBudget,
+    proposeVenue,
+    /** The two AREA centroids' midpoint — never anybody's location. */
+    searchArea,
     accept,
   }
 }

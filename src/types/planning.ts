@@ -3,6 +3,7 @@ import type {
   SkillLevel,
   SportId,
 } from '@/types/sports-profile'
+import type { VenueSelection } from '@/types/venue'
 
 /**
  * A collaborative value. Both participants must appear in `acceptedBy` before
@@ -38,11 +39,18 @@ export interface PlannedTime {
   timeZone: string
 }
 
-/** `draft` while anything is still unagreed; `ready` once all three are. */
-export type PlanStatus = 'draft' | 'ready'
+/**
+ * `ready` kept its STEP 10 name deliberately — no data migration — but now
+ * means "ready for a venue": sport, time and budget agreed, venue still open.
+ *
+ *   draft         something among sport/time/budget is still unagreed
+ *   ready         those three agreed, no venue yet
+ *   venue-agreed  all four agreed; STEP 12 turns this into an activity
+ */
+export type PlanStatus = 'draft' | 'ready' | 'venue-agreed'
 
-/** The three things STEP 10 answers: what, when, how much. Venue is STEP 11. */
-export type ProposalKind = 'sport' | 'time' | 'budget'
+/** The four things a plan answers: what, when, how much, where. */
+export type ProposalKind = 'sport' | 'time' | 'budget' | 'venue'
 
 export interface ActivityPlan {
   id: string
@@ -52,6 +60,11 @@ export interface ActivityPlan {
   sportProposal: Proposal<SportId>
   timeProposal: Proposal<PlannedTime>
   budgetProposal: Proposal<BudgetPreference>
+  /**
+   * STEP 11. Plans created before it exist without this field; the document
+   * mapper and the mock normalizer fill in an empty proposal on read.
+   */
+  venueProposal: Proposal<VenueSelection>
   createdBy: string
   createdAt: string
   updatedAt: string

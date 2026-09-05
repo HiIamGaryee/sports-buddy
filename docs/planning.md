@@ -1,9 +1,15 @@
 # Plan Together
 
-Two connected members deciding **what**, **when** and **how much** — together,
-in structured state rather than by re-reading a chat thread.
+Two connected members deciding **what**, **when**, **how much** and (since
+STEP 11) **where** — together, in structured state rather than by re-reading a
+chat thread.
 
-Not **where**. Venue discovery is STEP 11.
+```
+Sport → Time → Budget → Venue → ready for activity confirmation
+```
+
+Confirming the activity itself is STEP 12. Venue specifics live in
+`docs/venues.md`.
 
 ## 1. Purpose
 
@@ -81,10 +87,11 @@ one plan. Finishing a session and starting a fresh one is STEP 12+ work.
   "id": "aina__gary__active",
   "connectionId": "aina__gary",
   "participants": ["aina", "gary"],
-  "status": "draft",              // draft | ready
+  "status": "draft",              // draft | ready | venue-agreed
   "sportProposal":  { /* Proposal<SportId> */ },
   "timeProposal":   { /* Proposal<PlannedTime> */ },
   "budgetProposal": { /* Proposal<BudgetPreference> */ },
+  "venueProposal":  { /* Proposal<VenueSelection> — STEP 11 */ },
   "createdBy": "gary",
   "createdAt": "<serverTimestamp>",
   "updatedAt": "<serverTimestamp>"
@@ -95,9 +102,10 @@ No display name, photo, email, sports list, area or bio is copied in — those
 live in `publicProfiles/{uid}`. No compatibility score either: it is derived
 per viewer (`docs/matching.md`). Ids and decisions only.
 
-**Venue is deliberately absent.** Not `venue: null`, not an empty
-`venueProposal` — the field does not exist until STEP 11 designs it. The UI
-shows the venue row as "Not decided yet" so the plan reads honestly.
+**Venue** (STEP 11) is a fourth proposal using exactly this machinery. It is
+**optional on read**: plans written before STEP 11 have no such field, and the
+Firestore mapper, `normalizeActivityPlan()` and the security rules all treat
+it as an empty proposal — no migration, no reset.
 
 ## 6. Proposal model
 
@@ -215,20 +223,26 @@ The plan's budget is **per person, for this session**, and says so — it is
 related to the profile preferences but is not the same thing, and no venue has
 been priced yet. Presets come from the shared `BUDGET_OPTIONS`.
 
-## 13. Ready
+## 13. Ready, and venue-agreed
 
 ```
-status === 'ready'  ⟺  sport agreed AND time agreed AND budget agreed
+status === 'ready'         ⟺  sport, time and budget all agreed
+status === 'venue-agreed'  ⟺  ready, AND the venue agreed too
 ```
+
+`ready` kept its STEP 10 name deliberately — no data migration — and now
+reads as **"ready for a venue"**. A venue can only be proposed from `ready`,
+because the venue search depends on the agreed sport.
 
 Agreed, not merely filled in. Status is recomputed inside the same transaction
 as the change that caused it, and the **security rules verify it** rather than
 trusting the client — a participant cannot mark a plan ready that the other
 has not agreed to. Replacing an agreed value drops the plan back to `draft`.
 
-Ready is the end of STEP 10. It is **not** a confirmed activity: there is no
-venue, no calendar entry, no notification, and the screen says as much rather
-than offering a dead "Continue to venue" button.
+`venue-agreed` is the end of STEP 11. It is **not** a confirmed activity:
+nothing is booked, the venue has not been contacted, and there is no calendar
+entry or notification. The screen says exactly that rather than offering a
+dead "Confirm" button.
 
 ## 14. Realtime
 
@@ -312,19 +326,17 @@ None. The deterministic document id means there is no query to index, so
   emulator; the client transaction and subscription paths are implemented and
   typed but have not run against a real project.
 
-## 18. STEP 11: venue
+## 18. Venue (STEP 11) and the handoff to STEP 12
 
-The shape is already right. A venue is another collaborative decision, so it
-becomes a fourth proposal:
+Venue arrived exactly as predicted: a fourth `Proposal<VenueSelection>` using
+the same accept/version machinery, the same "one legal change per proposal"
+rule, and `statusMatchesAgreement()` extended to four. `PlanSummary` only
+needed its venue row filled in.
 
-```ts
-venueProposal: Proposal<VenueSelection>
-```
+Its one extra rule: a venue may only be proposed from `ready`, since the
+search depends on the agreed sport. Full detail: `docs/venues.md`.
 
-Everything else follows without change: the same accept/version machinery, the
-same "one legal change per proposal" rule, and `statusMatchesAgreement()`
-extended to four. `PlanSummary` already renders a venue row, so it only needs
-its value filled in.
-
-The ready plan is exactly the input venue search needs — sport, a real
-date/time, and a per-person budget.
+A `venue-agreed` plan now carries everything a confirmed activity needs —
+`connectionId`, `participants`, `sportId`, `PlannedTime`, `BudgetPreference`
+and the `VenueSelection` snapshot — so STEP 12 can create one with **no
+further Places call**.

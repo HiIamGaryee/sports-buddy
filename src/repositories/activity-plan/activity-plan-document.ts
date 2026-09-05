@@ -1,6 +1,7 @@
 import type { DocumentData } from 'firebase/firestore'
 import { Timestamp } from 'firebase/firestore'
 
+import { isValidCoordinate } from '@/lib/geo'
 import { createEmptyProposal } from '@/lib/planning'
 import type {
   ActivityPlan,
@@ -9,6 +10,7 @@ import type {
   Proposal,
 } from '@/types/planning'
 import type { BudgetPreference, SportId } from '@/types/sports-profile'
+import type { VenueSelection } from '@/types/venue'
 
 const toIsoOrNull = (value: unknown): string | null =>
   value instanceof Timestamp
@@ -40,6 +42,9 @@ function toProposal<T>(
   }
 }
 
+const readStatus = (value: unknown): PlanStatus =>
+  value === 'venue-agreed' ? 'venue-agreed' : value === 'ready' ? 'ready' : 'draft'
+
 const readSport = (value: unknown): SportId | null =>
   typeof value === 'string' ? (value as SportId) : null
 
@@ -58,6 +63,32 @@ const readTime = (value: unknown): PlannedTime | null => {
     startTime: data.startTime,
     endTime: data.endTime,
     timeZone: asString(data.timeZone, 'UTC'),
+  }
+}
+
+const readVenue = (value: unknown): VenueSelection | null => {
+  if (!value || typeof value !== 'object') return null
+  const data = value as Record<string, unknown>
+  const location = data.location as Record<string, unknown> | undefined
+  if (
+    typeof data.placeId !== 'string' ||
+    typeof data.name !== 'string' ||
+    typeof location?.lat !== 'number' ||
+    typeof location?.lng !== 'number'
+  ) {
+    return null
+  }
+  const point = { lat: location.lat, lng: location.lng }
+  // A snapshot with impossible coordinates is not a venue.
+  if (!isValidCoordinate(point)) return null
+
+  return {
+    placeId: data.placeId,
+    name: data.name,
+    address: asString(data.address),
+    location: point,
+    googleMapsUri:
+      typeof data.googleMapsUri === 'string' ? data.googleMapsUri : null,
   }
 }
 
@@ -92,10 +123,12 @@ export function toActivityPlanDocument(
     id,
     connectionId,
     participants: [first, second],
-    status: data.status === 'ready' ? 'ready' : ('draft' satisfies PlanStatus),
+    status: readStatus(data.status),
     sportProposal: toProposal(data.sportProposal, readSport),
     timeProposal: toProposal(data.timeProposal, readTime),
     budgetProposal: toProposal(data.budgetProposal, readBudget),
+    // Absent on plans written before STEP 11 — reads as an empty proposal.
+    venueProposal: toProposal(data.venueProposal, readVenue),
     createdBy: asString(data.createdBy),
     createdAt,
     updatedAt: toIsoOrNull(data.updatedAt) ?? createdAt,

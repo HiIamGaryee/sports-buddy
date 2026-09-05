@@ -386,7 +386,9 @@ after a conversation:
 - the conversation header carries **Plan a session** (**Plan** once one
   exists), linking to `/messages/:conversationId/plan`
 - an active plan shows as a compact card pinned above the composer, with the
-  decisions so far and **Continue** / **View plan**
+  decisions so far — sport, time, budget and (since STEP 11) the agreed venue
+  — and an action that names what is left to do: **Continue**, **Choose
+  venue**, **Review venue** or **View plan**
 
 `ChatLayout` grew an `action` slot (header) and a `banner` slot (above the
 composer) for exactly this; nothing else about chat changed.

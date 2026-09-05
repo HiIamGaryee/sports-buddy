@@ -13,11 +13,13 @@ import type { Connection } from '@/types/connection'
 import type {
   ActivityPlan,
   PlannedTime,
+  PlanStatus,
   Proposal,
   ProposalKind,
   SharedSportOption,
   SuggestedSlot,
 } from '@/types/planning'
+import type { VenueSelection } from '@/types/venue'
 import type {
   AvailabilitySlot,
   BudgetPreference,
@@ -183,11 +185,22 @@ export const createEmptyProposal = <T>(): Proposal<T> => ({
   updatedAt: null,
 })
 
-/** The three untouched proposals a new plan starts with. */
+/** The four untouched proposals a new plan starts with. */
 export const createEmptyProposals = () => ({
   sportProposal: createEmptyProposal<SportId>(),
   timeProposal: createEmptyProposal<PlannedTime>(),
   budgetProposal: createEmptyProposal<BudgetPreference>(),
+  venueProposal: createEmptyProposal<VenueSelection>(),
+})
+
+/**
+ * Fills in anything a plan written before STEP 11 does not have, so an
+ * existing draft keeps working with no migration and no reset. Applied on
+ * every read.
+ */
+export const normalizeActivityPlan = (plan: ActivityPlan): ActivityPlan => ({
+  ...plan,
+  venueProposal: plan.venueProposal ?? createEmptyProposal<VenueSelection>(),
 })
 
 /** A brand new draft. Both repositories build their document from this. */
@@ -217,19 +230,44 @@ export const isProposalAgreed = <T>(
   participants.every((participant) => proposal.acceptedBy.includes(participant))
 
 /**
- * Ready means AGREED, not merely filled in: all three proposals carry a value
- * that both participants have accepted at its current version.
+ * Ready means AGREED, not merely filled in: sport, time and budget each carry
+ * a value that BOTH participants have accepted at its current version. It is
+ * the gate on choosing a venue.
  */
 export const isPlanReady = (plan: ActivityPlan) =>
   isProposalAgreed(plan.sportProposal, plan.participants) &&
   isProposalAgreed(plan.timeProposal, plan.participants) &&
   isProposalAgreed(plan.budgetProposal, plan.participants)
 
+/** The venue itself, agreed by both. */
+export const isVenueAgreed = (plan: ActivityPlan) =>
+  isProposalAgreed(
+    plan.venueProposal ?? createEmptyProposal(),
+    plan.participants,
+  )
+
+/** Display wording per status — never spelled out in a component. */
+export const PLAN_STATUS_LABELS = {
+  draft: 'Draft',
+  ready: 'Ready for a venue',
+  'venue-agreed': 'Plan complete',
+} as const satisfies Record<PlanStatus, string>
+
+/**
+ * Status is DERIVED from agreement, never set by hand — the same rule the
+ * security rules recompute independently.
+ */
+export const derivePlanStatus = (plan: ActivityPlan): PlanStatus => {
+  if (!isPlanReady(plan)) return 'draft'
+  return isVenueAgreed(plan) ? 'venue-agreed' : 'ready'
+}
+
 /** Domain key per proposal kind — the one mapping, used by every layer. */
 export const PROPOSAL_KEYS = {
   sport: 'sportProposal',
   time: 'timeProposal',
   budget: 'budgetProposal',
+  venue: 'venueProposal',
 } as const satisfies Record<ProposalKind, keyof ActivityPlan>
 
 export const getProposal = (plan: ActivityPlan, kind: ProposalKind) =>
@@ -241,7 +279,7 @@ const isSameValue = (a: unknown, b: unknown) =>
 
 const withStatus = (plan: ActivityPlan, at: string): ActivityPlan => ({
   ...plan,
-  status: isPlanReady(plan) ? 'ready' : 'draft',
+  status: derivePlanStatus(plan),
   updatedAt: at,
 })
 

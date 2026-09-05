@@ -4,6 +4,7 @@ import {
   applyProposal,
   createEmptyPlan,
   isAcceptStale,
+  normalizeActivityPlan,
 } from '@/lib/planning'
 import {
   activePlanId,
@@ -28,9 +29,13 @@ const readMockStore = () =>
 const writeMockStore = (store: MockPlanStore) =>
   writeStore(MOCK_STORAGE_KEYS.activityPlans, store)
 
-const findPlan = (connectionId: string) =>
-  readMockStore().plans.find((plan) => plan.id === activePlanId(connectionId)) ??
-  null
+/** Normalized on read, so a plan stored before STEP 11 keeps working. */
+const findPlan = (connectionId: string) => {
+  const plan = readMockStore().plans.find(
+    (entry) => entry.id === activePlanId(connectionId),
+  )
+  return plan ? normalizeActivityPlan(plan) : null
+}
 
 function savePlan(plan: ActivityPlan) {
   const store = readMockStore()

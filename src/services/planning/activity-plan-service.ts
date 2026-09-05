@@ -16,8 +16,10 @@ import type {
   PlannedTime,
   ProposalKind,
 } from '@/types/planning'
+import { venueService } from '@/services/venue/venue-service'
 import type { Connection } from '@/types/connection'
 import type { BudgetPreference, SportId } from '@/types/sports-profile'
+import type { VenueSelection } from '@/types/venue'
 
 /**
  * The domain rules for planning: who may plan, and what counts as a valid
@@ -105,6 +107,27 @@ export const activityPlanService = {
     return propose(connection, currentUserId, 'time', value, () =>
       getTimeRangeError(value, now),
     )
+  },
+
+  /**
+   * A venue can only be proposed once sport, time and budget are agreed —
+   * the venue search depends on the agreed sport, and a venue for a session
+   * nobody has settled is meaningless.
+   */
+  proposeVenue(
+    connection: Connection | null | undefined,
+    currentUserId: string,
+    venue: VenueSelection,
+    isPlanReadyForVenue: boolean,
+  ) {
+    return propose(connection, currentUserId, 'venue', venue, () => {
+      if (!isPlanReadyForVenue) {
+        return 'Agree the sport, time and budget before choosing a venue.'
+      }
+      return venueService.isValidSelection(venue)
+        ? null
+        : "That venue's details look wrong, so it wasn't saved."
+    })
   },
 
   proposeBudget(
