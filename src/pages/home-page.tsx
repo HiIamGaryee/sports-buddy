@@ -22,8 +22,9 @@ export function HomePage() {
       <AppHeader
         title={APP_NAME}
         subtitle={firstName ? `Ready to move, ${firstName}?` : 'Ready to move?'}
+        size="wide"
       />
-      <PageContainer>
+      <PageContainer size="wide">
         {profile && profile.sports.length > 0 && (
           <section className="flex flex-col gap-2">
             <span className="text-caption text-muted-foreground uppercase">
@@ -40,6 +41,10 @@ export function HomePage() {
           </section>
         )}
 
+        {/* Two columns from `lg`: the quick action beside upcoming activities,
+            so a desktop Home reads as a dashboard rather than a tall column.
+            Same content, same data — only the arrangement changes. */}
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
         <Card className="border-primary/30 bg-card">
           <CardContent className="flex flex-col gap-4">
             <span className="flex w-fit items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-1 text-caption text-primary uppercase">
@@ -59,11 +64,11 @@ export function HomePage() {
                 real activity.
               </p>
             </div>
-            <div className="flex flex-col gap-2.5">
-              <Button size="lg" asChild>
+            <div className="flex flex-col gap-2.5 sm:flex-row">
+              <Button size="lg" asChild className="sm:flex-1">
                 <Link to={ROUTES.discover}>Find a Buddy</Link>
               </Button>
-              <Button size="lg" variant="outline" asChild>
+              <Button size="lg" variant="outline" asChild className="sm:flex-1">
                 <Link to={ROUTES.activities}>View Activities</Link>
               </Button>
             </div>
@@ -78,6 +83,7 @@ export function HomePage() {
             description="Once you plan a session with a buddy, it shows up here."
           />
         </section>
+        </div>
       </PageContainer>
     </>
   )

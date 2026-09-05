@@ -4,8 +4,9 @@ import { AppShell } from '@/components/layout/app-shell'
 import { AuthLayout } from '@/components/layout/auth-layout'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { RegisterPage } from '@/features/auth/pages/register-page'
+import { MessagesLayout } from '@/features/chat/components/messages-layout'
+import { ConversationEmptyPage } from '@/features/chat/pages/conversation-empty-page'
 import { ConversationPage } from '@/features/chat/pages/conversation-page'
-import { MessagesPage } from '@/features/chat/pages/messages-page'
 import { OnboardingPage } from '@/features/onboarding/pages/onboarding-page'
 import { BuddyProfilePage } from '@/features/discover/pages/buddy-profile-page'
 import { DiscoverPage } from '@/features/discover/pages/discover-page'
@@ -44,14 +45,21 @@ export function AppRouter() {
               element={<BuddyProfilePage />}
             />
             <Route path={ROUTES.activities} element={<ActivitiesPage />} />
-            <Route path={ROUTES.messages} element={<MessagesPage />} />
+            {/* Master–detail from `md` up; one pane at a time on a phone.
+                Both breakpoints share these routes, so the deep link works. */}
+            <Route element={<MessagesLayout />}>
+              <Route
+                path={ROUTES.messages}
+                element={<ConversationEmptyPage />}
+              />
+              <Route
+                path={ROUTES.conversation}
+                element={<ConversationPage />}
+              />
+            </Route>
             <Route path={ROUTES.profile} element={<ProfilePage />} />
             <Route path={ROUTES.settings} element={<SettingsPage />} />
           </Route>
-
-          {/* Outside AppShell: the chat screen hides the bottom navigation
-              so the composer owns the bottom safe area. */}
-          <Route path={ROUTES.conversation} element={<ConversationPage />} />
 
           <Route path={ROUTES.profileEdit} element={<EditProfilePage />} />
           <Route

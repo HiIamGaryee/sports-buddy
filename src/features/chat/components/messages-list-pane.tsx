@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 
 import { EmptyState } from '@/components/common/empty-state'
 import { AppHeader } from '@/components/layout/app-header'
-import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -15,11 +14,14 @@ import { ROUTES } from '@/routes/routes'
 const SKELETON_ROWS = [0, 1, 2]
 
 /**
- * The Messages list is the list of CONNECTED buddies, so a buddy you have
- * never messaged is still reachable. Pending connections are absent by
- * construction — chat requires a mutual connection.
+ * The Messages list. It is a full page on a phone and the left pane of the
+ * workspace from `md` up, so it scrolls inside itself rather than assuming it
+ * owns the viewport.
+ *
+ * Rows come from the CONNECTED buddy list, so a buddy who has never been
+ * messaged still appears. Pending connections are absent by construction.
  */
-export function MessagesPage() {
+export function MessagesListPane({ selectedId }: { selectedId?: string | null }) {
   const { items, isLoading, error } = useConversations()
 
   return (
@@ -27,18 +29,19 @@ export function MessagesPage() {
       <AppHeader
         title="Messages"
         subtitle="Your connected sports buddies."
+        size="full"
       />
-      <PageContainer>
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-gutter pt-5 pb-bottom-nav-space md:gap-5 md:px-3 md:pt-3 md:pb-4">
         {isLoading && (
-          <Card className="py-0">
+          <Card className="py-0 md:border-0 md:bg-transparent md:shadow-none">
             {SKELETON_ROWS.map((key) => (
               <div key={key}>
-                {key > 0 && <Separator />}
-                <div className="flex items-center gap-3 p-4">
-                  <Skeleton className="size-11 rounded-full" />
-                  <div className="flex flex-1 flex-col gap-2">
+                {key > 0 && <Separator className="md:hidden" />}
+                <div className="flex items-center gap-3 p-4 md:px-3">
+                  <Skeleton className="size-11 shrink-0 rounded-full" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
                     <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-40" />
+                    <Skeleton className="h-3 w-full max-w-40" />
                   </div>
                 </div>
               </div>
@@ -68,16 +71,21 @@ export function MessagesPage() {
         )}
 
         {!isLoading && !error && items.length > 0 && (
-          <Card className="overflow-hidden py-0">
+          // A card on a phone; on the workspace pane the divider IS the pane
+          // border, so the extra frame is dropped.
+          <Card className="overflow-hidden py-0 md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
             {items.map((item, index) => (
               <div key={item.conversationId}>
-                {index > 0 && <Separator />}
-                <ConversationListItem item={item} />
+                {index > 0 && <Separator className="md:hidden" />}
+                <ConversationListItem
+                  item={item}
+                  isSelected={item.conversationId === selectedId}
+                />
               </div>
             ))}
           </Card>
         )}
-      </PageContainer>
+      </div>
     </>
   )
 }

@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getInitials } from '@/lib/initials'
 import { formatConversationTime } from '@/lib/chat-format'
+import { cn } from '@/lib/utils'
 import { conversationPath } from '@/routes/routes'
 import type { ConversationListItem as ConversationRow } from '@/features/chat/use-conversations'
 
@@ -12,7 +13,14 @@ import type { ConversationListItem as ConversationRow } from '@/features/chat/us
  * "seen", no presence — none of those are implemented, and a fake one is
  * worse than none.
  */
-export function ConversationListItem({ item }: { item: ConversationRow }) {
+export function ConversationListItem({
+  item,
+  isSelected = false,
+}: {
+  item: ConversationRow
+  /** Only meaningful in the tablet/desktop workspace, where both panes show. */
+  isSelected?: boolean
+}) {
   const time = formatConversationTime(item.lastMessageAt)
   const preview = item.lastMessageText
     ? `${item.isOwnLastMessage ? 'You: ' : ''}${item.lastMessageText}`
@@ -21,7 +29,11 @@ export function ConversationListItem({ item }: { item: ConversationRow }) {
   return (
     <Link
       to={conversationPath(item.conversationId)}
-      className="flex items-center gap-3 p-4 transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      aria-current={isSelected ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-3 p-4 transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none md:rounded-xl md:px-3',
+        isSelected && 'md:bg-muted',
+      )}
     >
       <Avatar className="size-11 shrink-0">
         {item.photoUrl && (

@@ -21,7 +21,7 @@ export function SportSelector({
           ? `That's the maximum of ${max} sports. Remove one to swap.`
           : `Choose up to ${max} sports · ${selected.length} selected`}
       </p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {SPORTS.map(({ id, name, icon }) => (
           <SelectableCard
             key={id}

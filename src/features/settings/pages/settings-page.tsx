@@ -57,6 +57,18 @@ const NOTIFICATION_OPTIONS = [
   description: string
 }[]
 
+/**
+ * The section list, used for the desktop side nav and to give each section
+ * its anchor id — one source, so a new section cannot be missed.
+ */
+const SETTINGS_SECTIONS = [
+  { id: 'preferences', label: 'Preferences' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'privacy', label: 'Privacy & safety' },
+  { id: 'account', label: 'Account' },
+  { id: 'about', label: 'About' },
+] as const
+
 export function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const { user, signOut } = useAuth()
@@ -77,15 +89,37 @@ export function SettingsPage() {
 
   return (
     <>
-      <AppHeader title="Settings" showBack />
-      <PageContainer>
+      <AppHeader title="Settings" size="wide" showBack />
+      <PageContainer size="wide">
         {error && (
           <p role="alert" className="text-body-small text-destructive">
             {error}
           </p>
         )}
 
-        <SettingsSection title="Preferences">
+        {/* Desktop gets a section nav beside the content instead of one long
+            phone list; below `lg` the grouped list is already the right shape. */}
+        <div className="flex flex-col gap-6 lg:grid lg:grid-nav-start lg:items-start lg:gap-10">
+          <nav
+            aria-label="Settings sections"
+            className="sticky top-6 hidden lg:block"
+          >
+            <ul className="flex flex-col gap-1">
+              {SETTINGS_SECTIONS.map(({ id, label }) => (
+                <li key={id}>
+                  <a
+                    href={`#${id}`}
+                    className="block rounded-lg px-3 py-2 text-title text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="flex flex-col gap-6 md:gap-8">
+        <SettingsSection id="preferences" title="Preferences">
           <Link
             to={ROUTES.discoverySettings}
             className="-m-1 flex items-center gap-3 rounded-xl p-1 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -135,7 +169,7 @@ export function SettingsPage() {
           </div>
         </SettingsSection>
 
-        <SettingsSection title="Notifications">
+        <SettingsSection id="notifications" title="Notifications">
           <p className="text-body-small text-muted-foreground">
             Your choices are saved now; sending notifications arrives with a
             later step.
@@ -164,7 +198,7 @@ export function SettingsPage() {
             ))}
         </SettingsSection>
 
-        <SettingsSection title="Privacy & safety">
+        <SettingsSection id="privacy" title="Privacy & safety">
           {preferences && (
             <PreferenceToggle
               id="discoverable"
@@ -192,7 +226,7 @@ export function SettingsPage() {
           </ul>
         </SettingsSection>
 
-        <SettingsSection title="Account">
+        <SettingsSection id="account" title="Account">
           <div className="flex flex-col gap-0.5">
             <span className="text-body-small text-muted-foreground">Email</span>
             <span className="text-title text-card-foreground">
@@ -205,13 +239,13 @@ export function SettingsPage() {
             size="lg"
             onClick={() => void handleSignOut()}
             disabled={isSigningOut}
-            className="text-destructive"
+            className="text-destructive sm:w-auto sm:self-start sm:px-8"
           >
             {isSigningOut ? 'Signing out…' : 'Sign Out'}
           </Button>
         </SettingsSection>
 
-        <SettingsSection title="About">
+        <SettingsSection id="about" title="About">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-body text-muted-foreground">Version</span>
             <span className="text-title text-card-foreground">
@@ -219,6 +253,8 @@ export function SettingsPage() {
             </span>
           </div>
         </SettingsSection>
+          </div>
+        </div>
       </PageContainer>
     </>
   )

@@ -1,7 +1,6 @@
 import { SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
 
-import { SelectionChip } from '@/components/profile/selection-chip'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -11,27 +10,26 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { Switch } from '@/components/ui/switch'
-import { AREAS } from '@/constants/areas'
-import { SKILL_LEVELS, SPORTS_INTENTS } from '@/constants/profile-options'
-import { SPORTS } from '@/constants/sports'
+import { DiscoverFilterFields } from '@/features/discover/components/discover-filters'
 import type { DiscoverFilters } from '@/types/discover'
 
-const toggle = <T,>(values: T[], value: T): T[] =>
-  values.includes(value)
-    ? values.filter((entry) => entry !== value)
-    : [...values, value]
-
+/**
+ * PHONE and TABLET filters (<1024px): a bottom sheet with an explicit Apply,
+ * because the feed is behind it. Desktop uses `DiscoverFilterPanel` instead —
+ * both render the same `DiscoverFilterFields` over the same state.
+ */
 export function DiscoverFilterSheet({
   filters,
   activeCount,
   onApply,
   onReset,
+  className,
 }: {
   filters: DiscoverFilters
   activeCount: number
   onApply: (filters: DiscoverFilters) => void
   onReset: () => void
+  className?: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [draft, setDraft] = useState(filters)
@@ -44,7 +42,7 @@ export function DiscoverFilterSheet({
 
   return (
     <Sheet open={isOpen} onOpenChange={open}>
-      <SheetTrigger asChild>
+      <SheetTrigger asChild className={className}>
         <Button variant="outline" size="sm" aria-label="Filter sports buddies">
           <SlidersHorizontal className="size-4" />
           Filter
@@ -65,86 +63,11 @@ export function DiscoverFilterSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex flex-col gap-6 px-4">
-          <FilterGroup label="Sports">
-            {SPORTS.map(({ id, name }) => (
-              <SelectionChip
-                key={id}
-                label={name}
-                selected={draft.sports.includes(id)}
-                onClick={() =>
-                  setDraft({ ...draft, sports: toggle(draft.sports, id) })
-                }
-              />
-            ))}
-          </FilterGroup>
-
-          <FilterGroup label="Skill">
-            {SKILL_LEVELS.map(({ id, label }) => (
-              <SelectionChip
-                key={id}
-                label={label}
-                selected={draft.skillLevels.includes(id)}
-                onClick={() =>
-                  setDraft({
-                    ...draft,
-                    skillLevels: toggle(draft.skillLevels, id),
-                  })
-                }
-              />
-            ))}
-          </FilterGroup>
-
-          <FilterGroup label="Looking for">
-            {SPORTS_INTENTS.map(({ id, label }) => (
-              <SelectionChip
-                key={id}
-                label={label}
-                selected={draft.intents.includes(id)}
-                onClick={() =>
-                  setDraft({ ...draft, intents: toggle(draft.intents, id) })
-                }
-              />
-            ))}
-          </FilterGroup>
-
-          <FilterGroup label="Area">
-            {AREAS.map(({ id, name }) => (
-              <SelectionChip
-                key={id}
-                label={name}
-                selected={draft.areas.includes(id)}
-                onClick={() =>
-                  setDraft({ ...draft, areas: toggle(draft.areas, id) })
-                }
-              />
-            ))}
-          </FilterGroup>
-
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <label
-                htmlFor="filter-availability"
-                className="text-title text-popover-foreground"
-              >
-                Matching availability
-              </label>
-              <span className="text-body-small text-muted-foreground">
-                Only people free when you are.
-              </span>
-            </div>
-            <Switch
-              id="filter-availability"
-              checked={draft.requireAvailabilityOverlap}
-              onCheckedChange={(checked) =>
-                setDraft({ ...draft, requireAvailabilityOverlap: checked })
-              }
-              className="mt-1 shrink-0"
-            />
-          </div>
+        <div className="mx-auto w-full max-w-default px-4">
+          <DiscoverFilterFields draft={draft} onChange={setDraft} />
         </div>
 
-        <div className="flex gap-2 px-4 pb-2">
+        <div className="mx-auto flex w-full max-w-default gap-2 px-4 pb-2">
           <Button
             variant="outline"
             size="lg"
@@ -169,22 +92,5 @@ export function DiscoverFilterSheet({
         </div>
       </SheetContent>
     </Sheet>
-  )
-}
-
-function FilterGroup({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h3 className="text-caption text-muted-foreground uppercase">{label}</h3>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
-        {children}
-      </div>
-    </section>
   )
 }

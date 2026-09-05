@@ -91,7 +91,17 @@ Non-color tokens (theme independent):
 | `--safe-area-*` | `env(safe-area-inset-*)` | `pt-safe-top`, `pb-safe-bottom`, `pl-safe-left`, `pr-safe-right` |
 | `--bottom-navigation-height` | `4.25rem` | `h-bottom-nav`, `pb-bottom-nav` |
 | `--bottom-navigation-space` | nav height + bottom safe area | `pb-bottom-nav-space` |
-| `--content-max-width` | `30rem` | `max-w-content` |
+| `--content-max-width` | `30rem` | `max-w-content` (legacy phone column) |
+| `--content-narrow` | `26rem` | `max-w-narrow` |
+| `--content-default` | `44rem` | `max-w-default` |
+| `--content-wide` | `72rem` | `max-w-wide` |
+| `--conversation-list-width` | `21rem` | `max-w-conversations`, `w-conversations` |
+| `--navigation-rail-width` | `5rem` | `w-rail` |
+| `--desktop-sidebar-width` | `15rem` | `w-sidebar` |
+| `--aside-column-width` | `21rem` | `grid-aside-start`, `grid-aside-end` |
+| `--nav-column-width` | `14rem` | `grid-nav-start`, `w-nav-column` |
+| `--tablet-page-padding` | `1.75rem` | `px-gutter` at `md` |
+| `--desktop-page-padding` | `2.5rem` | `px-gutter` at `lg` |
 | `--mobile-page-padding` | `1.25rem` | `px-page` |
 | `--elevation-sm/md/lg/floating` | per theme | `shadow-sm/md/lg/floating` |
 
@@ -187,8 +197,10 @@ Font size must stay ≥16px on iOS to avoid zoom-on-focus.
 
 ### Mobile app shell
 
-`AppShell` is the frame every screen lives in: a `max-w-content` column
-centred on `bg-background`, horizontal safe-area padding, `sm:border-x`
+`AppShell` is the frame every screen lives in — **see §19 for its
+breakpoint-aware navigation, which supersedes the phone-only description
+below.** Historically it was a `max-w-content` column centred on
+`bg-background`, with horizontal safe-area padding and `sm:border-x`
 frame edges on larger screens, and the fixed bottom navigation. Pages add
 `AppHeader` + `PageContainer`; they never rebuild the outer layout.
 
@@ -197,7 +209,7 @@ frame edges on larger screens, and the fixed bottom navigation. Pages add
 | Aspect | Rule |
 | --- | --- |
 | Height | `h-bottom-nav` (68px) plus `pb-safe-bottom` |
-| Width | `max-w-content`, centred — aligned with the app column on desktop |
+| Width | full width below `md`; from `md` the rail/sidebar sits beside it (§19) |
 | Background | `bg-surface/85` + `backdrop-blur-xl` |
 | Border | `border-t border-border` only — no side borders, no floating pill |
 | Elevation | `shadow-floating` (upward cast) |
@@ -238,8 +250,9 @@ means `/messages/user123` keeps Messages active.
 
 Primary target 390–430px. Below that the column simply narrows — no
 horizontal scrolling anywhere. At `sm` and above the app stays
-`max-w-content` (480px), centred, with frame edges; it never stretches into
-a desktop dashboard.
+`max-w-content` (480px), centred, with frame edges. **Superseded in STEP 9.5
+(§19):** the shell now uses the full width with a rail or sidebar, and pages
+pick a semantic content width.
 
 ### Motion
 
@@ -253,7 +266,8 @@ a desktop dashboard.
 
 ### Auth layout
 
-`AuthLayout` reuses the same `max-w-content` column, `px-page`, safe-area
+`AuthLayout` (**updated in §19**: a brand panel + form split from `lg`) uses
+`max-w-narrow` for the form, `px-gutter`, safe-area
 insets and `sm:border-x` frame as the app — but **no bottom navigation**. A
 small brand mark (2.5px lime dot + `text-label`) sits at the top; the form is
 vertically centred in the remaining space.
@@ -309,7 +323,7 @@ keeps route transitions from flashing and stays deliberately plain.
 ### Onboarding layout
 
 `OnboardingLayout` is the third shell (alongside `AppShell` and
-`AuthLayout`) — same `max-w-content` column, safe-area insets and
+`AuthLayout`) — safe-area insets and
 `sm:border-x`, but **no bottom navigation**:
 
 - Sticky header: back button (`icon-sm` ghost, omitted on step 1), progress,
@@ -637,7 +651,165 @@ Three distinct empty states, all `EmptyState` with the `Users` icon:
 
 Never blame the user, and never surface a provider error string.
 
-## 19. Chat patterns (STEP 9)
+## 19. Responsive design system (STEP 9.5)
+
+**Mobile-first is not mobile-only.** Three intentional experiences share every
+route, service and piece of state; only presentation adapts.
+
+### Breakpoints
+
+Standard Tailwind only — no custom media queries anywhere in the app.
+
+| Name | Width | Experience |
+| --- | --- | --- |
+| (base) | < 640px | phone |
+| `sm` | ≥ 640px | large phone / small tablet — grids start to split |
+| `md` | ≥ 768px | tablet: navigation rail, master–detail messages |
+| `lg` | ≥ 1024px | desktop: sidebar, side panels, persistent filters |
+| `xl` | ≥ 1280px | large desktop: a third grid column where cards stay readable |
+
+Layout is CSS. No component reads `window.innerWidth` or attaches a resize
+listener; `matchMedia` appears once, in the theme provider, for
+`prefers-color-scheme`.
+
+### Navigation by breakpoint
+
+| Width | Component | Treatment |
+| --- | --- | --- |
+| `< md` | `BottomNavigation` | fixed, full width, `bg-surface/85` + `backdrop-blur-xl`, `pb-safe-bottom`, `h-bottom-nav` |
+| `md` | `NavigationRail` | `w-rail` (80px), left, icon over `text-caption`, active = `bg-primary/10 text-primary` |
+| `lg` | `DesktopSidebar` | `w-sidebar` (240px), brand mark on `text-primary-gradient`, five destinations, Settings pinned to the bottom |
+
+All three render from the same `mainNavigation` config, and only one exists in
+the DOM at a time. Active state is `aria-current="page"` from `NavLink`, so
+nested routes keep their parent tab lit.
+
+### Page container sizes
+
+`PageContainer` and `AppHeader` share one `size`, so a heading and its body
+always align on one left edge.
+
+| `size` | Width | Pages |
+| --- | --- | --- |
+| `narrow` | 26rem | auth forms |
+| `default` | 44rem | edit flows, chat column, reading widths |
+| `wide` | 72rem | home, discover, profile, settings, activities |
+| `full` | — | panes that own their width (messages workspace) |
+
+### Responsive gutters
+
+One utility, `px-gutter`: 20px on a phone, 28px from `md`, 40px from `lg`.
+`bleed-gutter` cancels it for an element that must span its full column (the
+mobile sticky connect bar). Never a per-page `px-[…]`.
+
+### Card grids
+
+Grids are per-component, not global.
+
+| Surface | Phone | `sm` | `md` | `xl` |
+| --- | --- | --- | --- | --- |
+| Discover buddies | 1 | 2 | 2 | 3 |
+| Sport selector | 2 | 2 | 3 | 4 |
+| Profile detail sections | 1 | 1 | 2 | 2 |
+| Home | 1 | 1 | 1 | 2 (from `lg`) |
+
+`BuddyCard` gets `h-full` so a grid row aligns, and `mt-auto` on its action
+row so buttons line up regardless of bio length.
+
+### Two-column desktop shapes
+
+Three utilities cover every desktop split, so no page writes `grid-cols-[…]`:
+
+| Utility | Shape | Used by |
+| --- | --- | --- |
+| `grid-aside-start` | 21rem ∣ content | profile, onboarding (`lg`) |
+| `grid-aside-end` | content ∣ 21rem | candidate profile (`lg`) |
+| `grid-nav-start` | 14rem ∣ content | settings (`lg`) |
+
+A sticky column must be the **grid or flex item itself** — a sticky child of a
+non-stretching item has no room to travel.
+
+### Responsive overlays
+
+| Surface | `< lg` | `lg` |
+| --- | --- | --- |
+| Discover filters | bottom `Sheet` with explicit Apply | persistent sidebar, applies on change |
+| Profile preview | centred `Dialog` | centred `Dialog` |
+
+A bottom sheet on a 1440px screen is a phone habit. Both filter presentations
+render the same `DiscoverFilterFields` over the same state — one
+implementation, two shells.
+
+### Responsive forms
+
+Single column by default. Fields pair into two columns only where they are
+genuinely related and similarly sized (playing style + budget in profile
+editing) — never to manufacture a second column. Text-heavy fields stay inside
+`max-w-default` so line length stays readable.
+
+`EditLayout` keeps the sticky save bar on a phone and moves Cancel/Save into
+the header from `md`.
+
+### Responsive typography
+
+Only page-level hierarchy scales: `AppHeader` goes `text-heading-1` →
+`md:text-display`, the onboarding step title `text-heading-1` →
+`lg:text-display`, and the chat header `text-title` → `md:text-heading-3`.
+Body copy never scales — it is already at its readable size.
+
+### Desktop density and affordance
+
+Desktop keeps 44px touch targets but tightens vertical rhythm
+(`pb-bottom-nav-space` becomes `md:pb-10`). Hover states exist on buddy cards
+(`hover:shadow-hover`), navigation items, conversation rows and settings
+links; nothing essential is hover-only.
+
+## 20. Primary gradient (STEP 9.5)
+
+The flat primary read as plain. The fix is one restrained linear gradient,
+defined **only** in `src/styles/theme.css`.
+
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--primary-gradient-start` | `#4E7B0D` | `#D8FF66` |
+| `--primary-gradient-end` | `#3A5C0A` | `#A9EA2F` |
+
+Both are lime → deeper/warmer green-yellow, inside the existing brand. No
+purple, blue, pink or rainbow.
+
+### Utilities
+
+| Class | Use |
+| --- | --- |
+| `bg-primary-gradient` | primary CTA surfaces, brand dot |
+| `text-primary-gradient` | the Sports Buddy wordmark only |
+
+`linear-gradient(135deg, start, end)`. A component never writes
+`bg-gradient-to-r from-[…] to-[…]`.
+
+### Where it is used
+
+- the shadcn `Button` `default` variant — so **every** primary CTA (Sign In,
+  Create Account, Complete Profile, Connect, Connect back, Save changes, Send,
+  Apply filters) is upgraded in one place
+- the brand mark in `DesktopSidebar` and `AuthLayout` (dot + wordmark)
+- the splash pulse bar
+
+### Where it is deliberately NOT used
+
+Badges, selection chips, switches, the theme radio, message bubbles, shared
+sport tints, progress bars, compatibility scores, navigation active states,
+card backgrounds, borders and ordinary headings all stay **flat** `primary`.
+A gradient is an accent, not wallpaper.
+
+### Contrast
+
+Both ends must keep `--primary-foreground` legible, not just one. Light: the
+lighter end is the tight case at ≈5.2:1 against white. Dark: both ends are
+light lime, so near-black text stays >13:1. Hover is `opacity-90` — no glow,
+no animated gradient.
+
+## 21. Chat patterns (STEP 9)
 
 ### Chat screen shell
 
@@ -723,7 +895,7 @@ When a message arrives while the reader is up in the history, a `sm`
 `sticky bottom-0` pill with an `ArrowDown` icon reading **"New message"**
 appears instead of yanking the view down. Tapping it scrolls to the newest.
 
-## 20. Mobile safe-area rules
+## 22. Mobile safe-area rules
 
 - `index.html` sets `viewport-fit=cover`; insets come from
   `env(safe-area-inset-*)`.
@@ -733,7 +905,7 @@ appears instead of yanking the view down. Tapping it scrolls to the newest.
 - Any other fixed/sticky element must add the matching safe inset itself.
 - Never hardcode 44px/34px notch values.
 
-## 21. Accessibility / contrast rules
+## 23. Accessibility / contrast rules
 
 - Body text ≥ 4.5:1, large text ≥ 3:1. Verified pairs: dark
   `--muted-foreground` on background ≈ 7.5:1; light ≈ 5.7:1; light `--primary`
@@ -745,7 +917,7 @@ appears instead of yanking the view down. Tapping it scrolls to the newest.
 - Never encode meaning in color alone; pair with icon or text.
 - `color-scheme` is set on `<html>` so native controls and scrollbars match.
 
-## 22. Allowed usage
+## 24. Allowed usage
 
 ```tsx
 <div className="bg-card text-card-foreground rounded-2xl border border-border p-page">
@@ -756,12 +928,18 @@ appears instead of yanking the view down. Tapping it scrolls to the newest.
 </div>
 ```
 
-## 23. Forbidden usage
+## 25. Forbidden usage
 
 ```tsx
 // raw color values
 <div className="bg-[#B8FF32] text-[#111111]" />
 <span style={{ color: '#FC5200' }} />
+
+// hand-rolled gradients — use bg-primary-gradient
+<div className="bg-gradient-to-r from-[#C4FF3D] to-[#A9EA2F]" />
+
+// one-off responsive values — use the layout tokens
+<div className="max-w-[428px] px-[18px] grid-cols-[19rem_1fr]" />
 
 // palette utilities that bypass the theme
 <div className="bg-zinc-900 text-lime-400" />

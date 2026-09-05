@@ -84,9 +84,10 @@ export function BuddyProfilePage() {
       <AppHeader
         title={candidate?.displayName ?? 'Sports buddy'}
         subtitle="Sports Buddy profile"
+        size="wide"
         showBack
       />
-      <PageContainer>
+      <PageContainer size="wide">
         {isLoading ? (
           <Card>
             <CardContent className="flex flex-col gap-5">
@@ -106,9 +107,12 @@ export function BuddyProfilePage() {
             {error}
           </p>
         ) : candidate ? (
-          <>
+          // Two columns from `lg`: the profile reads on the left while the
+          // compatibility breakdown and the connect action sit beside it,
+          // instead of one very long full-width column.
+          <div className="flex flex-col gap-6 lg:grid lg:grid-aside-end lg:items-start lg:gap-8">
             {buddy && (
-              <Card>
+              <Card className="lg:col-start-2 lg:row-start-1">
                 <CardContent className="flex flex-col gap-5">
                   <div className="flex items-end justify-between gap-3">
                     <div className="flex flex-col">
@@ -143,15 +147,17 @@ export function BuddyProfilePage() {
               </Card>
             )}
 
-            <Card>
+            <Card className="lg:col-start-1 lg:row-start-1">
               <CardContent>
                 <ProfileSummary profile={candidate} />
               </CardContent>
             </Card>
 
-            {/* Sticky above the bottom navigation, which already owns the
-                bottom safe-area inset. In flow, so it never hides content. */}
-            <div className="sticky bottom-bottom-nav-space z-20 -mx-page border-t border-border bg-background/90 px-page py-3 backdrop-blur-xl">
+            {/* Phone/tablet: sticky above the bottom navigation, which already
+                owns the bottom safe-area inset, and in flow so it never hides
+                content. Desktop: a sticky card in the side column, because a
+                full-width bar under a 1440px page looks like a phone habit. */}
+            <div className="sticky bottom-bottom-nav-space z-20 border-t border-border bg-background/90 px-gutter py-3 backdrop-blur-xl bleed-gutter md:bottom-0 lg:relative lg:bottom-auto lg:col-start-2 lg:row-start-2 lg:mx-0 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-5 lg:backdrop-blur-none">
               <ConnectAction
                 userId={candidate.userId}
                 displayName={candidate.displayName}
@@ -159,7 +165,7 @@ export function BuddyProfilePage() {
                 size="lg"
               />
             </div>
-          </>
+          </div>
         ) : (
           <p className="text-body text-muted-foreground">
             This profile isn't available any more.

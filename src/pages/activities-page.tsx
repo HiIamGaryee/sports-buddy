@@ -25,12 +25,18 @@ const ACTIVITY_TABS = [
 export function ActivitiesPage() {
   return (
     <>
-      <AppHeader title="Activities" />
-      <PageContainer>
+      <AppHeader title="Activities" size="wide" />
+      <PageContainer size="wide">
         <Tabs defaultValue={ACTIVITY_TABS[0].value}>
-          <TabsList className="w-full">
+          {/* Full width on a phone where it is the only control; its natural
+              width on a wide screen, so it is not a stretched phone tab bar. */}
+          <TabsList className="w-full sm:w-auto">
             {ACTIVITY_TABS.map(({ value, label }) => (
-              <TabsTrigger key={value} value={value} className="flex-1">
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="flex-1 sm:flex-none sm:px-6"
+              >
                 {label}
               </TabsTrigger>
             ))}

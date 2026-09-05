@@ -128,12 +128,29 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
         />
       </EditSection>
 
-      <EditSection title="Playing style">
-        <IntensitySelector
-          value={draft.preferredIntensity}
-          onChange={(intensity) => dispatch({ type: 'set-intensity', intensity })}
-        />
-      </EditSection>
+      {/* Two compact selectors that read fine side by side from `md`. The
+          rest stay full width — fields are only paired where it genuinely
+          helps, never to manufacture a second column. */}
+      <div className="flex flex-col gap-8 md:grid md:grid-cols-2 md:items-start md:gap-x-8">
+        <EditSection title="Playing style">
+          <IntensitySelector
+            value={draft.preferredIntensity}
+            onChange={(intensity) =>
+              dispatch({ type: 'set-intensity', intensity })
+            }
+          />
+        </EditSection>
+
+        <EditSection
+          title="Budget"
+          description="Typical spend for one activity."
+        >
+          <BudgetSelector
+            value={draft.budget}
+            onChange={(budget) => dispatch({ type: 'set-budget', budget })}
+          />
+        </EditSection>
+      </div>
 
       <EditSection title="Availability">
         <AvailabilitySelector
@@ -159,13 +176,6 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
           <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
           Your exact location is never shown — only your general area.
         </p>
-      </EditSection>
-
-      <EditSection title="Budget" description="Typical spend for one activity.">
-        <BudgetSelector
-          value={draft.budget}
-          onChange={(budget) => dispatch({ type: 'set-budget', budget })}
-        />
       </EditSection>
     </EditLayout>
   )

@@ -23,6 +23,11 @@
   --primary: #46700d;
   --primary-foreground: #ffffff;
 
+  /* Primary CTA gradient. Both ends must keep --primary-foreground legible;
+     the lighter end is the tighter case (~5.2:1 against white). */
+  --primary-gradient-start: #4e7b0d;
+  --primary-gradient-end: #3a5c0a;
+
   --secondary: #fc5a1a;
   --secondary-foreground: #15171a;
 
@@ -49,6 +54,7 @@
   --elevation-md: 0 4px 12px -2px rgb(15 23 42 / 0.1);
   --elevation-lg: 0 12px 32px -8px rgb(15 23 42 / 0.14);
   --elevation-floating: 0 -8px 32px -12px rgb(15 23 42 / 0.16);
+  --elevation-hover: 0 8px 24px -6px rgb(15 23 42 / 0.12);
 
   /* Layout / device tokens (theme independent) */
   --radius: 1rem;
@@ -62,8 +68,28 @@
   --bottom-navigation-space: calc(
     var(--bottom-navigation-height) + var(--safe-area-bottom)
   );
-  --content-max-width: 30rem;
+
+  /* Responsive gutters — one scale, consumed through `px-gutter`. */
   --mobile-page-padding: 1.25rem;
+  --tablet-page-padding: 1.75rem;
+  --desktop-page-padding: 2.5rem;
+
+  /* Breakpoint-aware navigation chrome. */
+  --navigation-rail-width: 5rem;
+  --desktop-sidebar-width: 15rem;
+
+  /* Content widths. `content` is the phone column kept for chrome that is
+     still phone-shaped; pages choose a semantic size instead. */
+  --content-max-width: 30rem;
+  --content-narrow: 26rem;
+  --content-default: 44rem;
+  --content-wide: 72rem;
+  --conversation-list-width: 21rem;
+
+  /* The two secondary column widths the whole app shares, so no page invents
+     its own `grid-cols-[19rem_1fr]`. */
+  --aside-column-width: 21rem;
+  --nav-column-width: 14rem;
 }
 
 /* ---------------------------------------------------------------- DARK (primary identity) */
@@ -82,6 +108,11 @@
 
   --primary: #c4ff3d;
   --primary-foreground: #0b0c10;
+
+  /* Dark is the primary brand presentation, so the gradient carries a little
+     more range. Both ends stay light, so near-black text stays >13:1. */
+  --primary-gradient-start: #d8ff66;
+  --primary-gradient-end: #a9ea2f;
 
   --secondary: #fc5a1a;
   --secondary-foreground: #0b0c10;
@@ -109,6 +140,7 @@
   --elevation-md: 0 4px 12px -2px rgb(0 0 0 / 0.65);
   --elevation-lg: 0 12px 32px -8px rgb(0 0 0 / 0.7);
   --elevation-floating: 0 -8px 32px -12px rgb(0 0 0 / 0.8);
+  --elevation-hover: 0 8px 24px -6px rgb(0 0 0 / 0.7);
 }
 
 /* ---------------------------------------------------------------- TAILWIND TOKEN MAPPING */
@@ -158,6 +190,7 @@
   --shadow-md: var(--elevation-md);
   --shadow-lg: var(--elevation-lg);
   --shadow-floating: var(--elevation-floating);
+  --shadow-hover: var(--elevation-hover);
 
   --spacing-page: var(--mobile-page-padding);
   --spacing-bottom-nav: var(--bottom-navigation-height);
@@ -166,8 +199,20 @@
   --spacing-safe-bottom: var(--safe-area-bottom);
   --spacing-safe-left: var(--safe-area-left);
   --spacing-safe-right: var(--safe-area-right);
+  --spacing-rail: var(--navigation-rail-width);
+  --spacing-sidebar: var(--desktop-sidebar-width);
+  --spacing-page-tablet: var(--tablet-page-padding);
+  --spacing-page-desktop: var(--desktop-page-padding);
 
   --container-content: var(--content-max-width);
+  --container-narrow: var(--content-narrow);
+  --container-default: var(--content-default);
+  --container-wide: var(--content-wide);
+  --container-conversations: var(--conversation-list-width);
+
+  --spacing-conversations: var(--conversation-list-width);
+  --spacing-aside: var(--aside-column-width);
+  --spacing-nav-column: var(--nav-column-width);
 
   --text-display: 2.125rem;
   --text-display--line-height: 1.05;
@@ -215,4 +260,79 @@
   --text-metric--line-height: 1;
   --text-metric--letter-spacing: -0.02em;
   --text-metric--font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- SEMANTIC UTILITIES */
+
+/*
+ * Responsive page gutter. One class instead of `px-page md:px-7 lg:px-10`
+ * repeated on every page, so the scale can be tuned in exactly one place.
+ */
+@utility px-gutter {
+  padding-inline: var(--mobile-page-padding);
+
+  @media (width >= 48rem) {
+    padding-inline: var(--tablet-page-padding);
+  }
+
+  @media (width >= 64rem) {
+    padding-inline: var(--desktop-page-padding);
+  }
+}
+
+/*
+ * The two-column desktop shapes, so a page never spells out its own
+ * `grid-cols-[…]`. Pair them with `lg:grid` (or `md:grid`) at the breakpoint
+ * where the second column should appear.
+ */
+@utility grid-aside-start {
+  grid-template-columns: var(--aside-column-width) minmax(0, 1fr);
+}
+
+@utility grid-aside-end {
+  grid-template-columns: minmax(0, 1fr) var(--aside-column-width);
+}
+
+@utility grid-nav-start {
+  grid-template-columns: var(--nav-column-width) minmax(0, 1fr);
+}
+
+/* Cancels `px-gutter` so an element can span the full width of its column. */
+@utility bleed-gutter {
+  margin-inline: calc(var(--mobile-page-padding) * -1);
+
+  @media (width >= 48rem) {
+    margin-inline: calc(var(--tablet-page-padding) * -1);
+  }
+
+  @media (width >= 64rem) {
+    margin-inline: calc(var(--desktop-page-padding) * -1);
+  }
+}
+
+/*
+ * THE primary gradient. Components use this class and never a
+ * `bg-gradient-to-* from-[…] to-[…]` of their own — the raw values live only
+ * in `:root` / `.dark` above.
+ *
+ * It is an ACCENT: primary CTAs, the brand mark and a couple of high-value
+ * states. Not badges, not cards, not headings, not borders.
+ */
+@utility bg-primary-gradient {
+  background-image: linear-gradient(
+    135deg,
+    var(--primary-gradient-start),
+    var(--primary-gradient-end)
+  );
+}
+
+/* Brand/hero emphasis only — never body copy or ordinary headings. */
+@utility text-primary-gradient {
+  background-image: linear-gradient(
+    135deg,
+    var(--primary-gradient-start),
+    var(--primary-gradient-end)
+  );
+  background-clip: text;
+  color: transparent;
 }

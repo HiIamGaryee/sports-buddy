@@ -54,6 +54,7 @@ export function ProfilePage() {
     <>
       <AppHeader
         title="Profile"
+        size="wide"
         action={
           <Button variant="ghost" size="icon-sm" aria-label="Settings" asChild>
             <Link to={ROUTES.settings}>
@@ -62,11 +63,15 @@ export function ProfilePage() {
           </Button>
         }
       />
-      <PageContainer>
+      <PageContainer size="wide">
         {!profile || !completeness || !preview ? (
           <ProfileSkeleton isLoading={isLoading} />
         ) : (
-          <>
+          // Identity and actions on the left from `lg`, details on the right —
+          // so a desktop profile is not one very wide stack of full-width
+          // cards. Below that it is the same single column as before.
+          <div className="flex flex-col gap-6 lg:grid lg:grid-aside-start lg:items-start lg:gap-10">
+            <div className="flex flex-col gap-6 lg:sticky lg:top-6">
             <ProfileHero
               profile={profile}
               isReadyToPlay={
@@ -99,7 +104,9 @@ export function ProfilePage() {
                 </DialogContent>
               </Dialog>
             </div>
+            </div>
 
+            <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start md:gap-x-8 lg:gap-x-10">
             <ProfileSection title="Sports">
               <SportSkillList sports={profile.sports} />
             </ProfileSection>
@@ -152,7 +159,7 @@ export function ProfilePage() {
               </span>
             </ProfileSection>
 
-            <ProfileSection title="Discovery">
+            <ProfileSection title="Discovery" className="md:col-span-2">
               <Card size="sm">
                 <CardContent className="flex items-center gap-3">
                   <SlidersHorizontal
@@ -179,7 +186,8 @@ export function ProfilePage() {
                 </CardContent>
               </Card>
             </ProfileSection>
-          </>
+            </div>
+          </div>
         )}
       </PageContainer>
     </>

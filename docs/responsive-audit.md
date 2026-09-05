@@ -1,0 +1,140 @@
+# Responsive audit (STEP 9.5)
+
+Every route and shared component in the app, inspected at phone, tablet and
+desktop widths in both themes.
+
+**Verification note.** No headless browser is installed in this environment,
+so this audit is a code-level inspection of every route plus the compiled CSS
+(utility output, breakpoint ranges, overflow constraints) — not a screenshot
+pass. Where a behaviour needs a real device (mobile keyboard inside a
+Capacitor WebView, tablet landscape rotation) it is called out as outstanding
+rather than claimed.
+
+## Philosophy
+
+| | Breakpoint | Shape |
+| --- | --- | --- |
+| Phone | `< md` (<768px) | single column, bottom navigation, native feel |
+| Tablet | `md` (768–1023px) | navigation rail, 2-column grids, master–detail messages |
+| Desktop | `lg` (≥1024px) | sidebar, wider grids, side panels, higher density |
+
+All three share the same routes, services, repositories, hooks and state.
+Only presentation adapts. No page was duplicated per breakpoint.
+
+## Test matrix
+
+Layouts were reasoned through at 390, 430, 768, 820, 1024, 1280 and 1440px
+against the compiled breakpoint ranges. Dark is the primary theme; every
+change uses semantic tokens, so light follows automatically (no
+breakpoint-specific colour exists anywhere).
+
+## Routes
+
+| Route | Mobile | Tablet | Desktop | Issues found | Changes made | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| `/auth/login` | single column, `max-w-narrow`, brand above form | same column, wider gutters | brand panel ∣ form split | phone card floating in empty space at 1440px; form column locked to `max-w-content` | `AuthLayout` rebuilt as a split; form pinned to `max-w-narrow`; gradient brand mark | PASS |
+| `/auth/register` | as above | as above | as above | same | shares `AuthLayout` | PASS |
+| `/onboarding` | sticky header + step + sticky CTA | same, wider column | step title/progress in a fixed left column, content + CTA beside it | 8-step flow in a 480px strip with huge desktop margins; sport grid stuck at 2 columns | `OnboardingLayout` → `lg:grid-aside-start`; CTA becomes inline `lg:w-auto`; `SportSelector` 2 → 3 → 4 columns | PASS |
+| `/home` | single column | single column, wider | quick-action card ∣ upcoming, 2 columns | tall single column wasting desktop width; stacked full-width CTAs | `size="wide"`; `lg:grid-cols-2`; CTAs go side by side from `sm` | PASS |
+| `/discover` | 1-column feed, bottom filter sheet | 2-column grid, filter sheet | persistent filter sidebar + 2–3 column grid | oversized vertical cards in one column at 1440px; desktop forced through a bottom sheet; skeleton was a single mobile column | `size="wide"`; `CARD_GRID` 1/2/3; `DiscoverFilterPanel` from `lg`; sheet gets `lg:hidden`; skeleton follows the grid; cards `h-full` + `mt-auto` actions | PASS |
+| `/discover/:userId` | single column + sticky bottom CTA | same, wider | profile ∣ compatibility + connect card | one very wide column; a full-width sticky bar under a desktop page | `size="wide"`; `lg:grid-aside-end`; sticky bar becomes a card in the side column at `lg`, and `md:bottom-0` where there is no bottom nav | PASS |
+| `/activities` | tabs + empty state | wider | wider, tabs at natural width | full-width phone tab bar stretched across the page | `size="wide"`; `TabsList` `w-full sm:w-auto` | PASS |
+| `/messages` | conversation list | list ∣ "select a buddy" detail | same, wider detail | behaved like a phone at every width | `MessagesLayout` master–detail; `ConversationEmptyPage` for the detail pane | PASS |
+| `/messages/:conversationId` | full-screen chat, no bottom nav | list ∣ conversation | list ∣ conversation, wider | chat locked to phone width on a MacBook; route lived outside `AppShell`, so desktop had no navigation | route moved inside `AppShell` under `MessagesLayout`; `ChatLayout` fills the pane (`md:h-full`), back button `md:hidden`, messages in a centred `max-w-default` column; bubbles capped `md:max-w-[70%] lg:max-w-md` | PASS |
+| `/profile` | stacked sections | 2-column detail sections | hero/actions ∣ 2-column details, sticky left | full-width cards in one long column | `size="wide"`; `lg:grid-aside-start` with a sticky left column; details `md:grid-cols-2`; Discovery spans both | PASS |
+| `/profile/edit` | single column, sticky save bar | readable column, actions in header | same | phone-width form; sticky bottom bar under a tall desktop window | `EditLayout` `max-w-default`, actions move to the header from `md`; playing style + budget pair at `md` | PASS |
+| `/settings` | grouped list | grouped list, wider | section nav ∣ content | one very long vertical mobile list on desktop | `size="wide"`; `lg:grid-nav-start` with a sticky anchor nav; sections carry ids; Sign Out stops being full width from `sm` | PASS |
+| `/settings/discovery` | single column, sticky save | readable column, header actions | same | inherited the phone-only `EditLayout` | fixed via `EditLayout` | PASS |
+| `/` `/auth` `*` | redirects | redirects | redirects | none | none | PASS |
+
+## Shared components
+
+| Component | Issues found | Changes made | Status |
+| --- | --- | --- | --- |
+| `AppShell` | whole app constrained to `max-w-content`; bottom nav on desktop; `sm:border-x` phone frame | three navigation variants by breakpoint; content column scrolls from `md`; one `useMatch` to drop the bottom bar on mobile chat | PASS |
+| `AppHeader` | 390px toolbar at every width; no alignment with page width | `size` prop, `md:text-display`, `px-gutter`, taller from `md` | PASS |
+| `PageContainer` | one phone width for every page; fixed `px-page` | `size` variants, `px-gutter`, `md:gap-8`, mobile-only bottom-nav clearance | PASS |
+| `BottomNavigation` | centred on `max-w-content`, rendered at all widths | full width, `md:hidden`, not rendered above `md` | PASS |
+| `NavigationRail` | did not exist | new, tablet only, same nav config | PASS |
+| `DesktopSidebar` | did not exist | new, desktop only, same nav config + Settings + gradient brand | PASS |
+| `AuthLayout` | phone column only | split layout from `lg` | PASS |
+| `EditLayout` | sticky bottom bar at all widths | header actions from `md`, `max-w-default` | PASS |
+| `ChatLayout` | own `h-dvh` screen with a phone-width column | fills its pane, centred message column, `md:hidden` back button | PASS |
+| `OnboardingLayout` | phone proportions only | left column at `lg` | PASS |
+| `BuddyCard` | grew tall in a grid; no desktop affordance | `h-full`, `mt-auto` actions, `hover:shadow-hover` | PASS |
+| `ConversationListItem` | no selected state (needed for master–detail); no hover | `isSelected` + `aria-current`, `md:rounded-xl`, hover tint | PASS |
+| `MessageBubble` | `max-w-[80%]` stretched across a desktop pane | capped at `md:max-w-[70%] lg:max-w-md` | PASS |
+| `MessageComposer` | none — 16px base size and safe area already correct | none | PASS |
+| `MessagesListPane` | was a whole page | pane-aware: scrolls internally, card frame dropped from `md` | PASS |
+| `DiscoverFilterSheet` | was the only filter presentation | fields extracted; sheet is now `< lg` only | PASS |
+| `DiscoverFilterFields` | did not exist | new — the single filter implementation | PASS |
+| `DiscoverFilterPanel` | did not exist | new — persistent desktop filters | PASS |
+| `EmptyState` | fixed padding, no width control | `className`, `md:py-14` | PASS |
+| `ActiveFilterChips` | shown even where the filter panel is visible | `className`, hidden at `lg` | PASS |
+| `ProfileSection` | no layout control for a grid | `className` | PASS |
+| `SettingsSection` | no anchor target | `id` + `scroll-mt` | PASS |
+| `SportSelector` | 2 columns at every width | 2 / 3 / 4 | PASS |
+| `AppSplash` | flat brand bar | gradient bar | PASS |
+| `Button` | flat primary read as plain | `default` variant uses `bg-primary-gradient` | PASS |
+| `Card` | flat, no desktop affordance | `shadow-hover` token available; applied on buddy cards | PASS |
+
+## Overflow and text
+
+- No `max-w-content` remains in `src/`; no `100vh`, `h-screen` or
+  `min-h-screen` anywhere (`h-dvh` / `min-h-dvh` only).
+- Long names and previews use `truncate` with `min-w-0` parents; bios use
+  `line-clamp-2`; message content uses `wrap-anywhere whitespace-pre-wrap` so
+  a long URL cannot push a page sideways.
+- Filter chips wrap into the available width in both the sheet and the panel;
+  nothing is clipped or horizontally scrolled.
+- Grid columns use `minmax(0, 1fr)` so a long child cannot blow out a track.
+
+## Hardcoded values removed
+
+- `max-w-content` on `AppShell`, `AuthLayout`, `OnboardingLayout`,
+  `EditLayout`, `ChatLayout`, `BottomNavigation`.
+- `sm:border-x` phone frame edges on four layouts.
+- `px-page` as a page gutter → `px-gutter` (kept only as internal padding on
+  `EmptyState` and `AppSplash`).
+- Four one-off `grid-cols-[…]` values → `grid-aside-start` /
+  `grid-aside-end` / `grid-nav-start`.
+- `w-64` on the filter panel → `w-nav-column`.
+
+No `#hex`, `rgb()`, `hsl()` or hand-rolled gradient exists in any component;
+no component reads `window.innerWidth` or attaches a resize listener; no
+custom `@media` outside `theme.css`.
+
+## Data and performance
+
+Presentation only. No repository, service, hook or subscription was changed,
+and no query was added or duplicated by a breakpoint. Layout changes are CSS,
+so nothing re-fetches when a window is resized.
+
+One deliberate trade: `MessagesListPane` stays mounted while a conversation is
+open, so on a phone the conversations subscription and the single batched
+profile query stay active behind the chat. That keeps going back instant and
+avoids tearing down and recreating the subscription on every navigation.
+
+## Accessibility
+
+- Touch targets stay ≥44px on mobile; desktop tightens rhythm, not hit areas.
+- Every navigation variant is a `<nav aria-label="Main">` with `NavLink`
+  `aria-current="page"`; the settings nav is `<nav aria-label="Settings
+  sections">`; the selected conversation row carries `aria-current`.
+- Focus rings (`focus-visible:ring-ring/50`) are intact on every new
+  interactive element, including sidebar, rail and settings anchors.
+- Nothing essential is hover-only — hover adds elevation and tint, never
+  meaning or access.
+- Chat keyboard behaviour (Enter sends, Shift+Enter newline) is untouched.
+- DOM order still matches reading order in every two-column layout: the
+  primary content precedes the aside in source on the candidate profile, and
+  the nav precedes content in settings.
+
+## Outstanding
+
+- **Visual/device QA.** Screenshot verification at each width, and mobile
+  keyboard behaviour inside a real Capacitor WebView, still need a device or a
+  headless browser.
+- **Tablet landscape** (1024×1366 portrait vs landscape) resolves to the `lg`
+  desktop layout at ≥1024px width, which is intended, but has not been seen on
+  hardware.

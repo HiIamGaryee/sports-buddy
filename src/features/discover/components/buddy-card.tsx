@@ -52,8 +52,10 @@ export function BuddyCard({
   const reasons = getTopMatchingReasons(compatibility)
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-4">
+    // `h-full` keeps cards in a grid row the same height; the hover lift is
+    // a desktop affordance only (a phone gets the pressed state instead).
+    <Card className="h-full transition-shadow hover:shadow-hover">
+      <CardContent className="flex h-full flex-col gap-4">
         <div className="flex items-center gap-3">
           <Avatar className="size-14">
             {candidate.photoUrl && (
@@ -160,7 +162,7 @@ export function BuddyCard({
           </Button>
         </div>
 
-        <div className="flex items-start gap-2">
+        <div className="mt-auto flex items-start gap-2">
           <ConnectAction
             userId={candidate.userId}
             displayName={candidate.displayName}

@@ -1,7 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { ArrowDown } from 'lucide-react'
 
-import { AppSplash } from '@/components/common/app-splash'
 import { ChatLayout } from '@/components/layout/chat-layout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -44,8 +43,20 @@ export function ConversationPage() {
     useChatScroll(messages, currentUserId)
 
   // Nothing is requested until access is resolved, so an unauthorized route
-  // can never flash someone else's messages.
-  if (isResolvingAccess) return <AppSplash />
+  // can never flash someone else's messages. The placeholder fills the pane
+  // rather than taking over the screen, because on desktop this is one
+  // column of the messages workspace.
+  if (isResolvingAccess) {
+    return (
+      <ChatLayout title="Conversation">
+        <div className="flex flex-1 items-center justify-center">
+          <span className="text-body-small text-muted-foreground">
+            Opening conversation…
+          </span>
+        </div>
+      </ChatLayout>
+    )
+  }
 
   if (!isAuthorized) {
     // Deliberately generic: it must not reveal whether the conversation exists.

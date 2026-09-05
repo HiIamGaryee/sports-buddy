@@ -50,7 +50,7 @@ Rules:
 
 ```
 main.tsx → App → ThemeProvider → AppRouter (BrowserRouter)
-  └ AppShell (layout route: centred column + BottomNavigation)
+  └ AppShell (layout route: breakpoint-aware navigation + content column)
       └ page: <AppHeader /> + <PageContainer />
 ```
 
@@ -179,6 +179,10 @@ users/{uid} (PRIVATE) → toDiscoveryProfile() → publicProfiles/{uid}
 - Deliberately absent: Connect and distance. There are no coordinates yet, so
   nothing may display "4 km away"; area is the stand-in. Ranking became
   compatibility-based in STEP 7; `updatedAt` is only retrieval order.
+- Responsive (STEP 9.5): 1-column feed on a phone, 2 from `sm`, 3 from `xl`.
+  Filters are a bottom sheet below `lg` and a persistent sidebar from `lg`;
+  both render the same `DiscoverFilterFields` over the same session state, so
+  there is one filter implementation, not three.
 - Full walkthrough: `docs/discover.md`.
 
 ### Compatibility + matching (STEP 7)
@@ -418,10 +422,17 @@ create-only; `senderId` must equal `request.auth.uid`; content must be a
 string that is non-empty after `trim()` and ≤ 1000 characters; key allowlists
 reject any extra field. 23 of the 43 emulator rules tests cover chat.
 
-- The conversation route sits inside `ProtectedRoute` but **outside**
-  `AppShell`, so the bottom navigation is hidden and the composer owns the
-  bottom safe area — the same reasoning as the edit screens, and a deliberate
-  difference from `/discover/:userId`, which stays inside the shell.
+- **Master–detail (STEP 9.5).** `/messages` and `/messages/:conversationId`
+  are both children of `MessagesLayout` inside `AppShell`. Below `md` one
+  pane shows at a time (list, or conversation); from `md` the list stays
+  beside the conversation, and `/messages` renders a "select a buddy" detail
+  pane. Deep links work identically at every width. On a phone the bottom
+  navigation is not rendered on the conversation route, so the composer owns
+  the bottom safe area.
+- The list pane stays mounted while a conversation is open, so its single
+  conversations subscription is not torn down and recreated on navigation —
+  the trade is that the batched profile query also runs while a phone shows
+  the chat.
 - No index was added: the conversation query is `array-contains` + `limit`
   with **no `orderBy`** (ordering is client-side because the list merges with
   buddies who have no conversation), and the message query is single-field
@@ -501,24 +512,53 @@ reject any extra field. 23 of the 43 emulator rules tests cover chat.
 
 ### App shell
 
-- `AppShell` centres the phone-width column (`max-w-content`), applies the
-  horizontal safe-area insets, draws the desktop frame edges (`sm:border-x`)
-  and hosts the fixed `BottomNavigation`. It renders `<Outlet />` — it does
+- `AppShell` owns the frame and is the **only** place that decides which
+  navigation exists at a given width (STEP 9.5):
+
+  | Width | Navigation | Scrolling |
+  | --- | --- | --- |
+  | `< md` (<768px) | `BottomNavigation`, fixed | the document scrolls |
+  | `md` (768–1023px) | `NavigationRail`, 80px | the content column scrolls |
+  | `lg` (≥1024px) | `DesktopSidebar`, 240px | the content column scrolls |
+
+  The variants are **rendered conditionally by breakpoint**, not all mounted
+  and hidden. From `md` up the content column owns the scrolling (`h-dvh` +
+  `overflow-y-auto`), so the sidebar stays put with no page-level margin and
+  page sticky headers stick to the column. It renders `<Outlet />` — it does
   not know about individual pages.
+- `AppShell` holds exactly one piece of route awareness: `useMatch` on the
+  conversation route, because the mobile chat screen needs the viewport for
+  its own composer, so the bottom bar is not rendered there.
 - `AppHeader` is sticky, handles `pt-safe-top`, and takes `title`,
-  `subtitle?`, `showBack?`, `action?`, `transparent?`. Back uses
-  `useNavigate(-1)`.
-- `PageContainer` is the page body: `px-page`, `pt-5`, `gap-6` section
-  rhythm, `pb-bottom-nav-space` clearance and the shared page-enter
-  transition (CSS only, ~200ms fade + 4px rise via `tw-animate-css`).
-- `BottomNavigation` is fixed, `max-w-content`, centred with
-  `left-1/2 -translate-x-1/2`, `bg-surface/85` + `backdrop-blur-xl`,
-  `border-t border-border`, `pb-safe-bottom`. Items are `NavLink`s, so the
-  active tab is expressed as `aria-current="page"` (styled with
-  `aria-[current=page]:text-primary`) and nested paths such as
-  `/messages/user123` keep the parent tab active automatically.
+  `subtitle?`, `size?`, `showBack?`, `action?`, `transparent?`. It is a
+  compact top bar on a phone and a real page heading from `md`
+  (`md:text-display`). `size` must match the page's `PageContainer` so the
+  heading and body share one left edge. Back uses `useNavigate(-1)`.
+- `PageContainer` is the page body: responsive `px-gutter`, `gap-6`
+  (`md:gap-8`) section rhythm, `pb-bottom-nav-space` clearance on mobile
+  only, and the shared page-enter transition (CSS only, ~200ms fade + 4px
+  rise via `tw-animate-css`). It takes a `size`:
+
+  | `size` | Width | Used by |
+  | --- | --- | --- |
+  | `narrow` | `max-w-narrow` (26rem) | auth forms |
+  | `default` | `max-w-default` (44rem) | forms, reading columns |
+  | `wide` | `max-w-wide` (72rem) | home, discover, profile, settings, activities |
+  | `full` | none | panes that own their width (messages workspace) |
+
+- `BottomNavigation`, `NavigationRail` and `DesktopSidebar` all render from
+  the same `mainNavigation` config with `.map()` — **one navigation source of
+  truth, three presentations**. Items are `NavLink`s, so the active tab is
+  `aria-current="page"` and nested paths (`/discover/:userId`,
+  `/messages/:conversationId`, `/profile/edit`) keep the parent tab active
+  automatically.
 - Pages compose `AppHeader` + `PageContainer` themselves, so a page can skip
-  the header. Pages never build their own outer layout.
+  the header. Pages never build their own outer layout, and never care which
+  navigation variant is active.
+- `/profile/edit` and `/settings/discovery` stay **outside** `AppShell` at
+  every width: a focused task with an explicit Save/Cancel, so the navigation
+  is deliberately out of the way. `EditLayout` moves the actions into the
+  header from `md` instead of a sticky bottom bar.
 
 ## 4. Directory structure
 
@@ -531,8 +571,10 @@ src/
                 sport/skill/intent/intensity/area/radius/budget selectors,
                 availability-selector, bio-field, profile-summary
                 (renders DiscoveryProfile only)
-    layout/     app-shell.tsx, app-header.tsx, bottom-navigation.tsx,
-                page-container.tsx, edit-layout.tsx, chat-layout.tsx
+    layout/     app-shell.tsx, app-header.tsx, page-container.tsx,
+                bottom-navigation.tsx (phone), navigation-rail.tsx (tablet),
+                desktop-sidebar.tsx (desktop),
+                auth-layout.tsx, edit-layout.tsx, chat-layout.tsx
     ui/         shadcn/ui primitives (customized — see §10)
   config/       env.ts (import.meta.env boundary), navigation.ts (tabs)
   constants/    app.ts (name, tagline, storage keys), sports.ts, areas.ts,
@@ -543,16 +585,18 @@ src/
     auth/       components/ (auth-field, auth-alert, auth-divider,
                 password-input, google-sign-in-button),
                 pages/ (login-page, register-page), validation.ts
-    chat/       components/ (conversation-list-item, message-bubble,
+    chat/       components/ (messages-layout — the master–detail workspace,
+                messages-list-pane, conversation-list-item, message-bubble,
                 message-composer, date-separator),
-                pages/ (messages-page, conversation-page),
+                pages/ (conversation-page, conversation-empty-page),
                 use-conversations.ts, use-conversation.ts, use-chat-scroll.ts
     connections/ components/ (connect-action — the only connection wording,
                 connection-success-dialog)
-    discover/   components/ (buddy-card, discover-filter-sheet,
-                active-filter-chips, compatibility-score, matching-reasons,
-                compatibility-breakdown), pages/ (discover-page,
-                buddy-profile-page), use-discover.ts
+    discover/   components/ (buddy-card, discover-filters — the shared filter
+                fields, discover-filter-sheet (<lg), discover-filter-panel
+                (lg+), active-filter-chips, compatibility-score,
+                matching-reasons, compatibility-breakdown),
+                pages/ (discover-page, buddy-profile-page), use-discover.ts
     profile/    components/ (profile-hero, profile-completeness-card,
                 profile-section, sport-skill-list, availability-summary,
                 edit-section), pages/ (profile-page, edit-profile-page)
@@ -657,8 +701,12 @@ pre-create empty folders.
 - Typography uses the token levels: `text-display`, `text-heading-1..3`,
   `text-title`, `text-body`, `text-body-small`, `text-label`, `text-caption`,
   `text-metric`.
-- Layout tokens: `px-page`, `max-w-content`, `h-bottom-nav`, `pt-safe-top`,
-  `pb-safe-bottom`, `pl-safe-left`, `pr-safe-right`.
+- Layout tokens: `px-gutter` (responsive page padding), `bleed-gutter`
+  (cancels it), `max-w-narrow|default|wide|conversations`, `w-rail`,
+  `w-sidebar`, `w-nav-column`, `w-conversations`, `grid-aside-start`,
+  `grid-aside-end`, `grid-nav-start`, `h-bottom-nav`, `pt-safe-top`,
+  `pb-safe-bottom`, `pl-safe-left`, `pr-safe-right`. Never write a one-off
+  `max-w-[…]` or `grid-cols-[…]` in a page.
 - Layout clearance: `pb-bottom-nav-space` (nav height + bottom safe area) on
   any scrollable page body. `PageContainer` already applies it.
 - `cn()` from `@/lib/utils` merges class names; use it whenever a component
@@ -683,11 +731,23 @@ pre-create empty folders.
 
 ## 9. Mobile-first rules
 
-- Design for 390–430px width first, then let it scale up.
-- Desktop is a centred column: `max-w-content` (30rem) inside `AppShell`,
-  with `sm:border-x` frame edges. Never a desktop dashboard.
-- The fixed bottom navigation is centred on the same `max-w-content` column,
-  so it stays aligned with the app on any screen.
+**Mobile-first does not mean mobile-only.** The app has three intentional
+experiences that share every route, service, repository and piece of state —
+only the presentation adapts (STEP 9.5):
+
+| | Breakpoint | Shape |
+| --- | --- | --- |
+| Phone | `< md` | single column, bottom navigation, native feel |
+| Tablet | `md` 768–1023 | navigation rail, 2-column grids, master–detail messages |
+| Desktop | `lg` ≥1024 | sidebar, wider grids, side panels, higher density |
+
+- Design for 390–430px width first, then give tablet and desktop a real
+  layout — never a stretched phone.
+- Use the standard Tailwind breakpoints (`sm md lg xl`). Do not invent custom
+  media queries, and do not branch on `window.innerWidth` in components;
+  layout is CSS.
+- Desktop must use the space it has. A 430px column centred in a 1440px
+  window is a bug, not a style.
 - Minimum touch target 44px — `Button` default is `h-11`, icon buttons
   `size-11`, primary CTA `size="lg"` is `h-13` full-width.
 - Safe areas come from `env(safe-area-inset-*)` mapped to spacing tokens.
@@ -950,7 +1010,17 @@ it. Feature logic never leaks into `components/ui/`.
 - Create empty placeholder files/folders or single-implementation
   abstractions (factories, interfaces, wrappers) "for later".
 - Suppress type errors with `any` or `@ts-ignore`.
-- Build a desktop-first layout.
+- Build a desktop-first layout, or leave a route with no tablet/desktop
+  treatment at all.
+- Constrain the whole app to a phone width on desktop.
+- Render every navigation variant and hide the wrong ones with CSS; the shell
+  picks one per breakpoint.
+- Branch on `window.innerWidth` (or add a resize listener) for layout.
+- Write a one-off `max-w-[…]`, `grid-cols-[…]` or `@media` in a page instead
+  of using the layout tokens.
+- Hardcode gradient colour stops in a component; use `bg-primary-gradient`.
+- Put the primary gradient on badges, chips, cards, borders or headings — it
+  is an accent for the main CTA and the brand mark, not wallpaper.
 - Commit `.env` or any real secret.
 - Design against notch sizes instead of `env(safe-area-inset-*)`.
 
@@ -1166,6 +1236,41 @@ and message edits/deletes. `tsc -b`, oxlint and the production build all
 pass. **A visual browser pass (dark/light at 390px and 430px) was not
 automated in this environment** — no headless browser is installed.
 
+STEP 9.5 — Responsive UI + Tablet/Desktop + Gradient Polish:
+
+- `AppShell` rebuilt around three intentional experiences: bottom navigation
+  below `md`, an 80px `NavigationRail` at `md`, a 240px `DesktopSidebar` at
+  `lg`, all rendered from the one `mainNavigation` config. The phone-width
+  `max-w-content` frame is gone from the shell — desktop uses its width.
+- `PageContainer` and `AppHeader` gained a shared `size`
+  (`narrow | default | wide | full`), and `px-gutter` replaced fixed page
+  padding with one responsive scale.
+- New layout tokens in `theme.css`: gutters, rail/sidebar/aside/nav-column
+  widths, four content widths, and `grid-aside-start` / `grid-aside-end` /
+  `grid-nav-start` so no page writes its own `grid-cols-[…]`.
+- Messages became a master–detail workspace from `md` (list beside
+  conversation) while the phone flow is unchanged; deep links behave the same
+  at every width.
+- Discover is a responsive grid (1 / 2 / 3 columns) with a persistent filter
+  sidebar from `lg` and the bottom sheet below it, sharing one set of filter
+  fields and one piece of state.
+- Auth splits into a brand panel + form at `lg`; onboarding puts step title
+  and progress in a fixed left column at `lg`; profile, settings and the
+  candidate profile gained real two-column desktop layouts; `EditLayout`
+  moves its actions into the header from `md`.
+- Primary gradient added as semantic theme tokens
+  (`--primary-gradient-start/-end`, light and dark) plus
+  `bg-primary-gradient` / `text-primary-gradient` utilities. The shadcn
+  `Button` `default` variant uses it, so every primary CTA is upgraded in one
+  place; badges, chips, switches, bubbles and selected states stay flat.
+- Depth improved through a `shadow-hover` token and desktop card hover, not
+  through more gradients.
+- Route-by-route audit: `docs/responsive-audit.md`.
+
+No product logic, data flow, service, repository or subscription changed in
+this step — only presentation. All 127 unit tests and 43 emulator rules tests
+still pass.
+
 **Live two-user Firebase verification is still outstanding** — no project credentials
 exist in this environment. The firebase-mode paths (auth, profile,
 preferences, projection writes and Discover reads) are implemented and typed
@@ -1207,7 +1312,8 @@ STEP 6 — Discover Sports Buddies
 STEP 7 — Compatibility + Matching Engine
 STEP 8 — Connect + Mutual Connection Flow
 STEP 9 — Realtime Chat
+STEP 9.5 — Responsive UI + Tablet/Desktop + Gradient Polish
 
-**Current Step:** STEP 9 — Realtime Chat
+**Current Step:** STEP 9.5 — Responsive UI Audit
 
 **Next Step:** STEP 10 — Plan Together: Sport + Availability + Budget
