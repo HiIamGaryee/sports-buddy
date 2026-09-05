@@ -12,7 +12,7 @@ import { useConversation } from '@/features/chat/use-conversation'
 import { PlanChatCard } from '@/features/planning/components/plan-chat-card'
 import { usePlanPreview } from '@/features/planning/use-plan-preview'
 import { formatDateSeparator, isSameDay } from '@/lib/chat-format'
-import { planPath, ROUTES } from '@/routes/routes'
+import { activityPath, planPath, ROUTES } from '@/routes/routes'
 
 const SKELETON_BUBBLES = [
   { key: 0, own: false, width: 'w-40' },
@@ -95,14 +95,26 @@ export function ConversationPage() {
         conversationId && (
           <Button variant="outline" size="sm" asChild>
             <Link
-              to={planPath(conversationId)}
+              to={
+                plan?.status === 'confirmed'
+                  ? activityPath(plan.id)
+                  : planPath(conversationId)
+              }
               aria-label={
-                plan ? 'Continue planning a session' : 'Plan a session'
+                plan?.status === 'confirmed'
+                  ? 'View the confirmed activity'
+                  : plan
+                    ? 'Continue planning a session'
+                    : 'Plan a session'
               }
             >
               <CalendarPlus className="size-4" />
               <span className="max-sm:sr-only">
-                {plan ? 'Plan' : 'Plan a session'}
+                {plan?.status === 'confirmed'
+                  ? 'Activity'
+                  : plan
+                    ? 'Plan'
+                    : 'Plan a session'}
               </span>
             </Link>
           </Button>

@@ -1013,7 +1013,67 @@ the `Button` `default` variant (§20) and the "Plan complete" pill is the same
 one §22 already documented. Venue cards, markers, selected states and rating
 stars are all flat `primary`.
 
-## 24. Mobile safe-area rules
+## 24. Activity patterns (STEP 12)
+
+### Activity card
+
+The core confirmed-activity unit, and the **whole card is one `Link`** so it
+is a single keyboard target with one accessible name.
+
+Left: a `size-14 rounded-xl bg-muted` date block — `text-caption uppercase`
+month over a `text-heading-3` day. Right, in deliberate reading order: sport +
+buddy in `text-title` with the status badge, the time range in `text-body`,
+the venue with a `size-3.5` `MapPin` in `text-body-small text-muted-foreground`,
+and the budget last in `text-caption` — it is planning context, not a price.
+
+`hover:shadow-hover` is the desktop affordance. **No gradient** — a card is
+not a CTA.
+
+### Activity status
+
+A `Badge`: `default` for Upcoming, `outline` otherwise. Always a **word**,
+never colour alone, and never "Booked", "Reserved" or "Paid" — Sports Buddy
+reserves nothing.
+
+### Activity detail
+
+`size="wide"` with `lg:grid-aside-end`: the event details card on the left,
+the venue card beside it. Details are a `<dl>` of `bg-muted/50 rounded-xl`
+rows — `size-4 text-primary` icon, `text-caption uppercase` term,
+`text-title` value.
+
+The venue card carries the name, address, an optional `h-48` `VenueMap`
+(enhancement only — the address stands alone), an outline **Open in Maps**,
+and one honest line: *"You both chose this venue. Sports Buddy doesn't reserve
+it."*
+
+### Confirmation review
+
+At `venue-agreed` the planner shows a `border-primary/30` card: a
+`text-caption uppercase` "Final review" eyebrow, a `text-heading-3`
+"Everything is agreed.", the full `PlanSummary` inline, the honest
+non-reservation line, and a `size="lg"` **Confirm activity** CTA with a
+`CalendarCheck` icon.
+
+The planner's summary sidebar is deliberately **dropped** while this shows —
+the review already contains it, and duplicating it would be noise.
+
+### Confirmed plan state
+
+Once confirmed the planner is read-only: the step progress and every proposal
+control disappear, replaced by a `border-primary/30` card with a
+`bg-primary-gradient` **Activity confirmed** pill (with a `Check`), a line
+explaining the plan is now history, and **View activity** / **Back to chat**.
+
+### Gradient discipline, unchanged
+
+STEP 12 adds gradient in exactly two places: the **Confirm activity** CTA
+(via the `Button` `default` variant, §20) and the **Activity confirmed** pill.
+Activity cards, date blocks, status badges, detail rows and the venue card are
+all flat. A gradient still marks the single highest-value action, not the
+content around it.
+
+## 25. Mobile safe-area rules
 
 - `index.html` sets `viewport-fit=cover`; insets come from
   `env(safe-area-inset-*)`.
@@ -1023,7 +1083,7 @@ stars are all flat `primary`.
 - Any other fixed/sticky element must add the matching safe inset itself.
 - Never hardcode 44px/34px notch values.
 
-## 25. Accessibility / contrast rules
+## 26. Accessibility / contrast rules
 
 - Body text ≥ 4.5:1, large text ≥ 3:1. Verified pairs: dark
   `--muted-foreground` on background ≈ 7.5:1; light ≈ 5.7:1; light `--primary`
@@ -1035,7 +1095,7 @@ stars are all flat `primary`.
 - Never encode meaning in color alone; pair with icon or text.
 - `color-scheme` is set on `<html>` so native controls and scrollbars match.
 
-## 26. Allowed usage
+## 27. Allowed usage
 
 ```tsx
 <div className="bg-card text-card-foreground rounded-2xl border border-border p-page">
@@ -1046,7 +1106,7 @@ stars are all flat `primary`.
 </div>
 ```
 
-## 27. Forbidden usage
+## 28. Forbidden usage
 
 ```tsx
 // raw color values

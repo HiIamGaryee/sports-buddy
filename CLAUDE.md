@@ -601,6 +601,88 @@ price bands are dropped because they go stale and were not agreed to. There is
   notifications.
 - Full walkthrough: `docs/venues.md`.
 
+### Confirmed activities (STEP 12)
+
+```
+UI (final review / activities list / activity detail)
+  ↓ useUpcomingActivities() · useActivity(id)
+activityService         confirmability, conversion, participant scoping
+  ↓
+activityRepository      chosen once in repositories.ts
+  ↓
+Firebase (transaction)  |  Mock (localStorage)
+```
+
+- **`ActivityPlan` is how two people agreed; `Activity` is what they agreed to
+  do.** An activity is a SNAPSHOT taken at confirmation, not a live view of
+  the plan, and it is **immutable** — the repository has no update or delete
+  method at all.
+- `src/types/activity.ts` — `ActivityStatus` (`upcoming` implemented;
+  `completed`/`cancelled` declared for later, nothing produces them),
+  `ActivityBudget` (`{min, max, currency: 'MYR', unit: 'per-person'}`),
+  `Activity`, `CreateActivityInput`, `ActivityWithBuddy`.
+- `src/lib/activity.ts` is pure: `canConfirmActivity()` — THE one definition
+  of confirmable, shared by UI, service and (in its own language) the rules —
+  plus `isPlanLocked`, `activityIdForPlan`, `resolvePlannedInstant`,
+  `buildActivityFromPlan`, `compareByStart`.
+  `src/lib/activity-format.ts` is the only place a confirmed activity's dates
+  become words (`formatActivityDate/Time/TimeRange/DateTime`,
+  `formatDateBlock`, `formatDuration`).
+
+**Confirmation semantics.** Both people already agreed all four proposals
+during planning, so **either participant may confirm** — there is deliberately
+no second round of mutual confirmation.
+
+**Activity id strategy.** `activities/{planId}` — the activity lives at its
+source plan's id. One plan produces at most one activity as a property of the
+database, and every rule check is a single lookup at
+`activityPlans/{activityId}`. The connection id is NOT used: a pair will
+eventually have many activities. (Constraint: the plan slot is
+`{connectionId}__active`, so a pair has one activity until the plan-archive
+step gives confirmed plans unique ids.)
+
+**Idempotency and concurrency.** `createFromPlan` is one Firestore transaction
+over both documents: read the activity, return it if it exists, otherwise
+re-verify the LIVE plan with `canConfirmActivity()` and write the activity plus
+`plan.status = 'confirmed'` atomically. Two people confirming at the same
+instant produce one activity; a second confirm returns the existing one rather
+than erroring.
+
+**Time and money.** `resolvePlannedInstant()` turns the plan's local date +
+local time + IANA zone into real instants ONCE, at confirmation, using `Intl`
+to ask the zone for its offset — never `new Date(y, m, d, …)`, which would use
+whichever device confirmed. Budget is structured with an explicit `MYR`
+currency and `per-person` unit, never a display string, and is a budget the
+two agreed rather than a venue quote.
+
+**Plan lock.** `confirmed` is terminal: the planner hides every proposal
+control, and the rules deny all further plan updates. The one permitted
+transition is `venue-agreed → confirmed` with every other field frozen.
+
+**Security.** `match /activities/{activityId}`: read requires
+`uid in participants`; create re-derives sport, venue, budget and participants
+**from the plan document**, requires all four proposals agreed by both, and
+requires the caller to be a plan participant; update and delete are denied
+outright. 16 of the 86 emulator rules tests cover activities and the plan lock.
+
+- `getForUser` queries `participants array-contains uid` with a limit and no
+  `orderBy`, so no composite index is needed; status filtering and
+  soonest-first ordering happen in the service (`docs/activities.md` §11).
+- One-time reads, not subscriptions — a confirmed activity is immutable.
+  `useUpcomingActivities` does one scoped read plus ONE batched
+  `publicProfiles` query for every buddy on the list (no N+1, never
+  `users/{uid}`).
+- `/activities` Upcoming is functional (1/2/3-column grid);
+  `/activities/:activityId` shows the event and its venue. A missing activity
+  and somebody else's render identically, so a guessed id leaks nothing.
+- Home's Upcoming section renders the soonest activity from the same sorted
+  list — no separate query. Chat's plan card becomes an activity card with a
+  **View activity** action.
+- Deliberately absent: booking, reservation or payment; reschedule; cancel;
+  completion and history; ratings or attendance; calendar; notifications;
+  manual activity creation.
+- Full walkthrough: `docs/activities.md`.
+
 ### Profile editing and settings (STEP 5)
 
 - `/profile` (`features/profile/pages/profile-page.tsx`) — hero, derived
@@ -743,6 +825,9 @@ src/
                 planning.ts (period windows, session length, suggestions),
                 venues.ts (sport search terms, radius, limits, debounce)
   features/
+    activities/ components/ (activity-card, activity-status-badge),
+                pages/ (activities-page, activity-detail-page),
+                use-activities.ts, use-activity.ts
     auth/       components/ (auth-field, auth-alert, auth-divider,
                 password-input, google-sign-in-button),
                 pages/ (login-page, register-page), validation.ts
@@ -784,15 +869,18 @@ src/
                 connection.ts (+ .test.ts), chat.ts (+ .test.ts),
                 chat-format.ts, budget.ts (shared with matching),
                 planning.ts (+ .test.ts), plan-format.ts,
-                geo.ts (+ .test.ts)
-  pages/        home-page.tsx, activities-page.tsx
-                (auth, onboarding, profile, settings, discover and chat
-                live under features/)
+                geo.ts (+ .test.ts), activity.ts (+ .test.ts),
+                activity-format.ts
+  pages/        home-page.tsx
+                (auth, onboarding, profile, settings, discover, chat,
+                planning and activities live under features/)
   providers/    theme-context.ts, theme-provider.tsx,
                 auth-context.ts, auth-provider.tsx,
                 profile-context.ts, profile-provider.tsx,
                 connection-context.ts, connection-provider.tsx
   repositories/
+    activity/   activity-repository.ts (contract), activity-document.ts,
+                firebase-activity-repository.ts, mock-activity-repository.ts
     activity-plan/ activity-plan-repository.ts (contract),
                 activity-plan-document.ts,
                 firebase-activity-plan-repository.ts,
@@ -822,6 +910,7 @@ src/
   services/
     auth/       auth-service.ts, auth-error.ts
     profile/    profile-service.ts, profile-validation.ts
+    activity/   activity-service.ts (+ .test.ts), activity-error.ts
     chat/       chat-service.ts (+ .test.ts), chat-error.ts
     planning/   activity-plan-service.ts (+ .test.ts), planning-error.ts
     venue/      venue-service.ts (+ .test.ts), venue-error.ts
@@ -835,7 +924,7 @@ src/
   types/        theme.ts, auth.ts, user.ts, sports-profile.ts,
                 preferences.ts, discovery-profile.ts, discover.ts,
                 matching.ts, connection.ts, chat.ts, planning.ts,
-                venue.ts, data-source.ts
+                venue.ts, activity.ts, data-source.ts
   index.css     Tailwind + shadcn + theme imports, base layer
 ```
 
@@ -1001,12 +1090,13 @@ collection does not exist yet — do not create it early.
 | `connections/{pairId}` | only the two participants may read; create/update/delete are pinned to the exact legal transitions (see §3 and `docs/connections.md`) |
 | `conversations/{connectionId}` | every access reads `connections/{conversationId}` and requires `status == 'connected'` plus `uid in participants`; participants and ids frozen; only the caller's own message preview may be written; delete denied |
 | `conversations/{id}/messages/{messageId}` | same connected-participant check; create-only, `senderId == request.auth.uid`, content non-empty after `trim()` and ≤ 1000 chars; update and delete denied |
-| `activityPlans/{connectionId}__active` | same connected-participant check; identity frozen; each of the FOUR proposals may only be unchanged, replaced by its proposer, or accepted by the caller adding **only themselves**; a venue change requires sport/time/budget already agreed; `status` (incl. `venue-agreed`) recomputed by the rules; delete denied |
+| `activityPlans/{connectionId}__active` | same connected-participant check; identity frozen; each of the FOUR proposals may only be unchanged, replaced by its proposer, or accepted by the caller adding **only themselves**; a venue change requires sport/time/budget already agreed; `status` recomputed by the rules, except the one permitted `venue-agreed → confirmed` transition; a `confirmed` plan is read-only; delete denied |
+| `activities/{planId}` | read requires `uid in participants`; create re-derives sport, venue, budget and participants **from the source plan**, needs all four proposals agreed by both and the caller to be a plan participant; update and delete denied outright |
 | everything else | read and write denied |
 
 Deploy with `firebase deploy --only firestore:rules`. Verify with
 `npm run test:rules`, which starts the Firestore emulator and runs
-`tests/firestore-rules.test.ts` (70 tests) against the real rules file — it
+`tests/firestore-rules.test.ts` (86 tests) against the real rules file — it
 needs **JDK 21+**, and never runs as part of `npm test`.
 
 ## 12. Mock data architecture
@@ -1215,6 +1305,21 @@ it. Feature logic never leaks into `components/ui/`.
   travel time — none of those are real data.
 - Tie `VITE_VENUE_SOURCE` to `VITE_DATA_SOURCE`, or branch on either outside
   `repositories.ts`.
+- Confirm an activity from a plan whose four proposals are not all agreed by
+  both people; `canConfirmActivity()` is the single definition.
+- Use the connection id as an activity id — a pair will have many activities.
+- Create a second activity from one plan, or add an update/delete path to
+  `ActivityRepository`; a confirmed activity is immutable in this step.
+- Edit, reschedule or cancel a confirmed plan or activity, or auto-complete
+  one whose start time has passed.
+- Say "Booked", "Reserved" or "Paid" — confirming means the two people agreed
+  to go, not that anything was reserved.
+- Duplicate profile data onto an activity, or read `users/{uid}` to render
+  one; participant ids only, resolved through `publicProfiles`.
+- Store a display string for a time or a budget; instants and structured money
+  only, resolved once at confirmation.
+- Navigate to an activity before its write is confirmed.
+- Fabricate past/completed activities; completion does not exist yet.
 - Attach a realtime listener to `publicProfiles`.
 - Add dependencies that nothing uses yet.
 - Create empty placeholder files/folders or single-implementation
@@ -1571,6 +1676,50 @@ still accepting updates. `tsc -b`, oxlint and the production build all pass.
 **A visual browser pass (dark/light at 390px and 430px) was not automated in
 this environment** — no headless browser is installed.
 
+STEP 12 — Confirmed Activity + Activity Card:
+
+- `activities/{planId}` added as the sixth collection, readable only by its
+  two participants and **immutable** — no update or delete anywhere, in the
+  repository or the rules.
+- `Activity` snapshots the agreed sport, resolved start/end instants,
+  structured `MYR` per-person budget, the STEP 11 `VenueSelection` and the
+  participants, with `sourcePlanId` for traceability. No proposal history, no
+  profile data, no second Places call.
+- The activity's id IS its source plan's id, so one plan produces at most one
+  activity and every rule check is a single lookup. Confirmation is one
+  transaction that writes the activity and marks the plan `confirmed`
+  together; a second confirm — including two people at the same instant —
+  returns the existing activity.
+- `canConfirmActivity()` is the one definition of confirmable, shared by UI,
+  service and rules. Either participant may confirm, because both already
+  agreed all four proposals during planning.
+- `resolvePlannedInstant()` turns the plan's local time + IANA zone into real
+  instants once, via `Intl` — never the confirming device's zone.
+- A confirmed plan is read-only: the planner hides every proposal control and
+  the rules deny all further updates.
+- `/activities` Upcoming is functional (soonest first, 1/2/3-column grid),
+  `/activities/:activityId` shows the event and venue, Home renders the next
+  activity, and chat's plan card becomes an activity card.
+- Vitest suite grew to 270 unit tests; emulator rules tests to 86.
+- Full walkthrough: `docs/activities.md`.
+
+Verified in mock mode through the real services end to end — a plan driven all
+the way from open to `venue-agreed` and then confirmed: an unagreed plan and a
+non-participant refused with nothing written; the activity created at the
+source plan id with the sport, instants, budget and venue matching what was
+agreed; the plan flipped to `confirmed` and no longer confirmable; a repeated
+confirm returning the identical activity; **two simultaneous confirms
+(`Promise.all`, one from each participant) producing exactly one activity with
+one id**; both participants able to read it while a third sees the same result
+as for a non-existent id; upcoming ordered soonest-first; and no profile field
+or proposal artefact anywhere in a serialized activity. Security rules verified
+against the Firestore emulator (86 tests, 16 for activities) including creation
+from a partly agreed plan, an invented sport/venue/budget, mismatched
+participants, a wrong activity id, an unrelated creator, activity mutation and
+deletion, and edits to a confirmed plan. `tsc -b`, oxlint and the production
+build all pass. **A visual browser pass (dark/light at 390px and 430px) was
+not automated in this environment** — no headless browser is installed.
+
 **Live Google Maps / Places verification is outstanding** — no API key exists
 in this environment, so the Places request shape, the Maps script load and
 marker rendering are implemented and typed but have not run against Google.
@@ -1580,12 +1729,13 @@ exist in this environment. The firebase-mode paths (auth, profile,
 preferences, projection writes and Discover reads) are implemented and typed
 but have not run against a real project.
 
-Not done (by design): confirmed activities and history, court booking,
+Not done (by design): calendar integration, activity completion and history,
+reschedule and cancellation, ratings/reliability/attendance, court booking,
 availability and payment, venue pricing in ringgit, travel time / Routes API,
-live or background location, plan cancellation, calendar integration,
-disconnect/unfriend, block and report, unread/read receipts, typing and
-presence, media messages, notification delivery, subscriptions, analytics,
-native platforms, account deletion, photo upload.
+live or background location, plan cancellation, disconnect/unfriend, block and
+report, unread/read receipts, typing and presence, media messages,
+notification delivery, subscriptions, analytics, native platforms, account
+deletion, photo upload.
 
 ## 21. Local development credentials (mock mode only)
 
@@ -1621,7 +1771,8 @@ STEP 9 — Realtime Chat
 STEP 9.5 — Responsive UI + Tablet/Desktop + Gradient Polish
 STEP 10 — Plan Together: Sport + Availability + Budget
 STEP 11 — Venue Discovery + Google Maps / Places
+STEP 12 — Confirmed Activity + Activity Card
 
-**Current Step:** STEP 11 — Venue Discovery
+**Current Step:** STEP 12 — Confirmed Activity
 
-**Next Step:** STEP 12 — Confirmed Activity + Activity Card
+**Next Step:** STEP 13 — Calendar + Upcoming/Past Activity Experience

@@ -12,6 +12,8 @@ import {
   getUpcomingDatesForAvailability,
   isPlanReady,
 } from '@/lib/planning'
+import { canConfirmActivity, isPlanLocked } from '@/lib/activity'
+import { activityService } from '@/services/activity/activity-service'
 import { activityPlanService } from '@/services/planning/activity-plan-service'
 import { discoverService } from '@/services/discover/discover-service'
 import { venueService } from '@/services/venue/venue-service'
@@ -243,6 +245,28 @@ export function useActivityPlan(conversationId: string | undefined) {
     [run, connection, userId],
   )
 
+  /**
+   * The final conversion. Idempotent: a second press — from either person —
+   * returns the activity that already exists rather than creating another.
+   */
+  const confirmActivity = useCallback(async () => {
+    if (!plan || !userId || isSaving) return null
+    setIsSaving(true)
+    setActionError('')
+    try {
+      return await activityService.confirm(plan, userId)
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "We couldn't confirm this activity. Please try again.",
+      )
+      return null
+    } finally {
+      setIsSaving(false)
+    }
+  }, [plan, userId, isSaving])
+
   const accept = useCallback(
     (kind: ProposalKind, version: number) =>
       run(() =>
@@ -274,5 +298,8 @@ export function useActivityPlan(conversationId: string | undefined) {
     /** The two AREA centroids' midpoint — never anybody's location. */
     searchArea,
     accept,
+    confirmActivity,
+    canConfirm: canConfirmActivity(plan),
+    isConfirmed: isPlanLocked(plan),
   }
 }

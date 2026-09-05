@@ -386,15 +386,16 @@ after a conversation:
 - the conversation header carries **Plan a session** (**Plan** once one
   exists), linking to `/messages/:conversationId/plan`
 - an active plan shows as a compact card pinned above the composer, with the
-  decisions so far — sport, time, budget and (since STEP 11) the agreed venue
-  — and an action that names what is left to do: **Continue**, **Choose
-  venue**, **Review venue** or **View plan**
+  decisions so far — sport, time, budget and the agreed venue — and an action
+  that names what is left to do: **Continue**, **Choose venue**, **Review
+  venue**, **Confirm**, or, once an activity exists, **View activity**
+  (linking to `/activities/{planId}` rather than back into the planner)
 
 `ChatLayout` grew an `action` slot (header) and a `banner` slot (above the
 composer) for exactly this; nothing else about chat changed.
 
-**Chat stays text messaging.** Plan state is separate structured data in
-`activityPlans/{planId}`:
+**Chat stays text messaging.** Plan and activity state are separate structured
+data in `activityPlans/{planId}` and `activities/{planId}`:
 
 - no plan state is ever written into the message history — there is no
   "Gary selected badminton" message, and no system-message architecture

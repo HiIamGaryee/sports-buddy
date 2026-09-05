@@ -37,6 +37,17 @@ const findPlan = (connectionId: string) => {
   return plan ? normalizeActivityPlan(plan) : null
 }
 
+/** Read a stored plan by its own id — used by the activity repository. */
+export function readActiveMockPlan(planId: string): ActivityPlan | null {
+  const plan = readMockStore().plans.find((entry) => entry.id === planId)
+  return plan ? normalizeActivityPlan(plan) : null
+}
+
+/** Persist a plan and notify subscribers, from outside this module too. */
+export function saveMockPlan(plan: ActivityPlan) {
+  savePlan(plan)
+}
+
 function savePlan(plan: ActivityPlan) {
   const store = readMockStore()
   const others = store.plans.filter((entry) => entry.id !== plan.id)

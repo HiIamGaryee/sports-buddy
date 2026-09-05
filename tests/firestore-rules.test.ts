@@ -1116,6 +1116,273 @@ describe('activity plans', () => {
   })
 })
 
+describe('confirmed activities', () => {
+  const PLAN_ID = `${PAIR}__active`
+  const both = sortConnectionPair(GARY, AINA)
+  const activityPath = (id = PLAN_ID) => `activities/${id}`
+  const planPath = (id = PLAN_ID) => `activityPlans/${id}`
+
+  const VENUE = {
+    placeId: 'mock_pj_racquet_club',
+    name: 'Petaling Jaya Racquet Club',
+    address: 'Jalan 13/6, Seksyen 13, Petaling Jaya',
+    location: { lat: 3.1096, lng: 101.6371 },
+    googleMapsUri: 'https://maps.google.com/?cid=1',
+  }
+  const BUDGET = { min: 20, max: 40 }
+  const START = new Date('2030-01-05T09:00:00.000Z')
+  const END = new Date('2030-01-05T11:00:00.000Z')
+
+  const agreedProposal = (value: unknown) => ({
+    value,
+    proposedBy: GARY,
+    acceptedBy: both,
+    version: 1,
+    updatedAt: new Date(),
+  })
+
+  const emptyProposal = () => ({
+    value: null,
+    proposedBy: '',
+    acceptedBy: [],
+    version: 0,
+    updatedAt: null,
+  })
+
+  /** A plan with everything agreed, ready to convert. */
+  async function seedVenueAgreedPlan(overrides: Record<string, unknown> = {}) {
+    await seed(PAIR, {
+      id: PAIR,
+      participants: both,
+      requestedBy: both,
+      status: 'connected',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      connectedAt: new Date(),
+    })
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), planPath()), {
+        id: PLAN_ID,
+        connectionId: PAIR,
+        participants: both,
+        status: 'venue-agreed',
+        sportProposal: agreedProposal('badminton'),
+        timeProposal: agreedProposal({
+          date: '2030-01-05',
+          startTime: '17:00',
+          endTime: '19:00',
+          timeZone: 'Asia/Kuala_Lumpur',
+        }),
+        budgetProposal: agreedProposal(BUDGET),
+        venueProposal: agreedProposal(VENUE),
+        createdBy: GARY,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...overrides,
+      })
+    })
+  }
+
+  const newActivity = (overrides: Record<string, unknown> = {}) => ({
+    id: PLAN_ID,
+    sourcePlanId: PLAN_ID,
+    connectionId: PAIR,
+    participants: both,
+    sportId: 'badminton',
+    startAt: START,
+    endAt: END,
+    budget: { ...BUDGET, currency: 'MYR', unit: 'per-person' },
+    venue: VENUE,
+    status: 'upcoming',
+    createdBy: GARY,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  async function seedActivity() {
+    await seedVenueAgreedPlan()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), activityPath()), {
+        ...newActivity(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    })
+  }
+
+  it('cannot be read by an unauthenticated caller', async () => {
+    await seedActivity()
+    await assertFails(getDoc(doc(asGuest(), activityPath())))
+  })
+
+  it('cannot be read by an unrelated user who knows the id', async () => {
+    await seedActivity()
+    await assertFails(getDoc(doc(asUser(STRANGER), activityPath())))
+  })
+
+  it('can be read by both participants', async () => {
+    await seedActivity()
+    await assertSucceeds(getDoc(doc(asUser(GARY), activityPath())))
+    await assertSucceeds(getDoc(doc(asUser(AINA), activityPath())))
+  })
+
+  it('can be created by a participant from a fully agreed plan', async () => {
+    await seedVenueAgreedPlan()
+    await assertSucceeds(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity()),
+    )
+  })
+
+  it('can equally be created by the other participant', async () => {
+    await seedVenueAgreedPlan()
+    await assertSucceeds(
+      setDoc(
+        doc(asUser(AINA), activityPath()),
+        newActivity({ createdBy: AINA }),
+      ),
+    )
+  })
+
+  it('cannot be created from a plan that is not fully agreed', async () => {
+    await seedVenueAgreedPlan({
+      venueProposal: emptyProposal(),
+      status: 'ready',
+    })
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity()),
+    )
+  })
+
+  it('cannot be created when the venue is only proposed by one person', async () => {
+    await seedVenueAgreedPlan({
+      venueProposal: { ...agreedProposal(VENUE), acceptedBy: [GARY] },
+      status: 'ready',
+    })
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity()),
+    )
+  })
+
+  it('cannot be created by an unrelated user', async () => {
+    await seedVenueAgreedPlan()
+    await assertFails(
+      setDoc(
+        doc(asUser(STRANGER), activityPath()),
+        newActivity({ createdBy: STRANGER }),
+      ),
+    )
+  })
+
+  it('cannot be created with participants that differ from the plan', async () => {
+    await seedVenueAgreedPlan()
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), activityPath()),
+        newActivity({ participants: sortConnectionPair(GARY, STRANGER) }),
+      ),
+    )
+  })
+
+  it('cannot invent a sport, venue or budget the plan never agreed', async () => {
+    await seedVenueAgreedPlan()
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ sportId: 'tennis' })),
+    )
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), activityPath()),
+        newActivity({ venue: { ...VENUE, name: 'Somewhere else' } }),
+      ),
+    )
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), activityPath()),
+        newActivity({
+          budget: { min: 0, max: 5, currency: 'MYR', unit: 'per-person' },
+        }),
+      ),
+    )
+  })
+
+  it('cannot be created when no plan exists', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity()),
+    )
+  })
+
+  it('cannot be created at an id that is not its source plan', async () => {
+    await seedVenueAgreedPlan()
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), activityPath('made-up-activity')),
+        newActivity({ id: 'made-up-activity', sourcePlanId: 'made-up-activity' }),
+      ),
+    )
+  })
+
+  it('is immutable — no updates and no deletes', async () => {
+    await seedActivity()
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), {
+        status: 'cancelled',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+    await assertFails(deleteDoc(doc(asUser(GARY), activityPath())))
+    await assertFails(deleteDoc(doc(asUser(AINA), activityPath())))
+  })
+
+  describe('the source plan', () => {
+    it('may be marked confirmed by a participant', async () => {
+      await seedVenueAgreedPlan()
+      await assertSucceeds(
+        updateDoc(doc(asUser(GARY), planPath()), {
+          status: 'confirmed',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+
+    it('cannot be marked confirmed before everything is agreed', async () => {
+      await seedVenueAgreedPlan({
+        venueProposal: emptyProposal(),
+        status: 'ready',
+      })
+      await assertFails(
+        updateDoc(doc(asUser(GARY), planPath()), {
+          status: 'confirmed',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+
+    it('cannot be edited once confirmed', async () => {
+      await seedVenueAgreedPlan({ status: 'confirmed' })
+      // A confirmed plan is read-only history: no proposal may move.
+      await assertFails(
+        updateDoc(doc(asUser(AINA), planPath()), {
+          sportProposal: {
+            value: 'tennis',
+            proposedBy: AINA,
+            acceptedBy: [AINA],
+            version: 2,
+            updatedAt: serverTimestamp(),
+          },
+          status: 'draft',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+      await assertFails(
+        updateDoc(doc(asUser(GARY), planPath()), {
+          status: 'venue-agreed',
+          updatedAt: serverTimestamp(),
+        }),
+      )
+    })
+  })
+})
+
 describe('the pair id', () => {
   it('agrees with the rules, whichever way round it is built', () => {
     expect(createConnectionId(AINA, GARY)).toBe(PAIR)

@@ -294,5 +294,8 @@ A `venue-agreed` plan already carries everything an activity needs —
 `connectionId`, `participants`, the agreed `sportId`, `PlannedTime`,
 `BudgetPreference` and the `VenueSelection` snapshot.
 
-STEP 12 can create the confirmed activity from the plan alone, with **no
-further Places call**, which is exactly why the snapshot is stored.
+STEP 12 creates the confirmed activity from the plan alone, with **no further
+Places call** — which is exactly why the snapshot is stored. The agreed
+`VenueSelection` is copied verbatim onto `activities/{planId}` at
+confirmation, and the activity detail page renders it (and its map) entirely
+from that snapshot. See `docs/activities.md`.

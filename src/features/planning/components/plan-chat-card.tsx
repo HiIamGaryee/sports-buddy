@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { formatPlannedTime, formatSessionBudget } from '@/lib/plan-format'
 import { PLAN_STATUS_LABELS } from '@/lib/planning'
 import { getSportName } from '@/lib/profile-format'
-import { planPath } from '@/routes/routes'
+import { activityPath, planPath } from '@/routes/routes'
 import type { ActivityPlan } from '@/types/planning'
 
 /**
@@ -29,10 +29,14 @@ export function PlanChatCard({
     plan.venueProposal.value?.name ?? null,
   ].filter((part): part is string => part !== null)
 
-  // The action names what actually needs doing next.
-  const action =
-    plan.status === 'venue-agreed'
-      ? 'View plan'
+  const isConfirmed = plan.status === 'confirmed'
+
+  // The action names what actually needs doing next; once an activity
+  // exists it becomes the thing worth opening.
+  const action = isConfirmed
+    ? 'View activity'
+    : plan.status === 'venue-agreed'
+      ? 'Confirm'
       : plan.status === 'ready'
         ? plan.venueProposal.version > 0
           ? 'Review venue'
@@ -44,14 +48,20 @@ export function PlanChatCard({
       <CalendarCheck aria-hidden className="size-4 shrink-0 text-primary" />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-caption text-muted-foreground uppercase">
-          Session plan · {PLAN_STATUS_LABELS[plan.status].toLowerCase()}
+          {isConfirmed
+            ? 'Activity confirmed'
+            : `Session plan · ${PLAN_STATUS_LABELS[plan.status].toLowerCase()}`}
         </span>
         <span className="truncate text-body-small text-foreground">
           {parts.length > 0 ? parts.join(' · ') : 'Nothing decided yet'}
         </span>
       </div>
       <Button variant="outline" size="sm" asChild className="shrink-0">
-        <Link to={planPath(conversationId)}>{action}</Link>
+        <Link
+          to={isConfirmed ? activityPath(plan.id) : planPath(conversationId)}
+        >
+          {action}
+        </Link>
       </Button>
     </div>
   )

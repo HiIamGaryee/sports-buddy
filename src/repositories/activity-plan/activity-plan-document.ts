@@ -42,8 +42,15 @@ function toProposal<T>(
   }
 }
 
+const PLAN_STATUSES: readonly PlanStatus[] = [
+  'draft',
+  'ready',
+  'venue-agreed',
+  'confirmed',
+]
+
 const readStatus = (value: unknown): PlanStatus =>
-  value === 'venue-agreed' ? 'venue-agreed' : value === 'ready' ? 'ready' : 'draft'
+  PLAN_STATUSES.find((status) => status === value) ?? 'draft'
 
 const readSport = (value: unknown): SportId | null =>
   typeof value === 'string' ? (value as SportId) : null

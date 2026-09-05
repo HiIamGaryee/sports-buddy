@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { CalendarCheck, Check } from 'lucide-react'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
@@ -19,7 +20,7 @@ import { useVenueSearch } from '@/features/planning/use-venue-search'
 import { formatPlannedTime, formatSessionBudget } from '@/lib/plan-format'
 import { getProposal, isPlanReady, isProposalAgreed } from '@/lib/planning'
 import { getSportName } from '@/lib/profile-format'
-import { conversationPath, ROUTES } from '@/routes/routes'
+import { activityPath, conversationPath, ROUTES } from '@/routes/routes'
 import { VENUE_FALLBACK_MESSAGES } from '@/services/venue/venue-error'
 import type { ActivityPlan, ProposalKind } from '@/types/planning'
 
@@ -37,6 +38,7 @@ const firstOpenStep = (plan: ActivityPlan): ProposalKind => {
 
 export function PlanPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
+  const navigate = useNavigate()
   const {
     currentUserId,
     buddyName,
@@ -57,11 +59,15 @@ export function PlanPage() {
     proposeVenue,
     searchArea,
     accept,
+    confirmActivity,
+    canConfirm,
+    isConfirmed,
   } = useActivityPlan(conversationId)
 
   // `null` means "follow the plan"; a click pins the step the user chose.
   const [pinnedStep, setPinnedStep] = useState<ProposalKind | null>(null)
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   // Called unconditionally; it simply does nothing until the plan's sport,
   // time and budget are agreed, which is also the only time a venue search
@@ -115,7 +121,7 @@ export function PlanPage() {
 
   const activeKind = pinnedStep ?? firstOpenStep(plan)
   const step = PLAN_STEPS.find(({ kind }) => kind === activeKind) ?? PLAN_STEPS[0]
-  const isComplete = plan.status === 'venue-agreed'
+  const isReadyToConfirm = canConfirm
   // The venue browser needs the full width, so the summary moves below it.
   const isVenueStep = activeKind === 'venue'
 
@@ -143,13 +149,40 @@ export function PlanPage() {
           }
         >
           <div className="flex flex-col gap-6">
-            <PlanProgress
-              plan={plan}
-              activeKind={activeKind}
-              onSelect={setPinnedStep}
-            />
+            {!isConfirmed && (
+              <PlanProgress
+                plan={plan}
+                activeKind={activeKind}
+                onSelect={setPinnedStep}
+              />
+            )}
 
-            <section className="flex flex-col gap-4">
+            {isConfirmed && (
+              <Card className="border-primary/30">
+                <CardContent className="flex flex-col gap-3">
+                  <span className="flex w-fit items-center gap-1.5 rounded-full bg-primary-gradient px-3 py-1 text-caption text-primary-foreground uppercase">
+                    <Check aria-hidden className="size-3" />
+                    Activity confirmed
+                  </span>
+                  <p className="text-body text-card-foreground">
+                    This plan became a confirmed activity, so it is now a
+                    read-only record of what you agreed.
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button asChild className="sm:w-auto sm:px-8">
+                      <Link to={activityPath(plan.id)}>View activity</Link>
+                    </Button>
+                    <Button variant="outline" asChild className="sm:w-auto sm:px-6">
+                      <Link to={backToChat}>Back to chat</Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Every proposal control disappears once confirmed — a confirmed
+                plan is history, not an editable draft. */}
+            <section className={isConfirmed ? 'hidden' : 'flex flex-col gap-4'}>
               <div className="flex flex-col gap-1">
                 <h2 className="text-heading-2 text-foreground">
                   {step.question}
@@ -246,34 +279,58 @@ export function PlanPage() {
                 )}
             </section>
 
-            {isComplete && (
+            {/* The final review. Both people already agreed every part
+                during planning, so one press finishes it — there is no
+                second round of mutual confirmation. */}
+            {isReadyToConfirm && (
               <Card className="border-primary/30">
-                <CardContent className="flex flex-col gap-3">
-                  <span className="w-fit rounded-full bg-primary-gradient px-3 py-1 text-caption text-primary-foreground uppercase">
-                    Plan complete
-                  </span>
-                  <p className="text-body text-card-foreground">
-                    You both agreed on the sport, the time, the budget and the
-                    venue.
-                  </p>
+                <CardContent className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-caption text-muted-foreground uppercase">
+                      Final review
+                    </span>
+                    <h2 className="text-heading-3 text-card-foreground">
+                      Everything is agreed.
+                    </h2>
+                  </div>
+
+                  <PlanSummary plan={plan} buddyName={buddyName} />
+
                   <p className="text-body-small text-muted-foreground">
-                    This plan is ready to be confirmed as an activity.
-                    Confirming isn't built yet, so nothing is booked and the
-                    venue has not been contacted.
+                    Confirming saves this as an activity you can both see.
+                    Sports Buddy doesn't reserve the venue.
                   </p>
-                  <Button asChild className="sm:w-auto sm:self-start sm:px-8">
-                    <Link to={backToChat}>Back to chat</Link>
+
+                  <Button
+                    size="lg"
+                    disabled={isConfirming || isSaving}
+                    aria-label="Confirm this activity"
+                    onClick={() => {
+                      setIsConfirming(true)
+                      void confirmActivity().then((activity) => {
+                        setIsConfirming(false)
+                        // Only navigate on a confirmed write — never
+                        // optimistically to an activity that may not exist.
+                        if (activity) navigate(activityPath(activity.id))
+                      })
+                    }}
+                    className="sm:w-auto sm:self-start sm:px-10"
+                  >
+                    <CalendarCheck className="size-4" />
+                    {isConfirming ? 'Confirming…' : 'Confirm activity'}
                   </Button>
                 </CardContent>
               </Card>
             )}
           </div>
 
-          <Card className={isVenueStep ? undefined : 'lg:sticky lg:top-6'}>
-            <CardContent>
-              <PlanSummary plan={plan} buddyName={buddyName} />
-            </CardContent>
-          </Card>
+          {!isReadyToConfirm && (
+            <Card className={isVenueStep ? undefined : 'lg:sticky lg:top-6'}>
+              <CardContent>
+                <PlanSummary plan={plan} buddyName={buddyName} />
+              </CardContent>
+            </Card>
+          )}
         </div>
       </PageContainer>
     </>

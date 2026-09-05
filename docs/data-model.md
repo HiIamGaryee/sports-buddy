@@ -2,7 +2,7 @@
 
 One document per user. Nothing else is persisted yet.
 
-Five collections exist, with five different audiences:
+Six collections exist, with six different audiences:
 
 | Shape | Where | Who may see it |
 | --- | --- | --- |
@@ -11,6 +11,7 @@ Five collections exist, with five different audiences:
 | `Connection` (`connections/{pairId}`) | Firestore / mock store | **the two participants only** |
 | `Conversation` + `messages` (`conversations/{connectionId}`) | Firestore / mock store | **the two participants, and only while connected** |
 | `ActivityPlan` (`activityPlans/{connectionId}__active`) | Firestore / mock store | **the two participants, and only while connected** |
+| `Activity` (`activities/{planId}`) | Firestore / mock store | **the two participants** |
 
 ## `users/{uid}` — PRIVATE profile
 
@@ -365,7 +366,7 @@ connection document on **every** access. Types live in `src/types/planning.ts`.
 | `id` | `string` | equals the document id; frozen after create |
 | `connectionId` | `string` | the STEP 8 pair id; frozen after create |
 | `participants` | `[string, string]` | must equal the connection's; can never change |
-| `status` | `'draft' \| 'ready' \| 'venue-agreed'` | derived from agreement and recomputed by the rules, never set by hand: `ready` means "ready for a venue" (sport/time/budget agreed), `venue-agreed` means all four are |
+| `status` | `'draft' \| 'ready' \| 'venue-agreed' \| 'confirmed'` | derived from agreement and recomputed by the rules: `ready` = "ready for a venue", `venue-agreed` = all four agreed. `confirmed` is the one status set by hand — it records that an `Activity` was created — and it is **terminal**: a confirmed plan is read-only history and every further update is denied |
 | `sportProposal` | `Proposal<SportId>` | only a sport both people list |
 | `timeProposal` | `Proposal<PlannedTime>` | a real future date + local times + IANA zone |
 | `budgetProposal` | `Proposal<BudgetPreference>` | per person, for this session |
@@ -421,6 +422,76 @@ to synchronise.
 
 The rules enforce an exact key allowlist, so none of the above can be
 smuggled in. Full walkthrough: `docs/planning.md`.
+
+## `activities/{activityId}` — the confirmed event
+
+The activity's id **is** its source plan's id, so one plan produces at most
+one activity and every rule check is a single lookup at
+`activityPlans/{activityId}`. The connection id is deliberately not used: a
+pair will eventually have many activities. Types live in
+`src/types/activity.ts`.
+
+`ActivityPlan` is *how* two people agreed; `Activity` is *what they agreed to
+do* — a stable snapshot taken at confirmation, and **immutable** afterwards.
+
+```jsonc
+{
+  "id": "aina__gary__active",
+  "sourcePlanId": "aina__gary__active",
+  "connectionId": "aina__gary",
+  "participants": ["aina", "gary"],
+  "sportId": "badminton",
+  "startAt": "<Timestamp>",
+  "endAt": "<Timestamp>",
+  "budget": {
+    "min": 20,
+    "max": 40,
+    "currency": "MYR",
+    "unit": "per-person"
+  },
+  "venue": {
+    "placeId": "ChIJ...",
+    "name": "Petaling Jaya Racquet Club",
+    "address": "Jalan 13/6, Seksyen 13, Petaling Jaya",
+    "location": { "lat": 3.1096, "lng": 101.6371 },
+    "googleMapsUri": "https://maps.google.com/?cid=..."
+  },
+  "status": "upcoming",
+  "createdBy": "gary",
+  "createdAt": "<serverTimestamp>",
+  "updatedAt": "<serverTimestamp>"
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` / `sourcePlanId` | `string` | both equal the document id; the plan it came from |
+| `connectionId` | `string` | the STEP 8 pair id |
+| `participants` | `[string, string]` | must equal the source plan's |
+| `sportId` | `SportId` | must equal the plan's agreed sport |
+| `startAt` / `endAt` | timestamp | real instants, resolved once at confirmation from the plan's local date, local time and IANA zone — never a display string |
+| `budget` | `{ min, max, currency: 'MYR', unit: 'per-person' }` | structured money; `max: null` is open ended. A budget the two agreed, **not** a venue quote |
+| `venue` | `VenueSelection` | the STEP 11 snapshot, carried straight over — no second Places request |
+| `status` | `'upcoming' \| 'completed' \| 'cancelled'` | only `upcoming` is implemented; the others exist in the type so a later step needs no type change |
+| `createdBy` | `string` | whichever participant pressed Confirm |
+| `createdAt` / `updatedAt` | server timestamp | set once; the document never changes |
+
+### Never stored in an activity
+
+- **No proposal history** — no `acceptedBy`, `proposedBy` or `version`. That
+  is the plan's job.
+- **No profile data** — no name, email, photo url, bio or sports. Participant
+  ids only; display data is resolved from `publicProfiles` at render time.
+- **No compatibility score** (derived per viewer).
+- **No raw provider data.** The venue is the same trimmed snapshot STEP 11
+  validated.
+
+The rules enforce an exact key allowlist and re-derive the sport, venue,
+budget and participants **from the plan document itself**, so none of the
+above can be smuggled in and no field can be invented.
+
+**Immutable:** update and delete are denied. Reschedule, cancellation and
+completion are later steps. Full walkthrough: `docs/activities.md`.
 
 ## `CompatibilityResult` — DERIVED, never persisted
 

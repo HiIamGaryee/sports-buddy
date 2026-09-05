@@ -45,9 +45,13 @@ export interface PlannedTime {
  *
  *   draft         something among sport/time/budget is still unagreed
  *   ready         those three agreed, no venue yet
- *   venue-agreed  all four agreed; STEP 12 turns this into an activity
+ *   venue-agreed  all four agreed, ready to confirm
+ *   confirmed     an Activity exists; the plan is now READ-ONLY history
+ *
+ * `confirmed` is terminal: it is the only status not derived from the
+ * proposals, because it records that a conversion happened.
  */
-export type PlanStatus = 'draft' | 'ready' | 'venue-agreed'
+export type PlanStatus = 'draft' | 'ready' | 'venue-agreed' | 'confirmed'
 
 /** The four things a plan answers: what, when, how much, where. */
 export type ProposalKind = 'sport' | 'time' | 'budget' | 'venue'

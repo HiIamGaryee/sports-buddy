@@ -250,7 +250,8 @@ export const isVenueAgreed = (plan: ActivityPlan) =>
 export const PLAN_STATUS_LABELS = {
   draft: 'Draft',
   ready: 'Ready for a venue',
-  'venue-agreed': 'Plan complete',
+  'venue-agreed': 'Ready to confirm',
+  confirmed: 'Activity confirmed',
 } as const satisfies Record<PlanStatus, string>
 
 /**
@@ -258,6 +259,9 @@ export const PLAN_STATUS_LABELS = {
  * security rules recompute independently.
  */
 export const derivePlanStatus = (plan: ActivityPlan): PlanStatus => {
+  // Terminal: a confirmed plan records that an activity was created, and no
+  // proposal change can take that back (they are blocked anyway).
+  if (plan.status === 'confirmed') return 'confirmed'
   if (!isPlanReady(plan)) return 'draft'
   return isVenueAgreed(plan) ? 'venue-agreed' : 'ready'
 }

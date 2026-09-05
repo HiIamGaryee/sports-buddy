@@ -1,6 +1,8 @@
 import { env } from '@/config/env'
 import { firebaseAuthRepository } from '@/repositories/auth/firebase-auth-repository'
 import { mockAuthRepository } from '@/repositories/auth/mock-auth-repository'
+import { firebaseActivityRepository } from '@/repositories/activity/firebase-activity-repository'
+import { mockActivityRepository } from '@/repositories/activity/mock-activity-repository'
 import { firebaseActivityPlanRepository } from '@/repositories/activity-plan/firebase-activity-plan-repository'
 import { mockActivityPlanRepository } from '@/repositories/activity-plan/mock-activity-plan-repository'
 import { firebaseChatRepository } from '@/repositories/chat/firebase-chat-repository'
@@ -52,6 +54,11 @@ export const chatRepository = useFirebase
 export const activityPlanRepository = useFirebase
   ? firebaseActivityPlanRepository
   : mockActivityPlanRepository
+
+/** `activities/{planId}` — the confirmed, immutable event. */
+export const activityRepository = useFirebase
+  ? firebaseActivityRepository
+  : mockActivityRepository
 
 /**
  * Venue discovery, chosen from `env.venueSource` INDEPENDENTLY of the

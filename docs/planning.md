@@ -5,11 +5,11 @@ STEP 11) **where** — together, in structured state rather than by re-reading a
 chat thread.
 
 ```
-Sport → Time → Budget → Venue → ready for activity confirmation
+Sport → Time → Budget → Venue → Confirm → Activity
 ```
 
-Confirming the activity itself is STEP 12. Venue specifics live in
-`docs/venues.md`.
+Once confirmed the plan becomes **read-only history**. Venue specifics live in
+`docs/venues.md`; the confirmed event in `docs/activities.md`.
 
 ## 1. Purpose
 
@@ -228,7 +228,11 @@ been priced yet. Presets come from the shared `BUDGET_OPTIONS`.
 ```
 status === 'ready'         ⟺  sport, time and budget all agreed
 status === 'venue-agreed'  ⟺  ready, AND the venue agreed too
+status === 'confirmed'     ⟺  an Activity was created from it
 ```
+
+`confirmed` is the one status not derived from the proposals — it records that
+a conversion happened — and it is **terminal**.
 
 `ready` kept its STEP 10 name deliberately — no data migration — and now
 reads as **"ready for a venue"**. A venue can only be proposed from `ready`,
@@ -239,10 +243,19 @@ as the change that caused it, and the **security rules verify it** rather than
 trusting the client — a participant cannot mark a plan ready that the other
 has not agreed to. Replacing an agreed value drops the plan back to `draft`.
 
-`venue-agreed` is the end of STEP 11. It is **not** a confirmed activity:
-nothing is booked, the venue has not been contacted, and there is no calendar
-entry or notification. The screen says exactly that rather than offering a
-dead "Confirm" button.
+`venue-agreed` is where the final review appears, with a real **Confirm
+activity** action (STEP 12). Because both people already agreed every part
+during planning, **either participant may confirm** — there is no second round
+of mutual confirmation.
+
+Confirming is still not a booking: nothing is reserved and the venue has not
+been contacted. The review says exactly that.
+
+### After confirmation
+
+The plan is **read-only**. Every proposal control disappears, the security
+rules deny all further plan updates, and the screen links to the activity
+instead. Rescheduling and cancellation are deliberately not implemented.
 
 ## 14. Realtime
 
@@ -336,7 +349,7 @@ needed its venue row filled in.
 Its one extra rule: a venue may only be proposed from `ready`, since the
 search depends on the agreed sport. Full detail: `docs/venues.md`.
 
-A `venue-agreed` plan now carries everything a confirmed activity needs —
+A `venue-agreed` plan carried everything a confirmed activity needed —
 `connectionId`, `participants`, `sportId`, `PlannedTime`, `BudgetPreference`
-and the `VenueSelection` snapshot — so STEP 12 can create one with **no
-further Places call**.
+and the `VenueSelection` snapshot — and STEP 12 creates one from exactly that,
+with **no further Places call**. See `docs/activities.md`.

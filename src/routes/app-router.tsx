@@ -5,6 +5,8 @@ import { AuthLayout } from '@/components/layout/auth-layout'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { RegisterPage } from '@/features/auth/pages/register-page'
 import { MessagesLayout } from '@/features/chat/components/messages-layout'
+import { ActivitiesPage } from '@/features/activities/pages/activities-page'
+import { ActivityDetailPage } from '@/features/activities/pages/activity-detail-page'
 import { ConversationEmptyPage } from '@/features/chat/pages/conversation-empty-page'
 import { ConversationPage } from '@/features/chat/pages/conversation-page'
 import { OnboardingPage } from '@/features/onboarding/pages/onboarding-page'
@@ -15,7 +17,6 @@ import { EditProfilePage } from '@/features/profile/pages/edit-profile-page'
 import { ProfilePage } from '@/features/profile/pages/profile-page'
 import { DiscoverySettingsPage } from '@/features/settings/pages/discovery-settings-page'
 import { SettingsPage } from '@/features/settings/pages/settings-page'
-import { ActivitiesPage } from '@/pages/activities-page'
 import { HomePage } from '@/pages/home-page'
 import { GuestRoute } from '@/routes/guest-route'
 import { OnboardingRoute } from '@/routes/onboarding-route'
@@ -46,6 +47,10 @@ export function AppRouter() {
               element={<BuddyProfilePage />}
             />
             <Route path={ROUTES.activities} element={<ActivitiesPage />} />
+            <Route
+              path={ROUTES.activityDetail}
+              element={<ActivityDetailPage />}
+            />
             {/* Master–detail from `md` up; one pane at a time on a phone.
                 Both breakpoints share these routes, so the deep link works. */}
             <Route element={<MessagesLayout />}>

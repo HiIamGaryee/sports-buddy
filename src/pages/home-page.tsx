@@ -9,13 +9,18 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { APP_NAME, APP_TAGLINE_LINES } from '@/constants/app'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ActivityCard } from '@/features/activities/components/activity-card'
+import { useUpcomingActivities } from '@/features/activities/use-activities'
 import { useProfile } from '@/hooks/use-profile'
 import { getAreaName, getSportName } from '@/lib/profile-format'
 import { ROUTES } from '@/routes/routes'
 
 export function HomePage() {
   const { profile } = useProfile()
+  const { items, isLoading: isLoadingActivities } = useUpcomingActivities()
   const firstName = profile?.displayName.split(' ')[0]
+  const nextActivity = items[0] ?? null
 
   return (
     <>
@@ -77,11 +82,19 @@ export function HomePage() {
 
         <section className="flex flex-col gap-3">
           <SectionHeader title="Upcoming" />
-          <EmptyState
-            icon={CalendarDays}
-            title="No upcoming activities yet."
-            description="Once you plan a session with a buddy, it shows up here."
-          />
+          {isLoadingActivities ? (
+            <Skeleton className="h-36 w-full rounded-2xl" />
+          ) : nextActivity ? (
+            // The soonest confirmed activity, from the same sorted list the
+            // Activities page uses — no separate query, no extra logic.
+            <ActivityCard item={nextActivity} />
+          ) : (
+            <EmptyState
+              icon={CalendarDays}
+              title="No upcoming activities yet."
+              description="Once you plan a session with a buddy, it shows up here."
+            />
+          )}
         </section>
         </div>
       </PageContainer>

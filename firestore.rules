@@ -340,7 +340,36 @@ service cloud.firestore {
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
 
+      /**
+       * The one status change a client may make by hand: venue-agreed →
+       * confirmed, alongside creating the activity. Everything else about
+       * the plan must be untouched, and all four proposals must be agreed.
+       */
+      function isConfirmationWrite() {
+        return current().status == 'venue-agreed'
+          && incoming().status == 'confirmed'
+          && agreed(incoming().sportProposal)
+          && agreed(incoming().timeProposal)
+          && agreed(incoming().budgetProposal)
+          && agreed(venueOf(incoming()))
+          && incoming().sportProposal == current().sportProposal
+          && incoming().timeProposal == current().timeProposal
+          && incoming().budgetProposal == current().budgetProposal
+          && venueOf(incoming()) == venueOf(current())
+          && incoming().id == current().id
+          && incoming().connectionId == current().connectionId
+          && incoming().participants == current().participants
+          && incoming().createdBy == current().createdBy
+          && incoming().createdAt == current().createdAt
+          && incoming().keys().hasOnly(planFields())
+          && incoming().keys().hasAll(requiredPlanFields())
+          && incoming().updatedAt == request.time;
+      }
+
       allow update: if connectedParticipant(current().connectionId)
+        && (isConfirmationWrite() || (
+        // A confirmed plan is read-only history — no proposal may change.
+        current().status != 'confirmed'
         && incoming().keys().hasOnly(planFields())
         && incoming().keys().hasAll(requiredPlanFields())
         // Identity is frozen after creation.
@@ -364,9 +393,75 @@ service cloud.firestore {
         && (venueOf(incoming()).version == venueOf(current()).version
             || coreAgreed())
         && statusMatchesAgreement()
-        && incoming().updatedAt == request.time;
+        && incoming().updatedAt == request.time
+        ));
 
       allow delete: if false;
+    }
+
+    // CONFIRMED ACTIVITIES. The activity lives at its SOURCE PLAN's id, so
+    // "one plan produces at most one activity" is a property of the database,
+    // and every check here is a single lookup at `activityPlans/{activityId}`.
+    //
+    // An activity is IMMUTABLE: create only. Reschedule, cancel and
+    // completion are later steps, and none of them exist yet.
+    match /activities/{activityId} {
+      function incoming() { return request.resource.data; }
+      function current() { return resource.data; }
+
+      function planPath() {
+        return /databases/$(database)/documents/activityPlans/$(activityId);
+      }
+
+      function plan() { return get(planPath()).data; }
+
+      function planProposalAgreed(proposal) {
+        return proposal.version > 0
+          && proposal.value != null
+          && proposal.acceptedBy.hasAll(plan().participants);
+      }
+
+      function activityFields() {
+        return ['id', 'sourcePlanId', 'connectionId', 'participants',
+                'sportId', 'startAt', 'endAt', 'budget', 'venue', 'status',
+                'createdBy', 'createdAt', 'updatedAt'];
+      }
+
+      allow get, list: if request.auth != null
+        && request.auth.uid in current().participants;
+
+      allow create: if request.auth != null
+        && exists(planPath())
+        // Only somebody actually in the plan may convert it.
+        && request.auth.uid in plan().participants
+        && incoming().keys().hasOnly(activityFields())
+        && incoming().keys().hasAll(activityFields())
+        && incoming().id == activityId
+        && incoming().sourcePlanId == activityId
+        && incoming().connectionId == plan().connectionId
+        && incoming().participants == plan().participants
+        // Every part must be mutually agreed on the plan itself.
+        && planProposalAgreed(plan().sportProposal)
+        && planProposalAgreed(plan().timeProposal)
+        && planProposalAgreed(plan().budgetProposal)
+        && planProposalAgreed(plan().venueProposal)
+        // The snapshot must match what was agreed, not something invented.
+        && incoming().sportId == plan().sportProposal.value
+        && incoming().venue == plan().venueProposal.value
+        && incoming().budget.min == plan().budgetProposal.value.min
+        && incoming().budget.max == plan().budgetProposal.value.max
+        && incoming().budget.currency == 'MYR'
+        && incoming().budget.unit == 'per-person'
+        && incoming().startAt is timestamp
+        && incoming().endAt is timestamp
+        && incoming().endAt > incoming().startAt
+        && incoming().status == 'upcoming'
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      // Immutable in this step.
+      allow update, delete: if false;
     }
 
     // Collections for later steps stay closed until their model exists.
