@@ -28,6 +28,8 @@ const cardVariants = cva(
       size: {
         default: "",
         sm: "[--card-spacing:--spacing(3)]",
+        /** Roomier padding for a card that is a whole section, not a row. */
+        lg: "[--card-spacing:--spacing(7)]",
       },
     },
     defaultVariants: { variant: "default", size: "default" },
