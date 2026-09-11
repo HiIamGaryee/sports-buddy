@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
@@ -8,8 +9,8 @@ import { cn } from '@/lib/utils'
  * resolve to the same border/fill/typography here.
  *
  * `selection` changes the ARIA contract, not just the look:
- *   multiple — a checkbox, tinted when on, so a fully selected group does not
- *              become a wall of lime
+ *   multiple — a checkbox, tinted and check-marked when on, so a fully
+ *              selected group does not become a wall of lime
  *   single   — a radio, solid fill, because exactly one wins
  */
 const choiceChipVariants = cva(
@@ -77,6 +78,7 @@ export function ChoiceChip({
         className,
       )}
     >
+      {!single && selected && <Check aria-hidden />}
       {label}
     </button>
   )
