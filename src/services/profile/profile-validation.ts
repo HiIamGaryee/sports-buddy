@@ -10,6 +10,7 @@ import {
   isValidBudget,
   isValidIntents,
   isValidSports,
+  isValidSportSelection,
 } from '@/services/profile/profile-schema'
 import type {
   ActivityIntensity,
@@ -29,19 +30,27 @@ export const profileRules = {
   displayName: validateDisplayName,
 
   /**
-   * Membership, not just presence. Before this, an unknown `sportId` reached
-   * `publicProfiles` and the matching engine unchallenged.
+   * Membership, not just presence — sport SELECTION only. Skill level is not
+   * inspected here: onboarding's sports step runs before its skills step
+   * assigns one, so a sport just picked always has `skillLevel: null`.
+   * `profileRules.skills` is what validates the level, once it exists.
    */
   sports: (sports: readonly unknown[]) => {
     if (sports.length === 0) return 'Choose at least one sport.'
     if (sports.length > MAX_SPORTS) return `Choose up to ${MAX_SPORTS} sports.`
-    return isValidSports(sports) ? undefined : 'Choose a valid sport.'
+    return isValidSportSelection(sports) ? undefined : 'Choose a valid sport.'
   },
 
-  skills: (sports: readonly { skillLevel: SkillLevel | null }[]) =>
-    sports.some((sport) => sport.skillLevel === null)
-      ? 'Set a skill level for every sport.'
-      : undefined,
+  /**
+   * Presence AND membership. Before this, an unset level was caught but an
+   * invalid one (`'wizard'`) was not, because only `null` was checked.
+   */
+  skills: (sports: readonly { skillLevel: SkillLevel | null }[]) => {
+    if (sports.some((sport) => sport.skillLevel === null)) {
+      return 'Set a skill level for every sport.'
+    }
+    return isValidSports(sports) ? undefined : 'Choose a valid skill level.'
+  },
 
   intents: (intents: readonly unknown[]) => {
     if (intents.length === 0) {

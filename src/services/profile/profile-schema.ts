@@ -125,6 +125,26 @@ export function isValidSports(value: unknown): value is UserSport[] {
   return new Set(value.map((sport) => sport.sportId)).size === value.length
 }
 
+/**
+ * Sport SELECTION only: within the cap, every entry a known sport id, no
+ * duplicates — deliberately silent on `skillLevel`, because onboarding's
+ * sports step chooses sports before its skills step assigns a level. The
+ * skill level itself is validated once it exists (`isValidSports`, run from
+ * `profileRules.skills`), so a full save is still checked as strictly.
+ */
+export function isValidSportSelection(
+  value: unknown,
+): value is { sportId: SportId }[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_SPORTS) {
+    return false
+  }
+  if (!value.every((entry) => isSportId((entry as { sportId?: unknown })?.sportId))) {
+    return false
+  }
+  const sportIds = value.map((entry) => (entry as { sportId: SportId }).sportId)
+  return new Set(sportIds).size === sportIds.length
+}
+
 export function isValidIntents(value: unknown): value is SportsIntent[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > MAX_INTENTS) {
     return false
