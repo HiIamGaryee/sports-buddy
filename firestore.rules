@@ -25,6 +25,36 @@ service cloud.firestore {
         || boundedString(data[key], limit);
     }
 
+    function pairIsUnblocked(participants) {
+      return !exists(/databases/$(database)/documents/blocks/$(participants[0] + '__' + participants[1]))
+        && !exists(/databases/$(database)/documents/blocks/$(participants[1] + '__' + participants[0]));
+    }
+
+    match /blocks/{blockId} {
+      allow get, list: if request.auth != null && request.auth.uid == resource.data.blockerId;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['blockerId', 'blockedUserId', 'reason', 'createdAt'])
+        && request.resource.data.blockerId == request.auth.uid
+        && request.resource.data.blockedUserId != request.auth.uid
+        && blockId == request.auth.uid + '__' + request.resource.data.blockedUserId
+        && (request.resource.data.reason == null || request.resource.data.reason in ['unwanted-contact', 'inappropriate-behavior', 'spam', 'safety-concern', 'other'])
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.blockerId;
+    }
+
+    match /reports/{reportId} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['reporterId', 'reportedUserId', 'reason', 'note', 'context', 'status', 'createdAt'])
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.reportedUserId != request.auth.uid
+        && request.resource.data.reason in ['harassment', 'spam', 'inappropriate-content', 'fake-profile', 'safety-concern', 'other']
+        && (request.resource.data.note == null || (request.resource.data.note is string && request.resource.data.note.size() <= 500))
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.createdAt == request.time;
+      allow get, list, update, delete: if false;
+    }
+
     // PRIVATE. `users/{uid}` holds account fields, the sports profile and the
     // user's preferences (discovery filters, privacy, notifications). It is
     // never readable by anyone else — Discover reads publicProfiles instead.
@@ -154,6 +184,7 @@ service cloud.firestore {
 
       allow create: if isParticipant(incoming())
         && wellFormed(incoming())
+        && pairIsUnblocked(incoming().participants)
         // A new request can only ever be the caller's own, and only pending.
         && incoming().requestedBy == [request.auth.uid]
         && incoming().status == 'pending'
@@ -162,6 +193,7 @@ service cloud.firestore {
 
       allow update: if isParticipant(current())
         && wellFormed(incoming())
+        && pairIsUnblocked(incoming().participants)
         && incoming().participants == current().participants
         && incoming().id == current().id
         && incoming().createdAt == current().createdAt
@@ -203,6 +235,7 @@ service cloud.firestore {
         return request.auth != null
           && exists(connectionPath())
           && connection().status == 'connected'
+          && pairIsUnblocked(connection().participants)
           && request.auth.uid in connection().participants;
       }
 
@@ -298,6 +331,7 @@ service cloud.firestore {
           && planId == connectionId + '__active'
           && exists(connectionPath(connectionId))
           && connection(connectionId).status == 'connected'
+          && pairIsUnblocked(connection(connectionId).participants)
           && request.auth.uid in connection(connectionId).participants;
       }
 
@@ -498,6 +532,7 @@ service cloud.firestore {
 
       allow create: if request.auth != null
         && exists(planPath())
+        && pairIsUnblocked(plan().participants)
         // Only somebody actually in the plan may convert it.
         && request.auth.uid in plan().participants
         && incoming().keys().hasOnly(activityFields())

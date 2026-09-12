@@ -12,6 +12,8 @@ import { MessageComposer } from '@/features/chat/components/message-composer'
 import { useChatScroll } from '@/features/chat/use-chat-scroll'
 import { useConversation } from '@/features/chat/use-conversation'
 import { PlanChatCard } from '@/features/planning/components/plan-chat-card'
+import { SafetyActions } from '@/components/safety/safety-actions'
+import { useNavigate } from 'react-router-dom'
 import { usePlanPreview } from '@/features/planning/use-plan-preview'
 import { formatDateSeparator, isSameDay } from '@/lib/chat-format'
 import { activityPath, planPath, ROUTES } from '@/routes/routes'
@@ -23,6 +25,7 @@ const SKELETON_BUBBLES = [
 ] as const
 
 export function ConversationPage() {
+  const navigate = useNavigate()
   const { conversationId: rawConversationId } =
     useParams<{ conversationId: string }>()
   // A route param is untrusted input on its way to `doc(db, COLLECTION, id)`.
@@ -102,8 +105,7 @@ export function ConversationPage() {
     <ChatLayout
       title={buddyName}
       photoUrl={buddyPhotoUrl}
-      action={
-        conversationId && (
+      action={<div className="flex items-center gap-2">{conversation.buddyId && conversationId && <SafetyActions targetUserId={conversation.buddyId} displayName={buddyName} context={{ type: 'conversation', conversationId }} onBlocked={() => navigate(ROUTES.messages)} />}{conversationId && (
           <Button variant="outline" size="sm" asChild>
             <Link
               to={
@@ -129,8 +131,7 @@ export function ConversationPage() {
               </span>
             </Link>
           </Button>
-        )
-      }
+        )}</div>}
       banner={
         plan && conversationId ? (
           <PlanChatCard plan={plan} conversationId={conversationId} />

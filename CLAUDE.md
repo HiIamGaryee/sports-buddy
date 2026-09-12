@@ -1,5 +1,13 @@
 # Sports Buddy — Engineering Guide
 
+## Safety (STEP 14B)
+
+- Every stranger-interaction surface respects Block state; hiding UI is never authorization.
+- Services and Firestore rules check block state for connections, chat and planning.
+- Reports are normal-client write-only and never globally readable; no client moderation fields or dashboard exist.
+- Never expose who blocked whom. Blocking preserves historical messages, connections and activities, and overrides connection state.
+- Completed: STEP 1–13 and STEP 14B. Next: STEP 15B — Account Deletion + Data Cleanup.
+
 ## 1. Product summary
 
 Sports Buddy is a people-first sports social app. The long-term flow is:

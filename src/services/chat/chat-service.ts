@@ -8,6 +8,8 @@ import {
 } from '@/services/chat/chat-error'
 import type { ChatMessage, Conversation, MessagePage } from '@/types/chat'
 import type { Connection } from '@/types/connection'
+import { blockRepository } from '@/repositories/repositories'
+import { getOtherParticipantId } from '@/lib/connection'
 
 /**
  * The domain rules for chat: who may talk, and what counts as a message.
@@ -48,6 +50,8 @@ export const chatService = {
       assertCanChat(connection, currentUserId)
       // Non-null by the assertion above.
       const verified = connection as Connection
+      const otherUserId = getOtherParticipantId(verified, currentUserId)
+      if (!otherUserId || (await blockRepository.getBlockedUserIds(currentUserId)).includes(otherUserId)) throw chatError(CHAT_ERROR_CODES.notConnected)
       return await chatRepository.ensureConversation({
         connectionId: verified.id,
         participants: verified.participants,
@@ -107,6 +111,8 @@ export const chatService = {
     try {
       assertCanChat(connection, currentUserId)
       const verified = connection as Connection
+      const otherUserId = getOtherParticipantId(verified, currentUserId)
+      if (!otherUserId || (await blockRepository.getBlockedUserIds(currentUserId)).includes(otherUserId)) throw chatError(CHAT_ERROR_CODES.notConnected)
 
       const content = normalizeMessageContent(rawContent)
       const problem = getMessageError(content)
