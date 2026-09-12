@@ -40,7 +40,7 @@
   --popover-foreground: #15171a;
 
   /* Light mode follows the Sports Buddy mark: warm gold into energetic pink. */
-  --primary: #9c2f61;
+  --primary: #8a5d00;
   --primary-foreground: #15171a;
 
   /* Both ends keep the near-black primary foreground legible. */
@@ -59,7 +59,7 @@
   --border: #e2e5ea;
   --border-strong: #cfd4dc;
   --input: #dde1e7;
-  --ring: #9c2f61;
+  --ring: #8a5d00;
 
   --success: #167c4a;
   --success-foreground: #ffffff;
@@ -395,6 +395,23 @@
 }
 
 /* ---------------------------------------------------------------- MOTION */
+
+@keyframes loading-letter {
+  0% {
+    font-size: 3em;
+    font-weight: 700;
+  }
+
+  100% {
+    font-size: 2em;
+    font-weight: 100;
+  }
+}
+
+@utility animate-loading-letter {
+  animation: loading-letter 1s ease-in-out infinite alternate;
+  animation-delay: calc(-1 * var(--loading-index) * 0.2s);
+}
 
 /*
  * THE interaction transition. Every hover, press, selection and state change

@@ -1,5 +1,6 @@
-import { RefreshCw, Users } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 
+import compassIllustration from '@/assets/svg/compas-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { SectionHeader } from '@/components/common/section-header'
@@ -114,7 +115,7 @@ export function DiscoverPage() {
 
             {!isLoading && !error && visibleCount === 0 && (
               <EmptyState
-                icon={Users}
+                illustration={compassIllustration}
                 title={
                   totalCandidates === 0
                     ? "It's quiet here for now."

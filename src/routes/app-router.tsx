@@ -68,14 +68,13 @@ export function AppRouter() {
             <Route path={ROUTES.plan} element={<PlanPage />} />
 
             <Route path={ROUTES.profile} element={<ProfilePage />} />
+            <Route path={ROUTES.profileEdit} element={<EditProfilePage />} />
             <Route path={ROUTES.settings} element={<SettingsPage />} />
             <Route
               path={ROUTES.discoverySettings}
               element={<DiscoverySettingsPage />}
             />
           </Route>
-
-          <Route path={ROUTES.profileEdit} element={<EditProfilePage />} />
         </Route>
 
         <Route

@@ -1,6 +1,8 @@
-import { CalendarDays, History } from 'lucide-react'
+import { History } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import clipboardIllustration from '@/assets/svg/clipboard-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { AppHeader } from '@/components/layout/app-header'
@@ -53,7 +55,7 @@ export function ActivitiesPage() {
           <TabsContent value="upcoming" className="pt-5">
             <ActivityTabBody
               {...upcoming}
-              emptyIcon={CalendarDays}
+              emptyIllustration={clipboardIllustration}
               emptyTitle="No upcoming activities."
               emptyDescription="Find a sports buddy and plan your next session."
               emptyAction={
@@ -101,6 +103,7 @@ function ActivityTabBody({
   loadMore,
   refresh,
   emptyIcon,
+  emptyIllustration,
   emptyTitle,
   emptyDescription,
   emptyAction,
@@ -113,7 +116,8 @@ function ActivityTabBody({
   error: string
   loadMore: () => void
   refresh: () => void
-  emptyIcon: typeof CalendarDays
+  emptyIcon?: LucideIcon
+  emptyIllustration?: string
   emptyTitle: string
   emptyDescription: string
   emptyAction?: React.ReactNode
@@ -135,6 +139,7 @@ function ActivityTabBody({
     return (
       <EmptyState
         icon={emptyIcon}
+        illustration={emptyIllustration}
         title={emptyTitle}
         description={emptyDescription}
         action={emptyAction}
