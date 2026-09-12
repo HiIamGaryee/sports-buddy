@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 /**
  * Sports Buddy — theme definition.
  * This file is the ONLY place allowed to contain raw color values.
@@ -201,7 +203,9 @@
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica,
     Arial, sans-serif;
-  --font-heading: var(--font-sans);
+  --font-heading:
+    'Space Grotesk', 'Avenir Next', 'SF Pro Display', 'Inter', -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
