@@ -1,20 +1,12 @@
-import { ChevronLeft } from 'lucide-react'
-
+import { AppHeader } from '@/components/layout/app-header'
+import { PageContainer } from '@/components/layout/page-container'
 import { StickyActionBar } from '@/components/layout/sticky-action-bar'
 import { Button } from '@/components/ui/button'
 
 /**
- * Full-screen form shell for editing flows: back/cancel header, scrolling
- * content and a save action.
- *
- * These routes stay outside `AppShell` on purpose — an edit screen is a
- * focused task with an explicit Save/Cancel, so the navigation is deliberately
- * out of the way at every width.
- *
- * On a phone the save bar is sticky above the home indicator. From `md` the
- * content sits in a readable column and the actions move into the header,
- * where a desktop expects them, rather than a full-width bar pinned to the
- * bottom of a 900px-tall window.
+ * Editing keeps its focused actions, but lives inside the shared app shell so
+ * the desktop sidebar, header width and responsive gutters match every main
+ * route. On phones the save controls remain in the safe-area-aware sticky bar.
  */
 export function EditLayout({
   title,
@@ -38,27 +30,15 @@ export function EditLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-background pl-safe-left pr-safe-right">
-      <header className="sticky top-0 z-30 border-b border-border bg-surface-overlay px-gutter pt-safe-top pb-4 backdrop-blur-xl md:pb-5">
-        <div className="mx-auto flex w-full max-w-default items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Cancel"
-            onClick={onCancel}
-            className="-ml-2 shrink-0"
-          >
-            <ChevronLeft className="size-5" />
-          </Button>
-          <div className="flex min-w-0 flex-1 flex-col">
-            <h1 className="truncate text-heading-2 text-foreground">{title}</h1>
-            {subtitle && (
-              <p className="truncate text-body-small text-muted-foreground">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          <div className="hidden shrink-0 items-center gap-2 md:flex">
+    <>
+      <AppHeader
+        title={title}
+        subtitle={subtitle}
+        size="wide"
+        showBack
+        onBack={onCancel}
+        action={
+          <div className="hidden items-center gap-2 md:flex">
             <Button variant="outline" onClick={onCancel}>
               Cancel
             </Button>
@@ -66,10 +46,9 @@ export function EditLayout({
               {saveLabel}
             </Button>
           </div>
-        </div>
-      </header>
-
-      <main className="mx-auto flex w-full max-w-default flex-1 animate-in flex-col gap-8 px-gutter py-6 duration-200 ease-out fade-in-0 slide-in-from-bottom-1 md:gap-10 md:py-8">
+        }
+      />
+      <PageContainer size="wide" className="gap-8 md:gap-10">
         {children}
         {(error ?? hint) && (
           <p
@@ -83,7 +62,7 @@ export function EditLayout({
             {error ?? hint}
           </p>
         )}
-      </main>
+      </PageContainer>
 
       <StickyActionBar className="md:hidden">
         {error ? (
@@ -113,6 +92,6 @@ export function EditLayout({
         </div>
         <span className="h-2" />
       </StickyActionBar>
-    </div>
+    </>
   )
 }

@@ -27,6 +27,7 @@ export function AppHeader({
   showBack = false,
   action,
   transparent = false,
+  onBack,
 }: {
   title: string
   subtitle?: string
@@ -34,6 +35,7 @@ export function AppHeader({
   showBack?: boolean
   action?: React.ReactNode
   transparent?: boolean
+  onBack?: () => void
 }) {
   const navigate = useNavigate()
 
@@ -58,7 +60,7 @@ export function AppHeader({
               variant="ghost"
               size="icon-sm"
               aria-label="Go back"
-              onClick={() => navigate(-1)}
+              onClick={onBack ?? (() => navigate(-1))}
               className="-ml-2 shrink-0"
             >
               <ChevronLeft className="size-5" />

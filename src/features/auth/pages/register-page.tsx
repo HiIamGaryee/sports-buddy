@@ -84,7 +84,7 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-7">
       <div className="flex flex-col gap-2">
         <h1 className="text-display text-foreground">
           {APP_TAGLINE_LINES.map((line) => (

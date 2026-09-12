@@ -1,4 +1,4 @@
-import { ChevronRight, Monitor, Moon, Sun } from 'lucide-react'
+import { ChevronRight, Download, Monitor, Moon, Sun } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -256,6 +256,23 @@ export function SettingsPage() {
               {APP_VERSION}
             </span>
           </div>
+          <Separator />
+          <SettingsRow
+            label="Mock build"
+            description="Download the current Android debug APK."
+            trailing={
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href="/downloads/sports-buddy-mock.apk"
+                  download="sports-buddy-mock.apk"
+                  aria-label="Download Mock Build APK"
+                >
+                  <Download className="size-4" />
+                  Download
+                </a>
+              </Button>
+            }
+          />
         </SettingsSection>
           </div>
         </div>

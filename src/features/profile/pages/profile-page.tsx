@@ -1,7 +1,10 @@
-import { Eye, Settings, SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import editIcon from '@/assets/svg/magic-svgrepo-com.svg'
+import settingsIcon from '@/assets/svg/settings-svgrepo-com.svg'
+import previewIcon from '@/assets/svg/shirt-svgrepo-com.svg'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { ProfileSummary } from '@/components/profile/profile-summary'
@@ -56,9 +59,9 @@ export function ProfilePage() {
         title="Profile"
         size="wide"
         action={
-          <Button variant="ghost" size="icon-sm" aria-label="Settings" asChild>
+          <Button variant="ghost" size="icon-sm" aria-label="Settings" title="Settings" asChild>
             <Link to={ROUTES.settings}>
-              <Settings className="size-5" />
+              <img src={settingsIcon} alt="" aria-hidden className="size-5 object-contain" />
             </Link>
           </Button>
         }
@@ -82,15 +85,16 @@ export function ProfilePage() {
 
             <ProfileCompletenessCard completeness={completeness} />
 
-            <div className="flex flex-col gap-2.5">
-              <Button size="lg" className="rounded-2xl" asChild>
-                <Link to={ROUTES.profileEdit}>Edit profile</Link>
+            <div className="flex gap-3">
+              <Button size="icon-lg" className="rounded-full" aria-label="Edit profile" title="Edit profile" asChild>
+                <Link to={ROUTES.profileEdit}>
+                  <img src={editIcon} alt="" aria-hidden className="size-5 object-contain" />
+                </Link>
               </Button>
               <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
                 <DialogTrigger asChild>
-                  <Button size="lg" variant="outline" className="rounded-2xl">
-                    <Eye className="size-4" />
-                    Preview profile
+                  <Button size="icon-lg" variant="outline" className="rounded-full" aria-label="Preview profile" title="Preview profile">
+                    <img src={previewIcon} alt="" aria-hidden className="size-5 object-contain" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-h-[85dvh] overflow-y-auto">
@@ -180,8 +184,10 @@ export function ProfilePage() {
                       away
                     </span>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link to={ROUTES.discoverySettings}>Change</Link>
+                  <Button variant="outline" size="icon-sm" aria-label="Change discovery settings" title="Change discovery settings" asChild>
+                    <Link to={ROUTES.discoverySettings}>
+                      <img src={settingsIcon} alt="" aria-hidden className="size-4 object-contain" />
+                    </Link>
                   </Button>
                 </CardContent>
               </Card>

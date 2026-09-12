@@ -1,5 +1,6 @@
 import { MapPin, Search } from 'lucide-react'
 
+import buildingIllustration from '@/assets/svg/building-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField } from '@/components/common/form-field'
@@ -98,7 +99,7 @@ export function VenueStep({
 
           {!isLoading && !error && venues.length === 0 && (
             <EmptyState
-              icon={MapPin}
+              illustration={buildingIllustration}
               title={`No ${venueService.getSearchLabel(sportId)} found near the suggested area.`}
               description="Try a broader search, a different keyword, or another place name."
               className="w-full"

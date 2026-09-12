@@ -1,6 +1,5 @@
-import { Settings } from 'lucide-react'
-
 import logo from '@/assets/logo.png'
+import settingsIcon from '@/assets/svg/settings-svgrepo-com.svg'
 import { NavItem } from '@/components/layout/nav-item'
 import { mainNavigation } from '@/config/navigation'
 import { cn } from '@/lib/utils'
@@ -44,7 +43,7 @@ export function DesktopSidebar({ className }: { className?: string }) {
         shape="sidebar"
         to={ROUTES.settings}
         label="Settings"
-        icon={Settings}
+        icon={settingsIcon}
       />
     </nav>
   )
