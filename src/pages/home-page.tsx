@@ -1,4 +1,4 @@
-import { CalendarDays, Sparkles } from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import heroDark from '@/assets/hero-dark.jpeg'
@@ -10,7 +10,6 @@ import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { StatusPill } from '@/components/ui/status-pill'
 import { APP_NAME, APP_TAGLINE_LINES } from '@/constants/app'
 import { ActivityCard } from '@/features/activities/components/activity-card'
 import { useCoarseNow, useUpcomingActivities } from '@/features/activities/use-activities'
