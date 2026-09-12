@@ -27,7 +27,7 @@ const navItemVariants = cva(
         rail: 'flex-col justify-center gap-1 rounded-xl py-2.5 hover:bg-surface-subtle hover:text-foreground aria-[current=page]:bg-primary/12',
         /** Desktop sidebar: a full-width row, icon beside the label. */
         sidebar:
-          'gap-3 rounded-xl px-3 py-2.5 text-title hover:bg-surface-subtle hover:text-foreground aria-[current=page]:bg-primary/12',
+          'h-14 gap-3.5 rounded-2xl px-4 text-title hover:bg-surface-subtle hover:text-foreground aria-[current=page]:bg-primary/14',
       },
     },
     defaultVariants: { shape: 'bar' },
@@ -54,7 +54,7 @@ export function NavItem({
           'shrink-0',
           shape === 'bar'
             ? 'size-6 transition-transform group-aria-[current=page]:scale-110'
-            : 'size-5',
+            : 'size-6 stroke-2',
         )}
       />
       <span className={shape === 'sidebar' ? undefined : 'text-caption'}>

@@ -1,8 +1,8 @@
 import { Settings } from 'lucide-react'
 
+import logo from '@/assets/logo.png'
 import { NavItem } from '@/components/layout/nav-item'
 import { mainNavigation } from '@/config/navigation'
-import { APP_NAME } from '@/constants/app'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/routes/routes'
 
@@ -24,12 +24,15 @@ export function DesktopSidebar({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="flex items-center gap-2.5 px-3 py-6">
-        <span aria-hidden className="size-3 rounded-full bg-primary-gradient" />
-        <span className="text-heading-3 text-primary-gradient">{APP_NAME}</span>
+      <div className="flex h-18 items-center px-4">
+        <img
+          src={logo}
+          alt="Sports Buddy"
+          className="max-h-10 max-w-37.5 object-contain object-left"
+        />
       </div>
 
-      <ul className="flex flex-1 flex-col gap-1">
+      <ul className="flex flex-1 flex-col gap-2 pt-6">
         {mainNavigation.map(({ label, path, icon: Icon }) => (
           <li key={path}>
             <NavItem shape="sidebar" to={path} label={label} icon={Icon} />

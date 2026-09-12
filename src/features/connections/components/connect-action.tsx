@@ -55,12 +55,17 @@ export function ConnectAction({
   state,
   size = 'default',
   className,
+  showMessage = true,
+  connectedClassName,
 }: {
   userId: string
   displayName: string
   state: ConnectionState
   size?: ActionSize
   className?: string
+  /** Discover can place the existing message route beside other quick actions. */
+  showMessage?: boolean
+  connectedClassName?: string
 }) {
   const { connect, cancelRequest, connections } = useConnections()
   // The connection id IS the conversation id, so a Message link needs no
@@ -100,13 +105,14 @@ export function ConnectAction({
             className={cn(
               'flex items-center justify-center gap-2 border border-border bg-surface-subtle px-4',
               STATUS_SIZES[size],
+              connectedClassName,
             )}
             aria-label={`Connected with ${displayName}`}
           >
             <UserCheck className="size-4 text-primary" />
             <span className="text-label text-foreground">Connected</span>
           </div>
-          {conversationId && (
+          {conversationId && showMessage && (
             <Button size={size} asChild>
               <Link
                 to={conversationPath(conversationId)}

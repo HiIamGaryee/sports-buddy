@@ -20,6 +20,8 @@ import { venueService } from '@/services/venue/venue-service'
 import type { Connection } from '@/types/connection'
 import type { BudgetPreference, SportId } from '@/types/sports-profile'
 import type { VenueSelection } from '@/types/venue'
+import { blockRepository } from '@/repositories/repositories'
+import { getOtherParticipantId } from '@/lib/connection'
 
 /**
  * The domain rules for planning: who may plan, and what counts as a valid
@@ -33,11 +35,12 @@ import type { VenueSelection } from '@/types/venue'
  * Chat and planning stay separate: nothing here writes a message, and
  * `chatService` never touches a plan.
  */
-function assertCanPlan(
+async function assertCanPlan(
   connection: Connection | null | undefined,
   currentUserId: string,
 ) {
-  if (!canPlanTogether(connection, currentUserId)) {
+  const otherUserId = connection ? getOtherParticipantId(connection, currentUserId) : null
+  if (!canPlanTogether(connection, currentUserId) || !otherUserId || (await blockRepository.getBlockedUserIds(currentUserId)).includes(otherUserId)) {
     throw planningError(PLANNING_ERROR_CODES.notConnected)
   }
 }
@@ -68,7 +71,7 @@ export const activityPlanService = {
     currentUserId: string,
   ): Promise<ActivityPlan> {
     try {
-      assertCanPlan(connection, currentUserId)
+      await assertCanPlan(connection, currentUserId)
       const verified = connection as Connection
       return await activityPlanRepository.ensureActivePlan({
         connectionId: verified.id,
@@ -158,7 +161,7 @@ export const activityPlanService = {
     version: number,
   ): Promise<ActivityPlan> {
     try {
-      assertCanPlan(connection, currentUserId)
+      await assertCanPlan(connection, currentUserId)
       const verified = connection as Connection
       return await activityPlanRepository.accept({
         connectionId: verified.id,
@@ -180,7 +183,7 @@ async function propose(
   validate: () => string | null,
 ): Promise<ActivityPlan> {
   try {
-    assertCanPlan(connection, currentUserId)
+    await assertCanPlan(connection, currentUserId)
     const problem = validate()
     if (problem) throw new PlanningError(problem)
 

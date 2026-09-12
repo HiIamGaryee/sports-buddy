@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useConnections } from '@/hooks/use-connections'
 import { useProfile } from '@/hooks/use-profile'
+import { useSafety } from '@/hooks/use-safety'
 import { createFiltersFromPreferences } from '@/lib/discover-filters'
 import { discoverService } from '@/services/discover/discover-service'
 import { toMatchingSubject } from '@/services/matching/matching-service'
@@ -30,6 +31,7 @@ const loadingState = (key: string): FeedState => ({
 export function useDiscover() {
   const { profile } = useProfile()
   const { connections } = useConnections()
+  const { blockedIds } = useSafety()
   const [overrides, setOverrides] = useState<DiscoverFilters | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
   // Session-only, deliberately not persisted: refreshing brings them back.
@@ -96,8 +98,9 @@ export function useDiscover() {
     )
     return discoverService
       .joinConnectionStates(ranked, connections, profile.id)
+      .filter((buddy) => !blockedIds.has(buddy.profile.userId))
       .filter((buddy) => !dismissed.includes(buddy.profile.userId))
-  }, [feed.candidates, filters, profile, connections, dismissed])
+  }, [feed.candidates, filters, profile, connections, dismissed, blockedIds])
 
   // People waiting on the user come first; their score is untouched.
   const incoming = useMemo(

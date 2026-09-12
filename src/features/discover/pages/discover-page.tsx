@@ -41,7 +41,7 @@ export function DiscoverPage() {
     <>
       <AppHeader
         title="Discover"
-        subtitle="Based on your sports, availability and preferences."
+        subtitle="See what they play. Connect to reveal the person."
         size="wide"
         action={
           <Button

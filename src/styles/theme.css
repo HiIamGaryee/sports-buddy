@@ -39,18 +39,18 @@
   --popover: #ffffff;
   --popover-foreground: #15171a;
 
-  --primary: #46700d;
-  --primary-foreground: #ffffff;
+  /* Light mode follows the Sports Buddy mark: warm gold into energetic pink. */
+  --primary: #9c2f61;
+  --primary-foreground: #15171a;
 
-  /* Primary CTA gradient. Both ends must keep --primary-foreground legible;
-     the lighter end is the tighter case (~5.2:1 against white). */
-  --primary-gradient-start: #4e7b0d;
-  --primary-gradient-end: #3a5c0a;
+  /* Both ends keep the near-black primary foreground legible. */
+  --primary-gradient-start: #e5bd58;
+  --primary-gradient-end: #dc6485;
 
   --secondary: #fc5a1a;
   --secondary-foreground: #15171a;
 
-  --accent: #7a5b00;
+  --accent: #8a5d00;
   --accent-foreground: #ffffff;
 
   --muted: #eceef1;
@@ -59,7 +59,7 @@
   --border: #e2e5ea;
   --border-strong: #cfd4dc;
   --input: #dde1e7;
-  --ring: #46700d;
+  --ring: #9c2f61;
 
   --success: #167c4a;
   --success-foreground: #ffffff;
@@ -106,7 +106,7 @@
 
   /* Breakpoint-aware navigation chrome. */
   --navigation-rail-width: 5rem;
-  --desktop-sidebar-width: 15rem;
+  --desktop-sidebar-width: 15.75rem;
 
   /* Content widths. `content` is the phone column kept for chrome that is
      still phone-shaped; pages choose a semantic size instead. */
