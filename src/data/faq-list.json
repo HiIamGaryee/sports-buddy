@@ -1,0 +1,62 @@
+[
+  {
+    "question": "What is Sports Buddy?",
+    "answer": "Sports Buddy helps you discover people who enjoy the same sports, connect with them, chat, and make plans to play together."
+  },
+  {
+    "question": "How do I find people to play with?",
+    "answer": "Complete your profile, choose the sports you play, and set your discovery preferences. Discover then shows compatible people and activity opportunities."
+  },
+  {
+    "question": "How are suggested buddies chosen?",
+    "answer": "Suggestions are based on the information you choose to add, including sports, skill levels, availability, preferences, and approximate area."
+  },
+  {
+    "question": "Is my exact location shared?",
+    "answer": "No. Sports Buddy does not collect GPS or other precise location data, and it never asks for location permissions."
+  },
+  {
+    "question": "Why do you ask for my approximate area?",
+    "answer": "Your general area helps keep suggestions and venues relevant to where you already are. It is not a precise address or live location."
+  },
+  {
+    "question": "Can other users see my email address?",
+    "answer": "No. Your email address is used for your account and is not shown to other Sports Buddy users."
+  },
+  {
+    "question": "What information do you collect?",
+    "answer": "We collect your email address, the profile details you choose to provide, your approximate area, and chat content needed to provide the service."
+  },
+  {
+    "question": "How do I connect with another player?",
+    "answer": "Open a profile in Discover and send a connection request. Once you are connected, you can start a conversation together."
+  },
+  {
+    "question": "Can I message someone before we connect?",
+    "answer": "No. Messaging is available after a connection so conversations stay between people who have chosen to connect."
+  },
+  {
+    "question": "How do I plan a game?",
+    "answer": "Open a conversation with a connected buddy and create a plan. You can agree on the sport, time, budget, and venue before confirming the activity."
+  },
+  {
+    "question": "Can I change my sports or availability?",
+    "answer": "Yes. Visit your profile to update the sports you play, skill levels, availability, and other profile details."
+  },
+  {
+    "question": "Can I stop appearing in Discover?",
+    "answer": "Yes. In Settings, turn off Discoverable. Your profile will no longer appear in Discover until you turn it on again."
+  },
+  {
+    "question": "How do notification preferences work?",
+    "answer": "You can manage notification preferences in Settings. Your choices are saved to your account."
+  },
+  {
+    "question": "What should I do if I feel unsafe?",
+    "answer": "You can block or report a user from their profile or conversation. Blocking prevents further interaction between you and that user."
+  },
+  {
+    "question": "Where can I read the Privacy Policy?",
+    "answer": "You can open the Privacy Policy from Settings or visit the public Privacy Policy page before signing in."
+  }
+]
