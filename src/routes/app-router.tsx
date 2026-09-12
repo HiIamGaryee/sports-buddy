@@ -19,6 +19,7 @@ import { ProfilePage } from '@/features/profile/pages/profile-page'
 import { DiscoverySettingsPage } from '@/features/settings/pages/discovery-settings-page'
 import { SettingsPage } from '@/features/settings/pages/settings-page'
 import { HomePage } from '@/pages/home-page'
+import { MapPage } from '@/features/map/pages/map-page'
 import { GuestRoute } from '@/routes/guest-route'
 import { OnboardingRoute } from '@/routes/onboarding-route'
 import { ProtectedRoute } from '@/routes/protected-route'
@@ -42,6 +43,7 @@ export function AppRouter() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route path={ROUTES.home} element={<HomePage />} />
+            <Route path={ROUTES.map} element={<MapPage />} />
             <Route path={ROUTES.discover} element={<DiscoverPage />} />
             <Route path={ROUTES.postActivity} element={<PostActivityPage />} />
             <Route

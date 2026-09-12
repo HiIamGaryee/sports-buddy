@@ -19,6 +19,23 @@
     overscroll-behavior-y: none;
   }
 
+  .leaflet-container {
+    @apply bg-surface-subtle font-sans;
+  }
+
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
+    @apply bg-surface-raised text-foreground shadow-md;
+  }
+
+  .leaflet-popup-content {
+    @apply m-3 text-body-small;
+  }
+
+  .leaflet-control-attribution {
+    @apply bg-surface-overlay! text-caption text-muted-foreground;
+  }
+
   /*
    * Headings inherit the heading family and tighten optically at large sizes.
    * Set once here so no component re-specifies tracking next to its

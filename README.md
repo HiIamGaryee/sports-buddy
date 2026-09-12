@@ -24,6 +24,17 @@ npm run dev
 The app runs against mock repositories by default — no credentials, nothing to
 sign up for.
 
+## Google Maps setup
+
+1. Create or select a Google Cloud project.
+2. Enable Maps JavaScript API and Places API (New).
+3. Create a browser API key.
+4. Add `VITE_GOOGLE_MAPS_API_KEY=` to `.env`.
+5. Restart the Vite server.
+
+Restrict the key by website/application and enable only the required Google
+APIs before production use.
+
 ### Environment variables
 
 All of them live in `.env` (gitignored); `.env.example` is the template.

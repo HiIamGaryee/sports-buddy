@@ -2,6 +2,7 @@ import { ChevronLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
+import { MobileNavigationMenu } from '@/components/layout/mobile-navigation-menu'
 import { cn } from '@/lib/utils'
 import type { PageContainerSize } from '@/components/layout/page-container'
 
@@ -66,6 +67,7 @@ export function AppHeader({
               <ChevronLeft className="size-5" />
             </Button>
           )}
+          <MobileNavigationMenu />
           <div className="flex min-w-0 flex-col">
             <h1 className="truncate text-heading-1 text-foreground md:text-display">
               {title}
