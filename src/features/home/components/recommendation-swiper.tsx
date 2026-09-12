@@ -1,12 +1,11 @@
-import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { MapPin } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 import badmintonImage from '@/assets/recommend-badminton.jpeg'
 import climbImage from '@/assets/recommend-climb.jpeg'
 import tennisImage from '@/assets/recommend-tennis.jpg'
 import recommendations from '@/data/recommendations.json'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 
 const recommendationImages = {
   'recommend-badminton': badmintonImage,
@@ -21,18 +20,20 @@ export function RecommendationSwiper() {
   const goTo = (index: number) => {
     const viewport = viewportRef.current
     if (!viewport) return
-    viewport.scrollTo({ left: index * viewport.clientWidth, behavior: 'smooth' })
-    setActiveIndex(index)
+    const nextIndex = (index + recommendations.length) % recommendations.length
+    viewport.scrollTo({ left: nextIndex * viewport.clientWidth, behavior: 'smooth' })
+    setActiveIndex(nextIndex)
   }
+
+  useEffect(() => {
+    const timer = window.setInterval(() => goTo(activeIndex + 1), 5_000)
+    return () => window.clearInterval(timer)
+  }, [activeIndex])
 
   return (
     <section className="flex min-w-0 flex-col gap-3" aria-labelledby="recommendations-title">
       <div className="flex items-center justify-between gap-3">
         <h2 id="recommendations-title" className="text-heading-3 text-foreground">Recommended for you</h2>
-        <div className="flex gap-1">
-          <Button variant="ghost" size="icon-sm" aria-label="Previous recommendation" disabled={activeIndex === 0} onClick={() => goTo(activeIndex - 1)}><ChevronLeft className="size-4" /></Button>
-          <Button variant="ghost" size="icon-sm" aria-label="Next recommendation" disabled={activeIndex === recommendations.length - 1} onClick={() => goTo(activeIndex + 1)}><ChevronRight className="size-4" /></Button>
-        </div>
       </div>
       <div
         ref={viewportRef}
@@ -52,11 +53,6 @@ export function RecommendationSwiper() {
               <p className="text-body-small text-white/80">{recommendation.description}</p>
             </div>
           </article>
-        ))}
-      </div>
-      <div className="flex justify-center gap-1.5" aria-label="Recommendation slides">
-        {recommendations.map((recommendation, index) => (
-          <button key={recommendation.id} type="button" aria-label={`Show recommendation ${index + 1}`} aria-current={activeIndex === index} onClick={() => goTo(index)} className={`h-1.5 rounded-full transition-all ${activeIndex === index ? 'w-6 bg-primary' : 'w-1.5 bg-muted'}`} />
         ))}
       </div>
     </section>

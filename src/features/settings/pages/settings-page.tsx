@@ -11,6 +11,7 @@ import { APP_VERSION } from '@/constants/app'
 import { PreferenceToggle } from '@/features/settings/components/preference-toggle'
 import { SettingsRow } from '@/features/settings/components/settings-row'
 import { SettingsSection } from '@/features/settings/components/settings-section'
+import { PolicyDialog } from '@/features/settings/components/policy-dialog'
 import { usePreferenceUpdate } from '@/features/settings/use-preference-update'
 import { useAuth } from '@/hooks/use-auth'
 import { useProfile } from '@/hooks/use-profile'
@@ -228,6 +229,45 @@ export function SettingsPage() {
             <li>Your email is never shown to other users.</li>
             <li>Location permissions are never requested.</li>
           </ul>
+          <Separator />
+          <PolicyDialog
+            title="Privacy Policy"
+            description="How Sports Buddy handles your information."
+          >
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-title text-foreground">What we collect</h3>
+              <p>Sports Buddy stores the profile details you choose to provide, such as your display name, sports, skill levels, availability, general area, and preferences.</p>
+            </section>
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-title text-foreground">How we use it</h3>
+              <p>We use this information to show compatible sports buddies, support conversations, and help you plan activities. We do not sell your personal information.</p>
+            </section>
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-title text-foreground">What others can see</h3>
+              <p>Your public profile contains only the information needed for discovery. Your email address and exact location are not shown to other members.</p>
+            </section>
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-title text-foreground">Your choices</h3>
+              <p>You can turn off Discoverable at any time. You can also update your profile details or contact the app owner to request help with your account data.</p>
+            </section>
+          </PolicyDialog>
+          <PolicyDialog
+            title="Cookie Policy"
+            description="How Sports Buddy uses local storage and similar technology."
+          >
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-title text-foreground">Essential storage</h3>
+              <p>Sports Buddy uses local storage to remember your theme choice, keep an in-progress onboarding form, and support the mock development account when that mode is enabled.</p>
+            </section>
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-title text-foreground">No advertising cookies</h3>
+              <p>We do not use advertising cookies, cross-site tracking pixels, or third-party profiling cookies in the app.</p>
+            </section>
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-title text-foreground">Managing storage</h3>
+              <p>You can clear local storage from your browser or device settings. Clearing it may reset your theme, onboarding draft, and mock-mode session.</p>
+            </section>
+          </PolicyDialog>
         </SettingsSection>
 
         <SettingsSection id="account" title="Account">
