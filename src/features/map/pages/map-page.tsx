@@ -7,6 +7,7 @@ import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { AppDropdown } from '@/components/ui/AppDropdown'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SPORTS } from '@/constants/sports'
@@ -85,26 +86,18 @@ export function MapPage() {
               placeholder="Location"
               className="sm:col-span-2 lg:col-span-1"
             />
-            <select
+            <AppDropdown
               value={sportId}
-              onChange={(event) => setSportId(event.target.value as SportId)}
-              aria-label="Sport"
-              className="h-11 rounded-lg border border-input bg-transparent px-3 text-body"
-            >
-              {SPORTS.map((sport) => (
-                <option key={sport.id} value={sport.id}>{sport.name}</option>
-              ))}
-            </select>
-            <select
-              value={radius}
-              onChange={(event) => setRadius(Number(event.target.value))}
-              aria-label="Search radius"
-              className="h-11 rounded-lg border border-input bg-transparent px-3 text-body"
-            >
-              {RADIUS_OPTIONS.map((value) => (
-                <option key={value} value={value}>{value} km</option>
-              ))}
-            </select>
+              onChange={(value) => setSportId(value as SportId)}
+              options={SPORTS.map(({ id, name }) => ({ value: id, label: name }))}
+              ariaLabel="Sport"
+            />
+            <AppDropdown
+              value={String(radius)}
+              onChange={(value) => setRadius(Number(value))}
+              options={RADIUS_OPTIONS.map((value) => ({ value: String(value), label: `${value} km` }))}
+              ariaLabel="Search radius"
+            />
             <Button onClick={() => void search()} disabled={status === 'loading'}>
               <Navigation className="size-4" />
               {status === 'loading' ? 'Searching…' : 'Search'}

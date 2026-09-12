@@ -5,6 +5,7 @@ import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { AppDropdown } from '@/components/ui/AppDropdown'
 import { Input } from '@/components/ui/input'
 import { SPORTS } from '@/constants/sports'
 import { ROUTES } from '@/routes/routes'
@@ -31,7 +32,7 @@ export function PostActivityPage() {
             {STEPS.map((label, index) => <div key={label} className="flex flex-col gap-2"><span className={`h-1 rounded-full ${index <= step ? 'bg-primary' : 'bg-muted'}`} /><span className={`text-caption ${index === step ? 'text-primary' : 'text-muted-foreground'}`}>{label}</span></div>)}
           </div>
           <Card><CardContent className="flex flex-col gap-5">
-            {step === 0 && <label className="flex flex-col gap-2 text-body-small">What sport?<select value={sportId} onChange={(event) => setSportId(event.target.value as SportId)} className="h-11 rounded-lg border border-input bg-transparent px-3 text-body">{SPORTS.map((sport) => <option key={sport.id} value={sport.id}>{sport.name}</option>)}</select></label>}
+            {step === 0 && <AppDropdown label="What sport?" value={sportId} onChange={(value) => setSportId(value as SportId)} options={SPORTS.map(({ id, name }) => ({ value: id, label: name }))} />}
             {step === 1 && <label className="flex flex-col gap-2 text-body-small">When are you playing?<Input type="datetime-local" value={date} onChange={(event) => setDate(event.target.value)} /></label>}
             {step === 2 && <label className="flex flex-col gap-2 text-body-small">Budget per person (RM)<Input type="number" min="0" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="e.g. 20" /></label>}
             {step === 3 && <label className="flex flex-col gap-2 text-body-small">Where will you play?<Input value={venue} onChange={(event) => setVenue(event.target.value)} placeholder="e.g. KL Sports City" /></label>}
