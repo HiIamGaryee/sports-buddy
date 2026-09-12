@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConnectAction } from '@/features/connections/components/connect-action'
 import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
-import { StartPlanDialog } from '@/features/planning/components/start-plan-dialog'
 import { useConnections } from '@/hooks/use-connections'
 import {
   formatAvailability,
@@ -135,18 +134,14 @@ export function BuddyCard({
         </div>
 
         {connectionState === 'connected' && conversationId ? (
-          <div className="mt-auto grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]">
+          <div className="mt-auto flex items-center gap-3">
             <ConnectAction
               userId={candidate.userId}
               displayName="this sports buddy"
               state={connectionState}
               showMessage={false}
-              className="col-span-2 sm:col-span-1"
+              className="min-w-0 flex-1"
               connectedClassName="h-12 rounded-2xl"
-            />
-            <StartPlanDialog
-              conversationId={conversationId}
-              className="h-12 w-full rounded-2xl"
             />
             <Button
               size="icon-lg"

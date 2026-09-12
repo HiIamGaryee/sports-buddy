@@ -17,6 +17,7 @@ import {
   usePastActivities,
   useUpcomingActivities,
 } from '@/features/activities/use-activities'
+import { useAuth } from '@/hooks/use-auth'
 import { ROUTES } from '@/routes/routes'
 import type { ActivityWithBuddy } from '@/types/activity'
 
@@ -26,33 +27,40 @@ const SKELETON_CARDS = [0, 1, 2]
 const CARD_GRID = 'grid-cards'
 
 /**
- * Both tabs are real from STEP 13. They differ only in which time bound the
- * query used — the same card, the same states, the same shell.
+ * Planned and created sessions use the same upcoming source, while Past uses
+ * its temporal query. Every view keeps the same cards and empty states.
  */
 export function ActivitiesPage() {
+  const { user } = useAuth()
   const now = useCoarseNow()
   const upcoming = useUpcomingActivities()
   const past = usePastActivities()
+  const createdItems = upcoming.items.filter(
+    ({ activity }) => activity.createdBy === user?.id,
+  )
 
   return (
     <>
       <AppHeader
         title="Activities"
-        subtitle="Sessions you and your buddies confirmed."
+        subtitle="Your planned sessions and activities you created."
         size="wide"
       />
       <PageContainer size="wide">
-        <Tabs defaultValue="upcoming">
+        <Tabs defaultValue="planned">
           <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="upcoming" className="flex-1 sm:flex-none sm:px-6">
-              Upcoming
+            <TabsTrigger value="planned" className="flex-1 sm:flex-none sm:px-6">
+              Planned
+            </TabsTrigger>
+            <TabsTrigger value="created" className="flex-1 sm:flex-none sm:px-6">
+              Created by me
             </TabsTrigger>
             <TabsTrigger value="past" className="flex-1 sm:flex-none sm:px-6">
               Past
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="upcoming" className="pt-5">
+          <TabsContent value="planned" className="pt-5">
             <ActivityTabBody
               {...upcoming}
               emptyIllustration={clipboardIllustration}
@@ -66,6 +74,27 @@ export function ActivitiesPage() {
             >
               <div className={CARD_GRID}>
                 {upcoming.items.map((item) => (
+                  <ActivityCard key={item.activity.id} item={item} now={now} />
+                ))}
+              </div>
+            </ActivityTabBody>
+          </TabsContent>
+
+          <TabsContent value="created" className="pt-5">
+            <ActivityTabBody
+              {...upcoming}
+              items={createdItems}
+              emptyIllustration={clipboardIllustration}
+              emptyTitle="No activities created yet."
+              emptyDescription="Use Plan activity in Discover to set up a session with a sports buddy."
+              emptyAction={
+                <Button variant="outline" asChild className="px-8">
+                  <Link to={ROUTES.discover}>Plan an activity</Link>
+                </Button>
+              }
+            >
+              <div className={CARD_GRID}>
+                {createdItems.map((item) => (
                   <ActivityCard key={item.activity.id} item={item} now={now} />
                 ))}
               </div>

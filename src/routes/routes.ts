@@ -6,6 +6,7 @@ export const ROUTES = {
   onboarding: '/onboarding',
   home: '/home',
   discover: '/discover',
+  postActivity: '/discover/post-activity',
   buddyProfile: '/discover/:userId',
   activities: '/activities',
   activityDetail: '/activities/:activityId',

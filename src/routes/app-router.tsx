@@ -13,6 +13,7 @@ import { OnboardingPage } from '@/features/onboarding/pages/onboarding-page'
 import { PlanPage } from '@/features/planning/pages/plan-page'
 import { BuddyProfilePage } from '@/features/discover/pages/buddy-profile-page'
 import { DiscoverPage } from '@/features/discover/pages/discover-page'
+import { PostActivityPage } from '@/features/planning/pages/post-activity-page'
 import { EditProfilePage } from '@/features/profile/pages/edit-profile-page'
 import { ProfilePage } from '@/features/profile/pages/profile-page'
 import { DiscoverySettingsPage } from '@/features/settings/pages/discovery-settings-page'
@@ -42,6 +43,7 @@ export function AppRouter() {
           <Route element={<AppShell />}>
             <Route path={ROUTES.home} element={<HomePage />} />
             <Route path={ROUTES.discover} element={<DiscoverPage />} />
+            <Route path={ROUTES.postActivity} element={<PostActivityPage />} />
             <Route
               path={ROUTES.buddyProfile}
               element={<BuddyProfilePage />}
