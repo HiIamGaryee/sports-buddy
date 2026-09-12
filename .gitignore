@@ -29,5 +29,5 @@ dist-ssr
 .env.*.local
 
 # capacitor native platforms
-/android
+# android/ is committed (see README) and has its own .gitignore
 /ios

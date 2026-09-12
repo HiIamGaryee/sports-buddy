@@ -12,6 +12,7 @@ import { MessageComposer } from '@/features/chat/components/message-composer'
 import { useChatScroll } from '@/features/chat/use-chat-scroll'
 import { useConversation } from '@/features/chat/use-conversation'
 import { PlanChatCard } from '@/features/planning/components/plan-chat-card'
+import { StartPlanDialog } from '@/features/planning/components/start-plan-dialog'
 import { SafetyActions } from '@/components/safety/safety-actions'
 import { useNavigate } from 'react-router-dom'
 import { usePlanPreview } from '@/features/planning/use-plan-preview'
@@ -105,7 +106,7 @@ export function ConversationPage() {
     <ChatLayout
       title={buddyName}
       photoUrl={buddyPhotoUrl}
-      action={<div className="flex items-center gap-2">{conversation.buddyId && conversationId && <SafetyActions targetUserId={conversation.buddyId} displayName={buddyName} context={{ type: 'conversation', conversationId }} onBlocked={() => navigate(ROUTES.messages)} />}{conversationId && (
+      action={<div className="flex items-center gap-2">{conversation.buddyId && conversationId && <SafetyActions targetUserId={conversation.buddyId} displayName={buddyName} context={{ type: 'conversation', conversationId }} onBlocked={() => navigate(ROUTES.messages)} />}{conversationId && plan && (
           <Button variant="outline" size="sm" asChild>
             <Link
               to={
@@ -131,7 +132,7 @@ export function ConversationPage() {
               </span>
             </Link>
           </Button>
-        )}</div>}
+        )}{conversationId && !plan && <StartPlanDialog conversationId={conversationId} />}</div>}
       banner={
         plan && conversationId ? (
           <PlanChatCard plan={plan} conversationId={conversationId} />

@@ -1342,10 +1342,18 @@ must be disabled (ICS is not XML; STEP 13 needs its own escaping).
 - `capacitor.config.ts`: `appId: com.sportsbuddy.app`,
   `appName: Sports Buddy`, `webDir: dist`.
 - The app must keep running as a plain web app in dev (`npm run dev`).
-- Native packaging later: `npm run build && npx cap sync` (or
-  `npm run cap:sync`). `android/` and `ios/` are gitignored and are only
-  generated when `npx cap add <platform>` is actually needed.
-- No native plugins until a feature requires one.
+- `android/` exists and **is committed** (it carries `versionCode` and the
+  signing config, so it cannot be a regenerated artifact); its own
+  `.gitignore` keeps build output, `local.properties` and keystores out.
+  `ios/` is still gitignored and ungenerated.
+- Build the APK with `npm run android:apk` (build → `cap sync` →
+  `assembleDebug`). The Capacitor CLI needs **Node 22+**; Gradle needs JDK 21.
+- App icon and splash come from `src/assets/logo.png` only:
+  `npm run cap:assets` regenerates `resources/` via
+  `scripts/make-app-assets.py`, then every Android density via
+  `@capacitor/assets`. Never hand-edit `android/app/src/main/res`.
+- No native plugins until a feature requires one. The splash uses the template's
+  `androidx.core:core-splashscreen` theme, not `@capacitor/splash-screen`.
 - **Google sign-in caveat:** the current implementation is the Firebase web
   popup flow, intended for browser development. Popups are unreliable in a
   Capacitor WebView, so a native Google auth plugin will be introduced in the

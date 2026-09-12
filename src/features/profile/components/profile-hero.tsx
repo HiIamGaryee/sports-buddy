@@ -13,9 +13,9 @@ export function ProfileHero({
   isReadyToPlay: boolean
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-4">
-        <Avatar className="size-20">
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center gap-5 md:gap-6">
+        <Avatar className="size-24 md:size-32">
           {profile.photoUrl && (
             <AvatarImage src={profile.photoUrl} alt={profile.displayName} />
           )}
@@ -24,7 +24,7 @@ export function ProfileHero({
           </AvatarFallback>
         </Avatar>
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="truncate text-heading-1 text-foreground">
+            <span className="truncate text-heading-1 text-foreground md:text-display">
             {profile.displayName}
           </span>
           <span className="text-body-small text-muted-foreground">

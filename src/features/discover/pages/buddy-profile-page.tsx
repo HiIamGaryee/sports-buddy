@@ -44,13 +44,17 @@ export function BuddyProfilePage() {
   const { profile } = useProfile()
   const { getConnectionState } = useConnections()
   const navigate = useNavigate()
+  const isConnected = userId !== undefined && getConnectionState(userId) === 'connected'
   const [state, setState] = useState<CandidateState>(() => LOADING_STATE)
 
   // Reset during render when the route param changes — no effect needed.
   if (state.userId !== userId) setState({ ...LOADING_STATE, userId })
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !isConnected) {
+      setState({ userId, candidate: null, isLoading: false, error: '' })
+      return
+    }
 
     let active = true
     discoverService
@@ -76,7 +80,7 @@ export function BuddyProfilePage() {
     return () => {
       active = false
     }
-  }, [userId])
+  }, [userId, isConnected])
 
   const { candidate, isLoading, error } = state
 
@@ -93,7 +97,7 @@ export function BuddyProfilePage() {
     <>
       <AppHeader
         title={candidate?.displayName ?? 'Sports buddy'}
-        subtitle="Sports Buddy profile"
+        subtitle={candidate ? 'Sports Buddy profile' : 'Connect to reveal profiles.'}
         size="wide"
         showBack
       />

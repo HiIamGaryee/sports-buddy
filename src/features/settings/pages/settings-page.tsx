@@ -90,7 +90,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <AppHeader title="Settings" size="wide" showBack />
+      <AppHeader title="Settings" size="wide" />
       <PageContainer size="wide">
         {error && (
           <p role="alert" className="text-body-small text-destructive">

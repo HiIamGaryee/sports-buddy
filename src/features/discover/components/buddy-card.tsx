@@ -1,35 +1,30 @@
-import { Link } from 'react-router-dom'
-
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConnectAction } from '@/features/connections/components/connect-action'
 import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
-import { MatchingReasons } from '@/features/discover/components/matching-reasons'
-import { getInitials } from '@/lib/initials'
+import { StartPlanDialog } from '@/features/planning/components/start-plan-dialog'
+import { useConnections } from '@/hooks/use-connections'
 import {
   formatAvailability,
   formatBudget,
-  getAreaName,
-  getIntensityLabel,
   getIntentLabel,
   getSkillLabel,
   getSportName,
 } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
-import { buddyProfilePath } from '@/routes/routes'
-import { getTopMatchingReasons } from '@/services/matching/matching-service'
+import { conversationPath } from '@/routes/routes'
+import { Link } from 'react-router-dom'
+import { MessageCircle } from 'lucide-react'
 import type { DiscoverBuddy } from '@/types/discover'
 
 const MAX_SPORTS_SHOWN = 3
 const MAX_SLOTS_SHOWN = 2
 
 /**
- * Discovery-safe candidate card. It takes a `DiscoverBuddy` — the projection,
- * the viewer's derived compatibility and the viewer's relationship state — so
- * no private field can reach it and no score is ever read from a document.
- * Actions are state-driven through `ConnectAction`, never four card variants.
+ * A deliberately anonymous match card. Discover communicates what someone
+ * wants to play and when, while names, photos, bios and profiles stay hidden
+ * until the two people have connected.
  */
 export function BuddyCard({
   buddy,
@@ -39,6 +34,8 @@ export function BuddyCard({
   onDismiss?: (userId: string) => void
 }) {
   const { profile: candidate, compatibility, connectionState } = buddy
+  const { connections } = useConnections()
+  const conversationId = connections.get(candidate.userId)?.id
   const shared = compatibility.sharedSports
   // Shared sports first: the reason someone is here belongs at the top.
   const ordered = [
@@ -49,28 +46,19 @@ export function BuddyCard({
   const hiddenSports = ordered.length - sports.length
   const slots = formatAvailability(candidate.availability)
   const shownSlots = slots.slice(0, MAX_SLOTS_SHOWN)
-  const reasons = getTopMatchingReasons(compatibility)
 
   return (
-    // `h-full` keeps cards in a grid row the same height; the hover lift is
-    // a desktop affordance only (a phone gets the pressed state instead).
     <Card variant="interactive" className="h-full">
       <CardContent className="flex h-full flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="size-14">
-            {candidate.photoUrl && (
-              <AvatarImage src={candidate.photoUrl} alt={candidate.displayName} />
-            )}
-            <AvatarFallback className="text-heading-3">
-              {getInitials(candidate.displayName)}
-            </AvatarFallback>
-          </Avatar>
+        <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-title text-card-foreground">
-              {candidate.displayName}
+            <span className="text-title text-card-foreground">
+              Your next sports buddy
             </span>
             <span className="text-body-small text-muted-foreground">
-              {getAreaName(candidate.area)}
+              {connectionState === 'connected'
+                ? "You're connected — plan a session together."
+                : 'Connect to reveal their profile.'}
             </span>
           </div>
           <CompatibilityScore
@@ -81,13 +69,14 @@ export function BuddyCard({
 
         {connectionState === 'pending-incoming' && (
           <p className="text-body-small text-primary">
-            {candidate.displayName} wants to connect.
+            Someone wants to connect with you.
           </p>
         )}
 
-        <MatchingReasons reasons={reasons} />
-
         <div className="flex flex-col gap-1.5">
+          <span className="text-caption text-muted-foreground uppercase">
+            Plays
+          </span>
           {sports.map(({ sportId, skillLevel }) => (
             <div
               key={sportId}
@@ -117,9 +106,6 @@ export function BuddyCard({
               {getIntentLabel(intent)}
             </Badge>
           ))}
-          <Badge variant="secondary">
-            {getIntensityLabel(candidate.preferredIntensity)}
-          </Badge>
         </div>
 
         {shownSlots.length > 0 && (
@@ -142,44 +128,58 @@ export function BuddyCard({
           </div>
         )}
 
-        {candidate.bio && (
-          <p className="line-clamp-2 text-body text-muted-foreground">
-            {candidate.bio}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-subtle px-3 py-2">
           <span className="text-body-small text-muted-foreground">
             {formatBudget(candidate.budget)} / activity
           </span>
-          <Button variant="outline" size="sm" asChild>
-            <Link
-              to={buddyProfilePath(candidate.userId)}
-              aria-label={`View ${candidate.displayName}'s profile`}
-            >
-              View Profile
-            </Link>
-          </Button>
         </div>
 
-        <div className="mt-auto flex items-start gap-2">
-          <ConnectAction
-            userId={candidate.userId}
-            displayName={candidate.displayName}
-            state={connectionState}
-            className="flex-1"
-          />
-          {connectionState === 'none' && onDismiss && (
+        {connectionState === 'connected' && conversationId ? (
+          <div className="mt-auto grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]">
+            <ConnectAction
+              userId={candidate.userId}
+              displayName="this sports buddy"
+              state={connectionState}
+              showMessage={false}
+              className="col-span-2 sm:col-span-1"
+              connectedClassName="h-12 rounded-2xl"
+            />
+            <StartPlanDialog
+              conversationId={conversationId}
+              className="h-12 w-full rounded-2xl"
+            />
             <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`Not now — hide ${candidate.displayName} for this session`}
-              onClick={() => onDismiss(candidate.userId)}
+              size="icon-lg"
+              className="size-12 rounded-full"
+              aria-label="Message"
+              title="Message"
+              asChild
             >
-              Not now
+              <Link to={conversationPath(conversationId)}>
+                <MessageCircle className="size-5" />
+              </Link>
             </Button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="mt-auto flex items-start gap-2">
+            <ConnectAction
+              userId={candidate.userId}
+              displayName="this sports buddy"
+              state={connectionState}
+              className="flex-1"
+            />
+            {connectionState === 'none' && onDismiss && (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Not now — hide this sports buddy for this session"
+                onClick={() => onDismiss(candidate.userId)}
+              >
+                Not now
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

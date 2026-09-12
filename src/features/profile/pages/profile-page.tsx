@@ -83,12 +83,12 @@ export function ProfilePage() {
             <ProfileCompletenessCard completeness={completeness} />
 
             <div className="flex flex-col gap-2.5">
-              <Button size="lg" asChild>
+              <Button size="lg" className="rounded-2xl" asChild>
                 <Link to={ROUTES.profileEdit}>Edit profile</Link>
               </Button>
               <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
                 <DialogTrigger asChild>
-                  <Button size="lg" variant="outline">
+                  <Button size="lg" variant="outline" className="rounded-2xl">
                     <Eye className="size-4" />
                     Preview profile
                   </Button>
