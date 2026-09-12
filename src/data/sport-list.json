@@ -1,0 +1,10 @@
+[
+  { "id": "badminton", "name": "Badminton", "icon": "zap", "is_show": true },
+  { "id": "running", "name": "Running", "icon": "footprints", "is_show": true },
+  { "id": "pickleball", "name": "Pickleball", "icon": "target", "is_show": true },
+  { "id": "climbing", "name": "Climbing", "icon": "mountain", "is_show": true },
+  { "id": "gym", "name": "Gym", "icon": "dumbbell", "is_show": true },
+  { "id": "tennis", "name": "Tennis", "icon": "circle-dot", "is_show": true },
+  { "id": "futsal", "name": "Futsal", "icon": "goal", "is_show": true },
+  { "id": "basketball", "name": "Basketball", "icon": "volleyball", "is_show": true }
+]

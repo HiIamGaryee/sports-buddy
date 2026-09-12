@@ -14,6 +14,9 @@ import { BuddyCard } from '@/features/discover/components/buddy-card'
 import { DiscoverFilterPanel } from '@/features/discover/components/discover-filter-panel'
 import { DiscoverFilterSheet } from '@/features/discover/components/discover-filter-sheet'
 import { useDiscover } from '@/features/discover/use-discover'
+import calendarIcon from '@/assets/svg/calendar-svgrepo-com.svg'
+import { Link } from 'react-router-dom'
+import { ROUTES } from '@/routes/routes'
 import { countActiveFilters } from '@/lib/discover-filters'
 
 const SKELETON_CARDS = [0, 1, 2, 3]
@@ -45,15 +48,18 @@ export function DiscoverPage() {
         subtitle="See what they play. Connect to reveal the person."
         size="wide"
         action={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Refresh sports buddies"
-            onClick={refresh}
-            disabled={isLoading}
-          >
-            <RefreshCw className="size-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon-sm" aria-label="Post an activity" asChild><Link to={ROUTES.postActivity}><img src={calendarIcon} alt="" className="size-5" /></Link></Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh sports buddies"
+              onClick={refresh}
+              disabled={isLoading}
+            >
+              <RefreshCw className="size-5" />
+            </Button>
+          </div>
         }
       />
       <PageContainer size="wide">

@@ -7,7 +7,7 @@ import {
   SPORTS_INTENTS,
   WEEK_DAYS,
 } from '@/constants/profile-options'
-import { SPORTS } from '@/constants/sports'
+import { ALL_SPORTS } from '@/constants/sports'
 import type {
   ActivityIntensity,
   AreaId,
@@ -21,7 +21,7 @@ import type {
 
 /** Stable ids are persisted; labels live here so they never leak into data. */
 export const getSport = (sportId: SportId) =>
-  SPORTS.find((sport) => sport.id === sportId)
+  ALL_SPORTS.find((sport) => sport.id === sportId)
 
 export const getSportName = (sportId: SportId) =>
   getSport(sportId)?.name ?? sportId
