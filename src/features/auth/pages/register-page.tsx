@@ -174,6 +174,14 @@ export function RegisterPage() {
           Sign in
         </Link>
       </p>
+
+      <p className="text-body-small text-muted-foreground">
+        By creating an account, you agree to our{' '}
+        <Link to={ROUTES.privacy} className="text-label text-primary">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </div>
   )
 }

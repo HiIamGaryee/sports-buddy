@@ -20,6 +20,7 @@ import { DiscoverySettingsPage } from '@/features/settings/pages/discovery-setti
 import { SettingsPage } from '@/features/settings/pages/settings-page'
 import { HomePage } from '@/pages/home-page'
 import { MapPage } from '@/features/map/pages/map-page'
+import { PrivacyPolicyPage } from '@/pages/privacy-policy-page'
 import { GuestRoute } from '@/routes/guest-route'
 import { OnboardingRoute } from '@/routes/onboarding-route'
 import { ProtectedRoute } from '@/routes/protected-route'
@@ -29,6 +30,8 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path={ROUTES.privacy} element={<PrivacyPolicyPage />} />
+
         <Route element={<GuestRoute />}>
           <Route element={<AuthLayout />}>
             <Route path={ROUTES.login} element={<LoginPage />} />
