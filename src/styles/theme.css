@@ -70,6 +70,14 @@
   --destructive: #cc2a2e;
   --destructive-foreground: #ffffff;
 
+  --opportunity-gradient-start: #8d79b6;
+  --opportunity-gradient-mid: #8b8d79;
+  --opportunity-gradient-end: #b9dc5e;
+  --opportunity-gradient-glow: #cf9564;
+  --opportunity-foreground: #ffffff;
+  --message-button-bg: #e5bd58;
+  --message-button-foreground: #15171a;
+
   --elevation-sm: 0 1px 2px 0 rgb(15 23 42 / 0.06);
   --elevation-md: 0 4px 12px -2px rgb(15 23 42 / 0.1);
   --elevation-lg: 0 12px 32px -8px rgb(15 23 42 / 0.14);
@@ -172,6 +180,14 @@
 
   --destructive: #ff5a5f;
   --destructive-foreground: #17191f;
+
+  --opportunity-gradient-start: #7663a0;
+  --opportunity-gradient-mid: #777b69;
+  --opportunity-gradient-end: #a8ca4e;
+  --opportunity-gradient-glow: #bd8056;
+  --opportunity-foreground: #ffffff;
+  --message-button-bg: #c4ff3d;
+  --message-button-foreground: #0b0c10;
 
   --elevation-sm: 0 1px 2px 0 rgb(0 0 0 / 0.6);
   --elevation-md: 0 4px 12px -2px rgb(0 0 0 / 0.65);
