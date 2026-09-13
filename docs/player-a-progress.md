@@ -27,13 +27,21 @@ Owner: Lynn662312 (Player A). Last updated: 2026-09-13.
    messages without duplicates. When it passes, tick the last Phase 1 item.
 2. **Finish the `main` merge — resolved and committed locally on 2026-09-14,
    NOT pushed or deployed yet.** Remaining, in order:
-   1. Push `deploy`.
-   2. Deploy the merged rules: `firebase deploy --only firestore:rules`.
-      Firebase is still running the pre-merge rules, so Player B's
-      block/report features won't work live until this is done.
-   3. Retest live: the two-user flow (connect, chat, load earlier), plus
-      block someone → they disappear, and their chat can no longer be opened.
+   1. ~~Deploy the merged rules~~ — **done 2026-09-14.** Before this, chats
+      failed to open: the merged app checks `blocks` on every chat open,
+      send, connect and plan, and the old live rules had no `blocks` section.
+   2. Retest live: connect, chat, load earlier messages; block someone →
+      they vanish from Discover and Messages; report someone; then Settings →
+      Privacy & safety → Blocked users → Unblock → the chat works again.
+   3. Commit and push `deploy`.
    4. Open a pull request `deploy` → `main` for Player B to review.
+
+   Added on 2026-09-14 while deploying: a **Blocked users** list with
+   **Unblock** in Settings → Privacy & safety (there was no way to unblock
+   before — a blocked person is hidden everywhere they could be reached);
+   report `context` is now shape-checked in the rules; the mock block
+   repository now returns only the people *you* blocked, like Firebase.
+   Rules tests: **131/131**.
    **Until the PR merges, nobody should deploy rules from `main`** — `main`'s
    copy still has the old read rules that broke connections and chat.
 
