@@ -28,17 +28,68 @@ service cloud.firestore {
     /**
      * True when `uid` is one of the participant segments encoded in a
      * deterministic pair-based document id — `a__b` for a connection, or
-     * `a__b__active` for its plan and confirmed activity. Used ONLY to admit
-     * a `get` on a document that does not exist yet, so a client's
-     * transaction may check "does this already exist?" before writing
-     * (`connect()`, `ensureActivePlan()`, `createFromPlan()` all do this).
-     * Once a document exists, authorization always re-derives participation
-     * from its stored `participants` field, never from the id alone — this
-     * only prevents a stranger from probing whether some OTHER pair's
-     * document exists.
+     * `a__b__active` for its plan and confirmed activity. Used to admit a
+     * `get` on a document that does not exist yet (a transaction checking
+     * before it writes), and as the query-independent `list` rule for
+     * messages. Once a document exists, `get`/writes still re-derive
+     * participation from its stored `participants`.
      */
     function uidInPairId(uid, id) {
       return uid in id.split('__');
+    }
+
+    /**
+     * No block exists between the two users, in either direction. A block
+     * document's id is `blockerId__blockedUserId`, so both orders are
+     * checked. Used by connection writes, `connectedParticipant()`, plans and
+     * activities, so a block cuts off connecting, chatting and planning.
+     */
+    function pairIsUnblocked(participants) {
+      return !exists(/databases/$(database)/documents/blocks/$(participants[0] + '__' + participants[1]))
+        && !exists(/databases/$(database)/documents/blocks/$(participants[1] + '__' + participants[0]));
+    }
+
+    // SAFETY — blocks. One document per direction at `blockerId__blockedUserId`.
+    // Only the blocker can see or remove it; the blocked person is never told.
+    match /blocks/{blockId} {
+      // `blockUser()` reads the document BEFORE creating it (idempotency), so
+      // `get` must work when it does not exist yet — `resource.data` is null
+      // then, which is exactly the bug that broke every first-ever Connect.
+      // Authorize from the id instead: its first segment is the blocker.
+      allow get: if request.auth != null
+        && blockId.split('__')[0] == request.auth.uid;
+
+      // Matched by the client query `where('blockerId', '==', uid)`, so this
+      // data-dependent rule is provable from the query (rules are not filters).
+      allow list: if request.auth != null
+        && request.auth.uid == resource.data.blockerId;
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['blockerId', 'blockedUserId', 'reason', 'createdAt'])
+        && request.resource.data.blockerId == request.auth.uid
+        && request.resource.data.blockedUserId != request.auth.uid
+        && blockId == request.auth.uid + '__' + request.resource.data.blockedUserId
+        && (request.resource.data.reason == null || request.resource.data.reason in ['unwanted-contact', 'inappropriate-behavior', 'spam', 'safety-concern', 'other'])
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if false;
+
+      // From the id, so unblocking twice is not an error on a missing document.
+      allow delete: if request.auth != null
+        && blockId.split('__')[0] == request.auth.uid;
+    }
+
+    // SAFETY — reports. Write-only for members; nobody can read one back.
+    match /reports/{reportId} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['reporterId', 'reportedUserId', 'reason', 'note', 'context', 'status', 'createdAt'])
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.reportedUserId != request.auth.uid
+        && request.resource.data.reason in ['harassment', 'spam', 'inappropriate-content', 'fake-profile', 'safety-concern', 'other']
+        && (request.resource.data.note == null || (request.resource.data.note is string && request.resource.data.note.size() <= 500))
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.createdAt == request.time;
+      allow get, list, update, delete: if false;
     }
 
     // PRIVATE. `users/{uid}` holds account fields, the sports profile and the
@@ -185,6 +236,7 @@ service cloud.firestore {
 
       allow create: if isParticipant(incoming())
         && wellFormed(incoming())
+        && pairIsUnblocked(incoming().participants)
         // A new request can only ever be the caller's own, and only pending.
         && incoming().requestedBy == [request.auth.uid]
         && incoming().status == 'pending'
@@ -193,6 +245,7 @@ service cloud.firestore {
 
       allow update: if isParticipant(current())
         && wellFormed(incoming())
+        && pairIsUnblocked(incoming().participants)
         && incoming().participants == current().participants
         && incoming().id == current().id
         && incoming().createdAt == current().createdAt
@@ -234,6 +287,7 @@ service cloud.firestore {
         return request.auth != null
           && exists(connectionPath())
           && connection().status == 'connected'
+          && pairIsUnblocked(connection().participants)
           && request.auth.uid in connection().participants;
       }
 
@@ -312,8 +366,12 @@ service cloud.firestore {
          * and every single-document `get`, still goes through the full
          * `connectedParticipant()` check below.
          */
+        //
+        // The block check uses the same path-derived pair, so it stays
+        // query-independent: a blocked pair can no longer read the history.
         allow list: if request.auth != null
-          && uidInPairId(request.auth.uid, conversationId);
+          && uidInPairId(request.auth.uid, conversationId)
+          && pairIsUnblocked(conversationId.split('__'));
 
         allow get: if connectedParticipant();
 
@@ -362,6 +420,7 @@ service cloud.firestore {
           && planId == connectionId + '__active'
           && exists(connectionPath(connectionId))
           && connection(connectionId).status == 'connected'
+          && pairIsUnblocked(connection(connectionId).participants)
           && request.auth.uid in connection(connectionId).participants;
       }
 
@@ -596,6 +655,7 @@ service cloud.firestore {
 
       allow create: if request.auth != null
         && exists(planPath())
+        && pairIsUnblocked(plan().participants)
         // Only somebody actually in the plan may convert it.
         && request.auth.uid in plan().participants
         && incoming().keys().hasOnly(activityFields())

@@ -9,6 +9,10 @@ import { firebaseChatRepository } from '@/repositories/chat/firebase-chat-reposi
 import { mockChatRepository } from '@/repositories/chat/mock-chat-repository'
 import { firebaseConnectionRepository } from '@/repositories/connection/firebase-connection-repository'
 import { mockConnectionRepository } from '@/repositories/connection/mock-connection-repository'
+import { firebaseBlockRepository } from '@/repositories/block/firebase-block-repository'
+import { mockBlockRepository } from '@/repositories/block/mock-block-repository'
+import { firebaseReportRepository } from '@/repositories/report/firebase-report-repository'
+import { mockReportRepository } from '@/repositories/report/mock-report-repository'
 import { firebaseDiscoverRepository } from '@/repositories/discover/firebase-discover-repository'
 import { mockDiscoverRepository } from '@/repositories/discover/mock-discover-repository'
 import { firebaseProfileRepository } from '@/repositories/profile/firebase-profile-repository'
@@ -44,6 +48,9 @@ export const discoverRepository = useFirebase
 export const connectionRepository = useFirebase
   ? firebaseConnectionRepository
   : mockConnectionRepository
+
+export const blockRepository = useFirebase ? firebaseBlockRepository : mockBlockRepository
+export const reportRepository = useFirebase ? firebaseReportRepository : mockReportRepository
 
 /** `conversations/{connectionId}` and its `messages` subcollection. */
 export const chatRepository = useFirebase

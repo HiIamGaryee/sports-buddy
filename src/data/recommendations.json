@@ -1,0 +1,5 @@
+[
+  { "id": "puchong-badminton-hub", "title": "Puchong Badminton Hub", "sport": "Badminton", "location": "Puchong, Selangor", "description": "Bright courts, evening sessions, and space for your next rally.", "image": "recommend-badminton" },
+  { "id": "kl-boulder-lab", "title": "KL Boulder Lab", "sport": "Climbing", "location": "Bangsar South, Kuala Lumpur", "description": "Fresh routes for every level, from first hold to final send.", "image": "recommend-climb" },
+  { "id": "subang-tennis-park", "title": "Subang Tennis Park", "sport": "Tennis", "location": "Subang Jaya, Selangor", "description": "Open-air courts and easy-going games close to home.", "image": "recommend-tennis" }
+]

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConnectAction } from '@/features/connections/components/connect-action'
+import { SafetyActions } from '@/components/safety/safety-actions'
 import { CompatibilityBreakdown } from '@/features/discover/components/compatibility-breakdown'
 import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
 import { MatchingReasons } from '@/features/discover/components/matching-reasons'
@@ -18,6 +19,7 @@ import { useProfile } from '@/hooks/use-profile'
 import { discoverService } from '@/services/discover/discover-service'
 import { toMatchingSubject } from '@/services/matching/matching-service'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
+import { ROUTES } from '@/routes/routes'
 
 interface CandidateState {
   userId?: string
@@ -41,13 +43,18 @@ export function BuddyProfilePage() {
   const userId = validDocumentId(rawUserId) ?? undefined
   const { profile } = useProfile()
   const { getConnectionState } = useConnections()
+  const navigate = useNavigate()
+  const isConnected = userId !== undefined && getConnectionState(userId) === 'connected'
   const [state, setState] = useState<CandidateState>(() => LOADING_STATE)
 
   // Reset during render when the route param changes — no effect needed.
   if (state.userId !== userId) setState({ ...LOADING_STATE, userId })
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !isConnected) {
+      setState({ userId, candidate: null, isLoading: false, error: '' })
+      return
+    }
 
     let active = true
     discoverService
@@ -73,7 +80,7 @@ export function BuddyProfilePage() {
     return () => {
       active = false
     }
-  }, [userId])
+  }, [userId, isConnected])
 
   const { candidate, isLoading, error } = state
 
@@ -90,7 +97,7 @@ export function BuddyProfilePage() {
     <>
       <AppHeader
         title={candidate?.displayName ?? 'Sports buddy'}
-        subtitle="Sports Buddy profile"
+        subtitle={candidate ? 'Sports Buddy profile' : 'Connect to reveal profiles.'}
         size="wide"
         showBack
       />
@@ -157,6 +164,7 @@ export function BuddyProfilePage() {
             <Card className="lg:col-start-1 lg:row-start-1">
               <CardContent>
                 <ProfileSummary profile={candidate} />
+                <div className="mt-5 border-t border-border pt-4"><SafetyActions targetUserId={candidate.userId} displayName={candidate.displayName} context={{ type: 'profile' }} onBlocked={() => navigate(ROUTES.discover)} /></div>
               </CardContent>
             </Card>
 

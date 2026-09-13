@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { useConnections } from '@/hooks/use-connections'
 import { useConversationsFeed } from '@/hooks/use-conversations-feed'
+import { useSafety } from '@/hooks/use-safety'
 import { useChatReadState } from '@/features/chat/use-chat-read-state'
 import { isConversationUnread } from '@/lib/chat-read-state'
 import { getOtherParticipantId } from '@/lib/connection'
@@ -43,6 +44,7 @@ export function useConversations() {
   const { user } = useAuth()
   const { connections, isLoading: isLoadingConnections } = useConnections()
   const userId = user?.id ?? null
+  const { blockedIds } = useSafety()
 
   // Connected buddies, from state the connection provider already holds.
   const buddyIds = useMemo(
@@ -53,10 +55,10 @@ export function useConversations() {
           const otherId = userId
             ? getOtherParticipantId(connection, userId)
             : null
-          return otherId ? [otherId] : []
+          return otherId && !blockedIds.has(otherId) ? [otherId] : []
         })
         .sort(),
-    [connections, userId],
+    [connections, userId, blockedIds],
   )
 
   // The single conversations subscription lives in `ConversationsProvider`,
@@ -111,7 +113,7 @@ export function useConversations() {
       .filter((connection) => connection.status === 'connected')
       .flatMap((connection) => {
         const buddyId = getOtherParticipantId(connection, userId)
-        if (!buddyId) return []
+        if (!buddyId || blockedIds.has(buddyId)) return []
         const conversation = byConversationId.get(connection.id)
         const profile = byBuddyId.get(buddyId)
 
@@ -137,7 +139,7 @@ export function useConversations() {
         ]
       })
       .sort(compareRows)
-  }, [connections, conversations, profiles, userId, readAt])
+  }, [connections, conversations, profiles, userId, readAt, blockedIds])
 
   return {
     items,

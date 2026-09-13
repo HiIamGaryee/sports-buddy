@@ -19,6 +19,47 @@
     overscroll-behavior-y: none;
   }
 
+  .leaflet-container {
+    @apply bg-surface-subtle font-sans;
+  }
+
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
+    @apply bg-surface-raised text-foreground shadow-md;
+  }
+
+  .leaflet-popup-content {
+    @apply m-3 text-body-small;
+  }
+
+  .leaflet-control-attribution {
+    @apply bg-surface-overlay! text-caption text-muted-foreground;
+  }
+
+  .opportunity-card {
+    overflow: hidden;
+    min-height: 18rem;
+    border: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
+    border-radius: 1.875rem;
+    background:
+      radial-gradient(circle at 8% 100%, color-mix(in oklch, var(--opportunity-gradient-glow) 44%, transparent), transparent 52%),
+      linear-gradient(112deg, color-mix(in oklch, var(--opportunity-gradient-start) 58%, var(--card)), color-mix(in oklch, var(--opportunity-gradient-mid) 48%, var(--card)) 48%, color-mix(in oklch, var(--opportunity-gradient-end) 54%, var(--card)));
+    color: var(--opportunity-foreground);
+    box-shadow: var(--elevation-sm);
+    transition: border-color var(--motion-base) var(--motion-ease), box-shadow var(--motion-base) var(--motion-ease), transform var(--motion-base) var(--motion-ease);
+  }
+
+  .opportunity-card:hover {
+    border-color: color-mix(in oklch, var(--primary) 45%, var(--border));
+    box-shadow: var(--elevation-hover);
+    transform: translateY(-2px);
+  }
+
+  .opportunity-message {
+    background: var(--message-button-bg);
+    color: var(--message-button-foreground);
+  }
+
   /*
    * Headings inherit the heading family and tighten optically at large sizes.
    * Set once here so no component re-specifies tracking next to its

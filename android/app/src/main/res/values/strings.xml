@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sports Buddy</string>
+    <string name="title_activity_main">Sports Buddy</string>
+    <string name="package_name">com.sportsbuddy.app</string>
+    <string name="custom_url_scheme">com.sportsbuddy.app</string>
+</resources>

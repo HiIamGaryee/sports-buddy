@@ -67,7 +67,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-7">
       <div className="flex flex-col gap-2">
         <h1 className="text-display text-foreground">Welcome back.</h1>
         <p className="text-body text-muted-foreground">

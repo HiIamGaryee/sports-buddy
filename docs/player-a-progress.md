@@ -25,35 +25,44 @@ Owner: Lynn662312 (Player A). Last updated: 2026-09-13.
 1. **Retest "Load earlier messages."** Leo/Lynn chat with 25+ messages → hard
    refresh → scroll to the top → the button should appear and load older
    messages without duplicates. When it passes, tick the last Phase 1 item.
-2. **Run `npm run test:rules`.** Not re-run since the last rule changes
-   (it was 106/106 before the list-query tests were added). All must pass.
-3. **Merge `deploy` with `main` — together with Player B, not in one click.**
-   As of 2026-09-13, `main` is 16 commits / 195 files ahead (Player B's map,
-   safety, home page, policy dialog work). A dry-run merge conflicts in
-   `firestore.rules`, `package.json`, `package-lock.json` and
-   `use-discover.ts`, and more once today's chat/nav work is included. Three
-   things need a decision, not just a conflict fix:
-   - **Capacitor version.** `deploy` is on **Capacitor 8** (what `CLAUDE.md`
-     says, and what the signed APK/AAB was built with). `main` moved to
-     **Capacitor 6** and added plugins (camera, haptics, keyboard,
-     preferences, status-bar, app, filesystem, assets). Pick one with Player
-     B; the `android/` project must match it.
-   - **`firestore.rules`.** The rules LIVE in Firebase right now are the
-     `deploy` version (all the fixes below). `main` adds blocks, reports and
-     `pairIsUnblocked()` but still has the old, broken read rules. The merge
-     must keep both, pass `npm run test:rules`, be retested live, and only
-     then be deployed. **Until then, nobody should run
-     `firebase deploy --only firestore:rules` from `main`** — it would put
-     every bug below back.
-   - **`@revenuecat/purchases-js`** was added to `package.json` on `deploy`
-     but isn't imported anywhere. It is RevenueCat's **web** billing SDK; an
-     Android app selling through Google Play needs
-     `@revenuecat/purchases-capacitor` instead. Left out of the 2026-09-13
-     commit on purpose.
-   Safe order: merge `origin/main` INTO `deploy` locally → resolve → typecheck,
-   `npm test`, `npm run test:rules` → retest the two-user flow → deploy the
-   merged rules → open a PR to `main` for Player B to review.
-4. **Back up the release keystore** (`android/sports-buddy-release.keystore` +
+2. **Finish the `main` merge — resolved and committed locally on 2026-09-14,
+   NOT pushed or deployed yet.** Remaining, in order:
+   1. Push `deploy`.
+   2. Deploy the merged rules: `firebase deploy --only firestore:rules`.
+      Firebase is still running the pre-merge rules, so Player B's
+      block/report features won't work live until this is done.
+   3. Retest live: the two-user flow (connect, chat, load earlier), plus
+      block someone → they disappear, and their chat can no longer be opened.
+   4. Open a pull request `deploy` → `main` for Player B to review.
+   **Until the PR merges, nobody should deploy rules from `main`** — `main`'s
+   copy still has the old read rules that broke connections and chat.
+
+   What the merge decided (tell Player B):
+   - **Capacitor 8 everywhere.** `main`'s `package.json` said 6, but its own
+     `android/` project was already the Capacitor 8 template (targetSdk 36),
+     and Google Play needs targetSdk 35+. Player B's plugins (app, camera,
+     filesystem, haptics, keyboard, preferences, status-bar) are kept, bumped
+     to their v8 releases. Nothing in `src/` imports them yet.
+   - **`firestore.rules` = `deploy` fixes + Player B's blocks/reports.** Two
+     changes on top: the first-ever block was impossible (same "read before it
+     exists" bug as Connect #2 below) and is fixed; a blocked pair can no
+     longer read their message history. `npm run test:rules`: **124/124**,
+     including 8 new block/report tests. One limitation: the conversation LIST
+     query can't check blocks in the rules, so hiding a blocked buddy's row
+     there is done in the app (`useSafety`).
+   - **Blocking now also covers** "Wants to connect" and the Messages tab
+     unread dot.
+   - **`@revenuecat/purchases-js` removed.** It's RevenueCat's web SDK; Google
+     Play purchases need `@revenuecat/purchases-capacitor` (Phase 2).
+   - **Release signing restored.** `android/` wasn't tracked on `deploy`, so
+     the merge silently replaced the local `android/app/build.gradle` and
+     dropped its signing config. Re-added (reads `android/keystore.properties`;
+     builds unsigned on machines without it). A signed `bundleRelease` was
+     rebuilt and verified with the same SHA-1 as before.
+   - **`android/keystore.properties` is gitignored again.** `main`'s
+     `android/.gitignore` only covered `*.keystore`, so the passwords file
+     was one `git add .` away from being pushed.
+3. **Back up the release keystore** (`android/sports-buddy-release.keystore` +
    `android/keystore.properties`) somewhere outside the repo. Losing it blocks
    all future Play Store updates.
 

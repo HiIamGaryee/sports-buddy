@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useConnections } from '@/hooks/use-connections'
 import { useProfile } from '@/hooks/use-profile'
+import { useSafety } from '@/hooks/use-safety'
 import { createFiltersFromPreferences, NO_DISCOVER_FILTERS } from '@/lib/discover-filters'
 import { discoverService } from '@/services/discover/discover-service'
 import { toMatchingSubject } from '@/services/matching/matching-service'
@@ -30,6 +31,7 @@ const loadingState = (key: string): FeedState => ({
 export function useDiscover() {
   const { profile } = useProfile()
   const { connections } = useConnections()
+  const { blockedIds } = useSafety()
   const [overrides, setOverrides] = useState<DiscoverFilters | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
   // Session-only, deliberately not persisted: refreshing brings them back.
@@ -96,8 +98,9 @@ export function useDiscover() {
     )
     return discoverService
       .joinConnectionStates(ranked, connections, profile.id)
+      .filter((buddy) => !blockedIds.has(buddy.profile.userId))
       .filter((buddy) => !dismissed.includes(buddy.profile.userId))
-  }, [feed.candidates, filters, profile, connections, dismissed])
+  }, [feed.candidates, filters, profile, connections, dismissed, blockedIds])
 
   // Ranked from the FULL candidate set, filters bypassed entirely: someone
   // already asking to connect is a stronger signal than "would my current
@@ -115,9 +118,11 @@ export function useDiscover() {
       .filter(
         (buddy) =>
           buddy.connectionState === 'pending-incoming' &&
-          !dismissed.includes(buddy.profile.userId),
+          !dismissed.includes(buddy.profile.userId) &&
+          // Filters are bypassed here; a block never is.
+          !blockedIds.has(buddy.profile.userId),
       )
-  }, [feed.candidates, profile, connections, dismissed])
+  }, [feed.candidates, profile, connections, dismissed, blockedIds])
 
   const suggested = useMemo(
     () => buddies.filter((buddy) => buddy.connectionState !== 'pending-incoming'),

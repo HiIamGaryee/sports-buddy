@@ -1,5 +1,4 @@
 import { cva, type VariantProps } from 'class-variance-authority'
-import type { LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
@@ -27,7 +26,7 @@ const navItemVariants = cva(
         rail: 'flex-col justify-center gap-1 rounded-xl py-2.5 hover:bg-surface-subtle hover:text-foreground aria-[current=page]:bg-primary/12',
         /** Desktop sidebar: a full-width row, icon beside the label. */
         sidebar:
-          'gap-3 rounded-xl px-3 py-2.5 text-title hover:bg-surface-subtle hover:text-foreground aria-[current=page]:bg-primary/12',
+          'h-14 gap-3.5 rounded-2xl px-4 text-title hover:bg-surface-subtle hover:text-foreground aria-[current=page]:bg-primary/14',
       },
     },
     defaultVariants: { shape: 'bar' },
@@ -37,14 +36,15 @@ const navItemVariants = cva(
 export function NavItem({
   to,
   label,
-  icon: Icon,
+  icon,
   shape,
   className,
   badgeCount = 0,
 }: {
   to: string
   label: string
-  icon: LucideIcon
+  /** An imported SVG asset from `src/assets/svg`. */
+  icon: string
   className?: string
   /**
    * Unread items behind this destination. A dot on the icon rather than a
@@ -58,13 +58,19 @@ export function NavItem({
   return (
     <NavLink to={to} className={cn(navItemVariants({ shape }), className)}>
       <span className="relative shrink-0">
-        <Icon
+        <img
+          src={icon}
+          alt=""
           aria-hidden
           className={cn(
-            'shrink-0',
+            // The assets carry their own colours, so the active state cannot be
+            // a tint the way a stroked icon's was. Inactive items are dimmed
+            // instead, and the label keeps its `text-primary` active colour.
+            'shrink-0 opacity-55 transition-ui group-aria-[current=page]:opacity-100',
             shape === 'bar'
               ? 'size-6 transition-transform group-aria-[current=page]:scale-110'
-              : 'size-5',
+              : 'size-6',
+            shape === 'sidebar' && 'size-7',
           )}
         />
         {hasBadge && (

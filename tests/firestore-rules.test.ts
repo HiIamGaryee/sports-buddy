@@ -1797,3 +1797,135 @@ describe('the pair id', () => {
     expect(PAIR).toBe(`${AINA}__${GARY}`)
   })
 })
+
+describe('blocks', () => {
+  const blockPath = (blocker: string, blocked: string) =>
+    `blocks/${blocker}__${blocked}`
+  const conversationPath = `conversations/${PAIR}`
+  const messagesPath = `${conversationPath}/messages`
+
+  const newBlock = (blocker: string, blocked: string) => ({
+    blockerId: blocker,
+    blockedUserId: blocked,
+    reason: 'spam',
+    createdAt: serverTimestamp(),
+  })
+
+  async function seedConnectedConversationWithMessage() {
+    await seed(PAIR, {
+      id: PAIR,
+      participants: sortConnectionPair(GARY, AINA),
+      requestedBy: sortConnectionPair(GARY, AINA),
+      status: 'connected',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      connectedAt: new Date(),
+    })
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = modular(context)
+      await setDoc(doc(db, conversationPath), {
+        id: PAIR,
+        connectionId: PAIR,
+        participants: sortConnectionPair(GARY, AINA),
+        lastMessageText: null,
+        lastMessageSenderId: null,
+        lastMessageAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      await setDoc(doc(db, `${messagesPath}/msg_1`), {
+        id: 'msg_1',
+        conversationId: PAIR,
+        senderId: GARY,
+        content: 'Badminton Saturday?',
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  async function seedBlock(blocker: string, blocked: string) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), blockPath(blocker, blocked)), {
+        ...newBlock(blocker, blocked),
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  const recentMessages = (db: Firestore) =>
+    query(collection(db, messagesPath), orderBy('createdAt', 'desc'), limit(20))
+
+  // Regression coverage: `blockUser()` reads the block document BEFORE
+  // creating it. With a rule reading `resource.data.blockerId`, that read
+  // failed on a document that does not exist yet — so the very first block
+  // could never be made.
+  it('lets the blocker check a block that does not exist yet', async () => {
+    await assertSucceeds(getDoc(doc(asUser(GARY), blockPath(GARY, AINA))))
+  })
+
+  it('does not let anyone else check it', async () => {
+    await assertFails(getDoc(doc(asUser(AINA), blockPath(GARY, AINA))))
+    await assertFails(getDoc(doc(asUser(STRANGER), blockPath(GARY, AINA))))
+  })
+
+  it('can be created by the blocker at the matching id', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(GARY), blockPath(GARY, AINA)), newBlock(GARY, AINA)),
+    )
+  })
+
+  it('cannot be created on somebody else\'s behalf', async () => {
+    await assertFails(
+      setDoc(doc(asUser(AINA), blockPath(GARY, AINA)), newBlock(GARY, AINA)),
+    )
+  })
+
+  it('lists only the blocker\'s own blocks via the app query', async () => {
+    await seedBlock(GARY, AINA)
+    const snapshot = await getDocs(
+      query(collection(asUser(GARY), 'blocks'), where('blockerId', '==', GARY)),
+    )
+    expect(snapshot.docs.map((entry) => entry.id)).toEqual([`${GARY}__${AINA}`])
+  })
+
+  it('cuts off reading message history in either direction', async () => {
+    await seedConnectedConversationWithMessage()
+    await assertSucceeds(getDocs(recentMessages(asUser(AINA))))
+
+    await seedBlock(GARY, AINA)
+    await assertFails(getDocs(recentMessages(asUser(GARY))))
+    await assertFails(getDocs(recentMessages(asUser(AINA))))
+  })
+
+  it('cuts off opening the conversation and sending', async () => {
+    await seedConnectedConversationWithMessage()
+    await seedBlock(AINA, GARY)
+    await assertFails(getDoc(doc(asUser(GARY), conversationPath)))
+    await assertFails(
+      setDoc(doc(asUser(GARY), `${messagesPath}/msg_2`), {
+        id: 'msg_2',
+        conversationId: PAIR,
+        senderId: GARY,
+        content: 'Hello?',
+        createdAt: serverTimestamp(),
+      }),
+    )
+  })
+})
+
+describe('reports', () => {
+  it('can be submitted about someone else, and never read back', async () => {
+    await assertSucceeds(
+      addDoc(collection(asUser(GARY), 'reports'), {
+        reporterId: GARY,
+        reportedUserId: AINA,
+        reason: 'spam',
+        note: null,
+        context: 'profile',
+        status: 'submitted',
+        createdAt: serverTimestamp(),
+      }),
+    )
+    await assertFails(getDocs(collection(asUser(GARY), 'reports')))
+  })
+})

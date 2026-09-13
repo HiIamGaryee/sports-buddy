@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
  */
 export function EmptyState({
   icon: Icon,
+  illustration,
   title,
   description,
   action,
@@ -16,6 +17,8 @@ export function EmptyState({
   className,
 }: {
   icon?: LucideIcon
+  /** An imported illustration asset. Takes precedence over `icon`. */
+  illustration?: string
   title: string
   description?: string
   action?: React.ReactNode
@@ -31,10 +34,16 @@ export function EmptyState({
         className,
       )}
     >
-      {Icon && (
-        <span className="mb-1 flex size-11 items-center justify-center rounded-full bg-surface-subtle text-muted-foreground">
-          <Icon aria-hidden className="size-5" />
+      {illustration ? (
+        <span className="mb-1 grid size-20 place-items-center overflow-hidden rounded-2xl bg-surface-subtle p-3 md:size-24">
+          <img src={illustration} alt="" aria-hidden className="size-full" />
         </span>
+      ) : (
+        Icon && (
+          <span className="mb-1 flex size-11 items-center justify-center rounded-full bg-surface-subtle text-muted-foreground">
+            <Icon aria-hidden className="size-5" />
+          </span>
+        )
       )}
       <p className="text-title text-foreground">{title}</p>
       {description && (

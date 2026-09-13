@@ -1,5 +1,5 @@
 import { NavItem } from '@/components/layout/nav-item'
-import { mainNavigation } from '@/config/navigation'
+import { mobileBottomNavigation } from '@/config/navigation'
 import { cn } from '@/lib/utils'
 
 import type { NavigationBadges } from '@/config/navigation'
@@ -25,7 +25,7 @@ export function BottomNavigation({
       )}
     >
       <ul className="flex h-bottom-nav items-stretch px-1">
-        {mainNavigation.map(({ label, path, icon: Icon }) => (
+        {mobileBottomNavigation.map(({ label, path, icon: Icon }) => (
           <li key={path} className="flex-1">
             <NavItem
               shape="bar"

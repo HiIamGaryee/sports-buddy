@@ -1,6 +1,10 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 
-import { APP_NAME, APP_TAGLINE_LINES } from '@/constants/app'
+import loginBackground from '@/assets/img-bg-v1.jpeg'
+import logo from '@/assets/logo.png'
+import registerBackground from '@/assets/img-bg-v2.webp'
+import { APP_TAGLINE_LINES } from '@/constants/app'
+import { ROUTES } from '@/routes/routes'
 
 /**
  * Auth screens. A phone gets the familiar single column; from `lg` the screen
@@ -11,23 +15,33 @@ import { APP_NAME, APP_TAGLINE_LINES } from '@/constants/app'
  * is harder to read, not more impressive.
  */
 export function AuthLayout() {
+  const { pathname } = useLocation()
+  const backgroundImage =
+    pathname === ROUTES.register ? registerBackground : loginBackground
+
   return (
-    <div className="flex min-h-dvh bg-background pl-safe-left pr-safe-right">
-      <aside className="hidden flex-1 flex-col justify-between border-r border-border bg-surface px-gutter py-12 lg:flex">
-        <div className="flex items-center gap-2.5">
-          <span aria-hidden className="size-3 rounded-full bg-primary-gradient" />
-          <span className="text-heading-3 text-primary-gradient">
-            {APP_NAME}
-          </span>
-        </div>
+    <div className="relative isolate flex min-h-dvh overflow-x-hidden bg-transparent pl-safe-left pr-safe-right">
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-10 bg-cover bg-center"
+        style={{ backgroundImage: `url(${backgroundImage})` }}
+      />
+      <aside className="hidden flex-1 flex-col justify-center gap-10 border-r border-border bg-background/35 px-gutter py-10 backdrop-blur-sm lg:flex">
         <div className="flex max-w-md flex-col gap-4">
-          <p className="text-display text-foreground">
-            {APP_TAGLINE_LINES.map((line) => (
-              <span key={line} className="block">
-                {line}
-              </span>
-            ))}
-          </p>
+          <div className="flex items-start gap-4">
+            <img
+              src={logo}
+              alt="Sports Buddy"
+              className="mt-1 size-14 shrink-0 object-contain"
+            />
+            <p className="text-display text-foreground">
+              {APP_TAGLINE_LINES.map((line) => (
+                <span key={line} className="block">
+                  {line}
+                </span>
+              ))}
+            </p>
+          </div>
           <p className="text-body text-muted-foreground">
             Find people who play the sports you play, at the times you're free,
             near where you already are.
@@ -38,12 +52,11 @@ export function AuthLayout() {
         </span>
       </aside>
 
-      <div className="flex flex-1 flex-col px-gutter pt-safe-top pb-safe-bottom">
-        <header className="flex items-center gap-2 py-6 lg:hidden">
-          <span aria-hidden className="size-2.5 rounded-full bg-primary-gradient" />
-          <span className="text-label text-foreground">{APP_NAME}</span>
+      <div className="flex flex-1 flex-col bg-background/70 px-gutter pt-safe-top pb-safe-bottom backdrop-blur-xl lg:bg-background/82">
+        <header className="flex items-center gap-2.5 py-6 lg:hidden">
+          <img src={logo} alt="Sports Buddy" className="size-8 object-contain" />
         </header>
-        <main className="mx-auto flex w-full max-w-narrow flex-1 flex-col justify-center pb-10 lg:pb-0">
+        <main className="mx-auto flex w-full max-w-narrow flex-1 flex-col justify-center py-8 lg:py-10">
           <Outlet />
         </main>
       </div>

@@ -6,6 +6,7 @@ import {
   toConnectionError,
 } from '@/services/connection/connection-error'
 import type { Connection } from '@/types/connection'
+import { blockRepository } from '@/repositories/repositories'
 
 /**
  * The domain rules for connecting. No React state in here, and no Firebase:
@@ -42,6 +43,7 @@ export const connectionService = {
     }
 
     try {
+      if ((await blockRepository.getBlockedUserIds(currentUserId)).includes(targetUserId)) throw new Error('This user is unavailable.')
       return await connectionRepository.connect(currentUserId, targetUserId)
     } catch (error) {
       throw toConnectionError(error, CONNECTION_FALLBACK_MESSAGES.connect)

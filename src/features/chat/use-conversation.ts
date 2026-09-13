@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useAuth } from '@/hooks/use-auth'
 import { useConnections } from '@/hooks/use-connections'
+import { useSafety } from '@/hooks/use-safety'
 import { useChatReadState } from '@/features/chat/use-chat-read-state'
 import { canChat, mergeMessages } from '@/lib/chat'
 import { getOtherParticipantId } from '@/lib/connection'
@@ -38,6 +39,7 @@ export function useConversation(conversationId: string | undefined) {
   const { user } = useAuth()
   const { connections, isLoading: isLoadingConnections } = useConnections()
   const userId = user?.id ?? null
+  const { blockedIds, isLoading: isLoadingSafety } = useSafety()
 
   // The conversation id IS the connection id, so this is a lookup, not a read.
   const connection = useMemo(
@@ -50,12 +52,12 @@ export function useConversation(conversationId: string | undefined) {
     [connections, conversationId],
   )
 
-  const isAuthorized = userId !== null && canChat(connection, userId)
   const buddyId = useMemo(
     () =>
       connection && userId ? getOtherParticipantId(connection, userId) : null,
     [connection, userId],
   )
+  const isAuthorized = userId !== null && canChat(connection, userId) && buddyId !== null && !blockedIds.has(buddyId)
 
   const requestKey = `${conversationId ?? ''}#${userId ?? ''}`
   const [state, setState] = useState<MessagesState>(() =>
@@ -246,7 +248,7 @@ export function useConversation(conversationId: string | undefined) {
     buddyPhotoUrl: buddy?.photoUrl ?? null,
     /** False for a missing, pending or someone else's conversation alike. */
     isAuthorized,
-    isResolvingAccess: isLoadingConnections,
+    isResolvingAccess: isLoadingConnections || isLoadingSafety,
     messages: state.messages,
     hasMore: state.hasMore,
     isLoading: state.isLoading,

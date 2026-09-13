@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowDown, CalendarPlus } from 'lucide-react'
+import { ArrowDown } from 'lucide-react'
 
 import { ErrorState } from '@/components/common/error-state'
 import { isValidPairId } from '@/lib/ids'
@@ -11,10 +11,10 @@ import { MessageBubble } from '@/features/chat/components/message-bubble'
 import { MessageComposer } from '@/features/chat/components/message-composer'
 import { useChatScroll } from '@/features/chat/use-chat-scroll'
 import { useConversation } from '@/features/chat/use-conversation'
-import { PlanChatCard } from '@/features/planning/components/plan-chat-card'
-import { usePlanPreview } from '@/features/planning/use-plan-preview'
+import { SafetyActions } from '@/components/safety/safety-actions'
+import { useNavigate } from 'react-router-dom'
 import { formatDateSeparator, isSameDay } from '@/lib/chat-format'
-import { activityPath, planPath, ROUTES } from '@/routes/routes'
+import { ROUTES } from '@/routes/routes'
 
 const SKELETON_BUBBLES = [
   { key: 0, own: false, width: 'w-40' },
@@ -23,6 +23,7 @@ const SKELETON_BUBBLES = [
 ] as const
 
 export function ConversationPage() {
+  const navigate = useNavigate()
   const { conversationId: rawConversationId } =
     useParams<{ conversationId: string }>()
   // A route param is untrusted input on its way to `doc(db, COLLECTION, id)`.
@@ -54,10 +55,6 @@ export function ConversationPage() {
 
   const { scrollRef, hasNewMessages, scrollToBottom, preserveScroll } =
     useChatScroll(messages, currentUserId)
-  // Planning is the primary next step after a conversation, so the entry
-  // point lives here rather than being scattered across the app.
-  const plan = usePlanPreview(conversationId, isAuthorized)
-
   // Nothing is requested until access is resolved, so an unauthorized route
   // can never flash someone else's messages. The placeholder fills the pane
   // rather than taking over the screen, because on desktop this is one
@@ -103,37 +100,13 @@ export function ConversationPage() {
       title={buddyName}
       photoUrl={buddyPhotoUrl}
       action={
-        conversationId && (
-          <Button variant="outline" size="sm" asChild>
-            <Link
-              to={
-                plan?.status === 'confirmed'
-                  ? activityPath(plan.id)
-                  : planPath(conversationId)
-              }
-              aria-label={
-                plan?.status === 'confirmed'
-                  ? 'View the confirmed activity'
-                  : plan
-                    ? 'Continue planning a session'
-                    : 'Plan a session'
-              }
-            >
-              <CalendarPlus className="size-4" />
-              <span className="max-sm:sr-only">
-                {plan?.status === 'confirmed'
-                  ? 'Activity'
-                  : plan
-                    ? 'Plan'
-                    : 'Plan a session'}
-              </span>
-            </Link>
-          </Button>
-        )
-      }
-      banner={
-        plan && conversationId ? (
-          <PlanChatCard plan={plan} conversationId={conversationId} />
+        conversation.buddyId && conversationId ? (
+          <SafetyActions
+            targetUserId={conversation.buddyId}
+            displayName={buddyName}
+            context={{ type: 'conversation', conversationId }}
+            onBlocked={() => navigate(ROUTES.messages)}
+          />
         ) : undefined
       }
       scrollRef={scrollRef}
