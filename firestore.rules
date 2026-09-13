@@ -293,22 +293,27 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{messageId} {
-        // `participants` is DENORMALIZED onto every message purely so `list`
-        // (below) can authorize without an external `get()` — messages carry
-        // no other relationship data, and it is never surfaced as a domain
-        // field (`toMessageDocument()` ignores it). It always equals the
-        // conversation's own participants, enforced at create time.
         function messageFields() {
-          return ['id', 'conversationId', 'senderId', 'content', 'createdAt',
-                  'participants'];
+          return ['id', 'conversationId', 'senderId', 'content', 'createdAt'];
         }
 
-        // Tolerant of a message written before this field existed
-        // (`.get(key, [])`), which simply will not match `in` for anyone —
-        // an old test message going temporarily unlisted is an acceptable
-        // one-time cost; a client cannot write a message without it anymore.
+        /**
+         * SECURITY RULES ARE NOT FILTERS. The message subscription queries
+         * this subcollection with `orderBy('createdAt','desc') + limit()`
+         * and NO `where` clause, so Firestore cannot prove that a rule
+         * reading `resource.data` holds for every possible result — it
+         * rejects the WHOLE query rather than dropping documents. A `list`
+         * rule here must therefore be QUERY-INDEPENDENT: path and
+         * `request.auth` only, never document data.
+         *
+         * `conversationId` IS the connection id, which already encodes both
+         * participants, so `uidInPairId` authorizes from the path alone —
+         * no document read, nothing for a query to contradict. Every WRITE,
+         * and every single-document `get`, still goes through the full
+         * `connectedParticipant()` check below.
+         */
         allow list: if request.auth != null
-          && request.auth.uid in resource.data.get('participants', []);
+          && uidInPairId(request.auth.uid, conversationId);
 
         allow get: if connectedParticipant();
 
@@ -324,8 +329,6 @@ service cloud.firestore {
           && request.resource.data.content.trim().size() > 0
           // Mirrors MAX_MESSAGE_LENGTH in src/constants/chat.ts.
           && request.resource.data.content.size() <= 1000
-          // Exactly the conversation's own participants — never invented.
-          && request.resource.data.participants == connection().participants
           && request.resource.data.createdAt == request.time;
 
         // Messages are immutable in this step.

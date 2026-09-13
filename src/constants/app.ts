@@ -9,6 +9,13 @@ export const THEME_STORAGE_KEY = 'sports-buddy.theme'
 /** Onboarding draft, so refreshing mid-onboarding does not lose progress. */
 export const ONBOARDING_DRAFT_KEY = 'sports-buddy.onboarding-draft'
 
+/**
+ * Which conversations a viewer has already read. Device-local by design —
+ * see `src/lib/chat-read-state.ts`. Used in BOTH data-source modes, so it is
+ * deliberately not one of `MOCK_STORAGE_KEYS`.
+ */
+export const CHAT_READ_STATE_KEY = 'sports-buddy.chat-read-state'
+
 /** Mock-mode development storage (never used when VITE_DATA_SOURCE=firebase). */
 export const MOCK_STORAGE_KEYS = {
   session: 'sports-buddy.mock-session',

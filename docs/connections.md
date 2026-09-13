@@ -185,20 +185,28 @@ smuggle a score, a profile copy or a chat id into the document.
 Self-connection is blocked by `participants[0] != participants[1]`, on top of
 the service check.
 
-**`get` and `list` are two separate `allow` statements, deliberately.** The
-realtime subscription (`ConnectionProvider`) reads via `list` — a query
-(`participants array-contains uid` + `limit`) that can only ever match
-documents that already exist, so it keeps the plain, unmodified participant
-check. `get` is the only place the "doesn't exist yet" branch applies, since
-it's the only operation a single-document transaction ever performs. The
-first version of this fix combined them under one `allow get, list:` line,
-and that briefly broke the live project a second way: Firestore could not
-safely evaluate the `list` query per-document with an `exists()` call mixed
-into the same rule, so the realtime subscription came back permission-denied
-for BOTH participants on every fresh subscribe (i.e. every page refresh) —
-`getDoc` against the very same document kept succeeding the whole time,
-which is what made it look like "the connection resets to none on refresh"
-rather than a rules bug. `tests/firestore-rules.test.ts`'s "listing
+**`get` and `list` are two separate `allow` statements, deliberately.**
+`ConnectionProvider`'s realtime subscription reads via `list` — the query
+`participants array-contains uid` + `limit` — and its rule stays the plain
+`uid in resource.data.participants`, because **security rules are not
+filters**: a `list` rule that reads document data is only legal when the
+query itself carries the matching constraint, which this one does
+(`array-contains uid` pins exactly the field the rule reads). The
+"doesn't exist yet" `exists()` branch applies to `get` ONLY, since a
+single-document transactional read is the only place it is needed.
+
+The first version of this fix combined them under one `allow get, list:`
+line, and that briefly broke the live project a second way: with `exists()`
+mixed into the rule, Firestore could no longer prove the query safe and
+refused the whole subscription with `permission-denied` on every fresh
+subscribe (i.e. every page refresh), while `getDoc` against the very same
+document kept succeeding — which is what made it look like "the connection
+resets to none on refresh" rather than an access error.
+
+The full explanation of this Firestore behaviour, including the two legal
+shapes a `list` rule may take and two dead ends that were tried and
+reverted, is in **`docs/chat.md` §12** — read it before touching any `list`
+rule anywhere in this project. `tests/firestore-rules.test.ts`'s "listing
 connections via the realtime subscription query" block exists specifically
 because every other test in the file uses `getDoc`, which would never have
 caught this.

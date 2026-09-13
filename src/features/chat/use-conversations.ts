@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { useAuth } from '@/hooks/use-auth'
 import { useConnections } from '@/hooks/use-connections'
+import { useConversationsFeed } from '@/hooks/use-conversations-feed'
+import { useChatReadState } from '@/features/chat/use-chat-read-state'
+import { isConversationUnread } from '@/lib/chat-read-state'
 import { getOtherParticipantId } from '@/lib/connection'
-import { chatService } from '@/services/chat/chat-service'
 import { discoverService } from '@/services/discover/discover-service'
-import type { Conversation } from '@/types/chat'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
 
 /** One row of the Messages list: a connected buddy, plus a thread if it exists. */
@@ -18,6 +19,8 @@ export interface ConversationListItem {
   lastMessageText: string | null
   lastMessageAt: string | null
   isOwnLastMessage: boolean
+  /** Their newest message arrived after this viewer last opened the thread. */
+  isUnread: boolean
 }
 
 interface ProfilesState {
@@ -56,28 +59,9 @@ export function useConversations() {
     [connections, userId],
   )
 
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!userId) return
-
-    let active = true
-    const unsubscribe = chatService.subscribeToConversations(
-      userId,
-      (loaded) => {
-        if (active) setConversations(loaded)
-      },
-      (subscriptionError) => {
-        if (active) setError(subscriptionError.message)
-      },
-    )
-
-    return () => {
-      active = false
-      unsubscribe()
-    }
-  }, [userId])
+  // The single conversations subscription lives in `ConversationsProvider`,
+  // shared with the unread dot on the Messages tab.
+  const { conversations, error } = useConversationsFeed()
 
   // One batched query, re-run only when the set of connected buddies changes.
   const profilesKey = buddyIds.join(',')
@@ -112,6 +96,8 @@ export function useConversations() {
     // `profilesKey` is the stable identity of `buddyIds`.
   }, [profilesKey, buddyIds])
 
+  const { readAt } = useChatReadState()
+
   const items = useMemo<ConversationListItem[]>(() => {
     if (!userId) return []
     const byConversationId = new Map(
@@ -140,11 +126,18 @@ export function useConversations() {
             lastMessageAt: conversation?.lastMessageAt ?? null,
             isOwnLastMessage:
               conversation?.lastMessageSenderId === userId,
+            isUnread: conversation
+              ? isConversationUnread(
+                  conversation,
+                  userId,
+                  readAt[conversation.id],
+                )
+              : false,
           },
         ]
       })
       .sort(compareRows)
-  }, [connections, conversations, profiles, userId])
+  }, [connections, conversations, profiles, userId, readAt])
 
   return {
     items,

@@ -159,7 +159,7 @@ export const firebaseChatRepository: ChatRepository = {
    * write were separate, the conversation list could show a preview for a
    * message that does not exist (or miss one that does).
    */
-  async sendMessage({ conversationId, senderId, content, participants }) {
+  async sendMessage({ conversationId, senderId, content }) {
     const db = getFirebaseDb()
     const reference: DocumentReference = doc(messagesRef(db, conversationId))
 
@@ -169,7 +169,6 @@ export const firebaseChatRepository: ChatRepository = {
       conversationId,
       senderId,
       content,
-      participants,
       createdAt: serverTimestamp(),
     })
     batch.update(conversationRef(db, conversationId), {

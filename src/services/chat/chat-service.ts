@@ -122,7 +122,6 @@ export const chatService = {
         conversationId: verified.id,
         senderId: currentUserId,
         content,
-        participants: verified.participants,
       })
     } catch (error) {
       throw toChatError(error, CHAT_FALLBACK_MESSAGES.send)

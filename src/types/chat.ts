@@ -48,11 +48,4 @@ export interface SendMessageInput {
   senderId: string
   /** Already trimmed and validated by the service. */
   content: string
-  /**
-   * The conversation's own participants, denormalized onto the message
-   * purely so Firestore rules can authorize listing messages without an
-   * external `get()` call (see `firestore.rules`). Never a domain field —
-   * `toMessageDocument()` does not read it back out.
-   */
-  participants: [string, string]
 }

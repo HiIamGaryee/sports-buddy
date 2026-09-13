@@ -935,7 +935,22 @@ A thread shows `text-body-small text-muted-foreground` (prefixed "You: " when
 it is your own message); a connected buddy with no thread shows **"Start a
 conversation"** in `text-primary`. Right side: the time in `text-caption
 text-muted-foreground` and a `size-4` chevron. Rows sit in a bordered `Card`
-separated by `Separator`. **No unread dot, no "seen", no typing.**
+separated by `Separator`. **No "seen", no typing.**
+
+### Unread indicator
+
+Flat `bg-primary` dot, never the gradient — it is state, not a CTA.
+
+| Where | Treatment |
+| --- | --- |
+| Conversation row | name gains `font-semibold`; preview goes `font-medium text-card-foreground`; time turns `text-primary`; a `size-2.5 rounded-full bg-primary` dot replaces the chevron, with `role="status"` and `aria-label="Unread message from <name>"` |
+| Messages tab (bar, rail, sidebar) | `size-2.5 rounded-full bg-primary` pinned to the icon's top-end corner with `ring-2 ring-background`, so it reads on the plain bar and the tinted active pill alike; an `sr-only` "N unread" joins the link's accessible name |
+
+A dot, not a number: the count is visible in the list itself, and a growing
+number turns a tab into a nag. **Never colour alone** — the row changes
+weight as well as colour, and both dots carry a spoken label. `NavItem` takes
+a `badgeCount` but computes nothing; `AppShell` computes the badges once and
+hands all three navigation shells the same `NavigationBadges`.
 
 ### Message bubbles
 
@@ -1329,7 +1344,7 @@ and had already drifted. Reach for one before writing a className.
 
 | Component | Where | Replaces |
 | --- | --- | --- |
-| `NavItem` | `components/layout/nav-item.tsx` | the three navigation shells' item styling. `shape` is `bar` (phone), `rail` (tablet) or `sidebar` (desktop); the active state is always `aria-current="page"` |
+| `NavItem` | `components/layout/nav-item.tsx` | the three navigation shells' item styling. `shape` is `bar` (phone), `rail` (tablet) or `sidebar` (desktop); the active state is always `aria-current="page"`; optional `badgeCount` renders the unread dot (§21) |
 | `StickyActionBar` | `components/layout/sticky-action-bar.tsx` | three sticky bottom bars. `offset` says what it stops above; `bleed` says whether it must escape a gutter-padded parent. Anything responsive beyond that stays with the caller |
 
 ### Layout utilities

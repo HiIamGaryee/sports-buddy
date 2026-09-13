@@ -184,13 +184,25 @@ describe('listing connections via the realtime subscription query', () => {
     expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
   })
 
-  it('returns nothing to a stranger, and never fails the query itself', async () => {
+  // Rules are not filters: a stranger querying for GARY's rows cannot be
+  // proved to satisfy `uid in resource.data.participants`, so Firestore
+  // refuses the whole query rather than returning an empty page.
+  it('is denied when a stranger queries for someone else\'s connections', async () => {
     await seed(PAIR, {
       ...pendingFrom(GARY, AINA),
       createdAt: new Date(),
       updatedAt: new Date(),
     })
-    const snapshot = await getDocs(subscriptionQuery(asUser(STRANGER), GARY))
+    await assertFails(getDocs(subscriptionQuery(asUser(STRANGER), GARY)))
+  })
+
+  it('returns an empty page to a stranger querying their own connections', async () => {
+    await seed(PAIR, {
+      ...pendingFrom(GARY, AINA),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    const snapshot = await getDocs(subscriptionQuery(asUser(STRANGER), STRANGER))
     expect(snapshot.docs).toEqual([])
   })
 })
@@ -485,9 +497,17 @@ describe('conversations', () => {
       expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
     })
 
-    it('returns nothing to a stranger, and never fails the query itself', async () => {
+    // Rules are not filters — see the connections suite above.
+    it('is denied when a stranger queries for someone else\'s conversations', async () => {
       await seedConversation()
-      const snapshot = await getDocs(subscriptionQuery(asUser(STRANGER), GARY))
+      await assertFails(getDocs(subscriptionQuery(asUser(STRANGER), GARY)))
+    })
+
+    it('returns an empty page to a stranger querying their own conversations', async () => {
+      await seedConversation()
+      const snapshot = await getDocs(
+        subscriptionQuery(asUser(STRANGER), STRANGER),
+      )
       expect(snapshot.docs).toEqual([])
     })
   })
@@ -592,7 +612,6 @@ describe('messages', () => {
     conversationId: PAIR,
     senderId: GARY,
     content: 'Badminton Saturday?',
-    participants: sortConnectionPair(GARY, AINA),
     createdAt: serverTimestamp(),
     ...overrides,
   })
@@ -701,36 +720,14 @@ describe('messages', () => {
     )
   })
 
-  it('rejects a message whose participants do not match the conversation', async () => {
-    await seedConnectedConversation()
-    await assertFails(
-      setDoc(
-        doc(asUser(GARY), `${messagesPath}/msg_1`),
-        message({ participants: [GARY, STRANGER] }),
-      ),
-    )
-  })
-
-  it('rejects a message with no participants field at all', async () => {
-    await seedConnectedConversation()
-    const { participants: _omitted, ...withoutParticipants } = message()
-    await assertFails(
-      setDoc(doc(asUser(GARY), `${messagesPath}/msg_1`), withoutParticipants),
-    )
-  })
-
-  // Regression coverage for a real live-project bug: the Messages screen's
-  // realtime subscription (`subscribeToRecentMessages`) is a `list` QUERY
-  // (`orderBy('createdAt','desc') + limit`), not a `getDoc`. The messages
-  // rule originally shared `connectedParticipant()` — which reads the
-  // CONNECTIONS collection via `get()` — for both `get` and `list`. That
-  // combination came back permission-denied for the whole query in live
-  // Firestore even though every message individually satisfied it (the
-  // exact same class of failure the `connections` list subscription hit
-  // earlier), while `getDoc`-based tests kept passing throughout — which is
-  // exactly why this went undetected until a real two-user chat test. Fixed
-  // by denormalizing `participants` onto each message so `list` can check
-  // `resource.data` directly, with zero external reads.
+  // Regression coverage for a real live-project bug. SECURITY RULES ARE NOT
+  // FILTERS: the message subscription queries this subcollection with
+  // `orderBy('createdAt','desc') + limit()` and NO `where` clause, so any
+  // `list` rule that reads `resource.data` makes Firestore reject the WHOLE
+  // query (it cannot prove every possible result passes) rather than drop
+  // individual documents. The rule must be query-independent — path and
+  // `request.auth` only. Every test around this one uses `getDoc`/`setDoc`,
+  // which is why this went undetected until a real two-user chat test.
   describe('listing messages via the realtime subscription query', () => {
     it('returns messages to both connected participants', async () => {
       await seedMessage()
@@ -744,16 +741,34 @@ describe('messages', () => {
       expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual(['msg_1'])
     })
 
-    it('returns nothing to a stranger, and never fails the query itself', async () => {
+    // The rule authorizes from the conversation id, which encodes both
+    // participants — so an outsider is refused outright rather than handed
+    // an empty page. That is the correct shape for an unfiltered query:
+    // there is no `where` clause that could narrow them to "their own" rows.
+    it('is denied to someone the conversation id is not about', async () => {
       await seedMessage()
-      const snapshot = await getDocs(
-        query(
-          collection(asUser(STRANGER), messagesPath),
-          orderBy('createdAt', 'desc'),
-          limit(20),
+      await assertFails(
+        getDocs(
+          query(
+            collection(asUser(STRANGER), messagesPath),
+            orderBy('createdAt', 'desc'),
+            limit(20),
+          ),
         ),
       )
-      expect(snapshot.docs).toEqual([])
+    })
+
+    it('is denied to an unauthenticated caller', async () => {
+      await seedMessage()
+      await assertFails(
+        getDocs(
+          query(
+            collection(asGuest(), messagesPath),
+            orderBy('createdAt', 'desc'),
+            limit(20),
+          ),
+        ),
+      )
     })
   })
 

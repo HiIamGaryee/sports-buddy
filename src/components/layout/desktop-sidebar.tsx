@@ -6,6 +6,8 @@ import { APP_NAME } from '@/constants/app'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/routes/routes'
 
+import type { NavigationBadges } from '@/config/navigation'
+
 /**
  * DESKTOP navigation (≥1024px). Brand, the five main destinations, then
  * Settings pinned to the bottom — the same `mainNavigation` config the phone
@@ -15,7 +17,13 @@ import { ROUTES } from '@/routes/routes'
  * `/messages/:conversationId` and `/profile/edit` keep their parent tab
  * active without any extra wiring.
  */
-export function DesktopSidebar({ className }: { className?: string }) {
+export function DesktopSidebar({
+  className,
+  badges = {},
+}: {
+  className?: string
+  badges?: NavigationBadges
+}) {
   return (
     <nav
       aria-label="Main"
@@ -32,7 +40,13 @@ export function DesktopSidebar({ className }: { className?: string }) {
       <ul className="flex flex-1 flex-col gap-1">
         {mainNavigation.map(({ label, path, icon: Icon }) => (
           <li key={path}>
-            <NavItem shape="sidebar" to={path} label={label} icon={Icon} />
+            <NavItem
+              shape="sidebar"
+              to={path}
+              label={label}
+              icon={Icon}
+              badgeCount={badges[path]}
+            />
           </li>
         ))}
       </ul>
