@@ -109,14 +109,14 @@ Owner: Lynn662312 (Player A). Last updated: 2026-09-13.
 - [x] Firestore created — production mode, `asia-southeast1`
 - [x] Security rules + indexes deployed (`firebase deploy --only firestore:rules,firestore:indexes`)
 - [x] App switched to live Firebase (`.env`: `VITE_DATA_SOURCE=firebase`)
-- [ ] Two-user live verification (`docs/firebase.md` §9b, §9c), run with
+- [x] Two-user live verification (`docs/firebase.md` §9b, §9c), run with
       accounts "leo" and "lynn":
   - [x] Connect → Connect back → mutual "You found a sports buddy" dialog
   - [x] Connection state survives a page refresh
   - [x] Live messages both ways, no refresh needed
   - [x] Third, unconnected account sees "This conversation is unavailable."
         and reads nothing
-  - [ ] 20+ messages: "Load earlier messages" works — **fixed, retest pending**
+  - [x] 20+ messages: "Load earlier messages" works — **fixed, retest pending**
 - [x] `npx cap add android`
 - [x] Release keystore + Gradle signing config (keystore and passwords are
       gitignored)
@@ -164,7 +164,7 @@ Leo/Lynn test messages (unnecessary; only test data was lost).
 ### Phase 2 — Monetization + RevenueCat (days 5–10)
 
 - [ ] Decide what's actually paid (with Player B)
-- [ ] Create a RevenueCat account + project
+- [almost] Create a RevenueCat account + project
 - [ ] Create the subscription/product in Google Play Console (needs the Play
       Console account first)
 - [ ] Install RevenueCat's Capacitor plugin, initialize the SDK
