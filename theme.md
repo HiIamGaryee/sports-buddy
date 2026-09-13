@@ -1111,7 +1111,7 @@ the `Button` `default` variant (§20) and the "Plan complete" pill is the same
 one §22 already documented. Venue cards, markers, selected states and rating
 stars are all flat `primary`.
 
-## 24. Activity patterns (STEP 12)
+## 24. Activity patterns (STEP 12–13)
 
 ### Activity card
 
@@ -1127,11 +1127,46 @@ and the budget last in `text-caption` — it is planning context, not a price.
 `hover:shadow-hover` is the desktop affordance. **No gradient** — a card is
 not a CTA.
 
-### Activity status
+### Activity status (superseded in STEP 13)
 
-A `Badge`: `default` for Upcoming, `outline` otherwise. Always a **word**,
-never colour alone, and never "Booked", "Reserved" or "Paid" — Sports Buddy
+`ActivityStatusBadge` renders a `StatusPill` from the temporal state that is
+**derived at render time** (`endAt` vs an injected `now`), never a stored
+value: `Upcoming` (`tone="active"`, `CalendarCheck` icon, sport-orange tint)
+and `Past` (`tone="neutral"`, `History` icon, quiet `bg-surface-subtle` —
+deliberately calm, not a warning). A session currently in progress overrides
+both with `Happening now` (`tone="success"`, `CircleDot` icon). Always a
+**word**, never colour alone, and never "Completed", "Booked", "Reserved" or
+"Paid" — passing the end time says nothing about attendance, and Sports Buddy
 reserves nothing.
+
+### Activity card, past state (STEP 13)
+
+`ActivityCard` stays a single-link card in both states, but a past activity
+is deliberately **calmer, not disabled-looking**: `bg-surface-subtle
+shadow-none` instead of `bg-card shadow-sm`, and the date block inverts to
+`bg-card` so it still reads against the quieter surface. It stays a fully
+readable, clickable record — the visual difference is temperature, not
+opacity.
+
+### Activity history, month-grouped (STEP 13)
+
+`ActivityHistory` renders the pure `groupActivitiesByMonth()` output as a
+stack of `gap-6` sections, each a `SectionHeader level="group"` month label
+over a `grid-cards` grid of `ActivityCard`s — the same grid utility as every
+other card surface, not a bespoke history layout. No counts, hours, spend or
+streaks are shown next to a month: history here is a record of what was
+planned, not an analytics surface.
+
+### Add to Calendar (STEP 13)
+
+A single `<Button size="lg">` with a `CalendarPlus` icon, label "Add to
+Calendar" → "Preparing…" while working. The result line below it is never
+the same sentence for every outcome: a real native add reads "Activity added
+to your calendar" (`text-muted-foreground`), a downloaded `.ics` reads
+"Calendar file downloaded. Open it to add the activity." (also
+`text-muted-foreground` — a download is not a completed add, but it is not an
+error either), and a failure is `role="alert" text-destructive`. The control
+never claims an action happened that didn't.
 
 ### Activity detail
 
@@ -1170,6 +1205,20 @@ STEP 12 adds gradient in exactly two places: the **Confirm activity** CTA
 Activity cards, date blocks, status badges, detail rows and the venue card are
 all flat. A gradient still marks the single highest-value action, not the
 content around it.
+
+### Documentation coverage — finished through STEP 13
+
+This file is current through **STEP 13 (Calendar + Activity History)** as of
+2026-09-13. STEP 12.5 added no new step-numbered section of its own because
+it *was* the design-system refactor — its output is §0 (styling decision
+order) and §29 (shared component inventory) plus the surface-hierarchy and
+motion tokens threaded through the sections above. STEP 12.6 (security
+hardening) introduced no visual pattern at all — validation and injection
+fixes only, nothing for this file to record. **Next to document: STEP 14
+(Notifications + RevenueCat + Safety)** once it ships — a paywall/subscription
+surface and a push-notification affordance are new UI that will need their
+own section here, per §22 of this doc's own review process (update this file
+at the end of every step).
 
 ## 25. Mobile safe-area rules
 

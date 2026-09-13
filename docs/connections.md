@@ -168,7 +168,8 @@ Three things are deliberately impossible:
 
 | Operation | Rule |
 | --- | --- |
-| read (`get`, `list`) | signed in **and** `uid in resource.data.participants` |
+| read (`list`) | signed in **and** `uid in resource.data.participants` — unchanged, no `exists()` involved |
+| read (`get`) | signed in, `uid` is one of the two ids the connection id encodes (`uidInPairId`), **and** the document doesn't exist yet OR `uid in resource.data.participants` |
 | create | caller is a participant, exactly two distinct participants, id matches the pair, `requestedBy == [uid]`, `status == 'pending'`, `connectedAt == null`, timestamps `== request.time` |
 | update | participants, `id` and `createdAt` unchanged; current status is `pending`; caller was **not** already in `requestedBy`; `newRequestedBy.removeAll(old) == [uid]` and nothing was removed; `connected` only when both participants asked, and `connectedAt` only then |
 | delete | current status is `pending` **and** `requestedBy == [uid]` |
@@ -183,6 +184,38 @@ smuggle a score, a profile copy or a chat id into the document.
 
 Self-connection is blocked by `participants[0] != participants[1]`, on top of
 the service check.
+
+**`get` and `list` are two separate `allow` statements, deliberately.** The
+realtime subscription (`ConnectionProvider`) reads via `list` — a query
+(`participants array-contains uid` + `limit`) that can only ever match
+documents that already exist, so it keeps the plain, unmodified participant
+check. `get` is the only place the "doesn't exist yet" branch applies, since
+it's the only operation a single-document transaction ever performs. The
+first version of this fix combined them under one `allow get, list:` line,
+and that briefly broke the live project a second way: Firestore could not
+safely evaluate the `list` query per-document with an `exists()` call mixed
+into the same rule, so the realtime subscription came back permission-denied
+for BOTH participants on every fresh subscribe (i.e. every page refresh) —
+`getDoc` against the very same document kept succeeding the whole time,
+which is what made it look like "the connection resets to none on refresh"
+rather than a rules bug. `tests/firestore-rules.test.ts`'s "listing
+connections via the realtime subscription query" block exists specifically
+because every other test in the file uses `getDoc`, which would never have
+caught this.
+
+**Why the "doesn't exist yet" branch exists.** `connect()`'s transaction
+always reads the pair's document first, to decide whether to create it
+pending or promote it to connected. Before this branch existed, that first
+read on a pair's very first Connect was denied outright — `resource` is
+`null` for a document that doesn't exist, so `resource.data.participants`
+threw inside the rule and Firestore treated the error as a denial. That
+silently broke every first-ever Connect between two accounts in a live
+project (mock mode has no rules, so it never surfaced there, and the
+emulator suite never caught it either — every test seeds the document before
+reading it). `uidInPairId()` (`firestore.rules`, top-level SHARED section)
+decides admission from the id string itself — `a__b` already names both
+participants — so the transaction's existence check can succeed without ever
+trusting a stranger to read someone else's pair.
 
 ### Rule tests
 

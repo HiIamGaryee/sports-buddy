@@ -13,9 +13,13 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   type Firestore,
 } from 'firebase/firestore'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
@@ -132,6 +136,83 @@ describe('reading a connection', () => {
     })
     await assertSucceeds(getDoc(doc(asUser(GARY), connectionPath(PAIR))))
     await assertSucceeds(getDoc(doc(asUser(AINA), connectionPath(PAIR))))
+  })
+})
+
+// Regression coverage for a second real live-project bug: `ConnectionProvider`
+// never calls `getDoc` — its only read is the realtime subscription's own
+// QUERY (`participants array-contains uid` + `limit`), which is a `list`
+// operation, not `get`. Every test above and below uses `getDoc`, so none of
+// them would have caught a `list`-specific regression. This is exactly what
+// happened when `get, list` were first combined with an `exists()` branch:
+// Firestore could evaluate a single-document `get` fine, but the realtime
+// `list` query came back permission-denied for BOTH participants, which
+// looked like "the connection resets to none on every refresh" in the app
+// even though `getDoc` against the same document kept succeeding.
+describe('listing connections via the realtime subscription query', () => {
+  const subscriptionQuery = (db: Firestore, uid: string) =>
+    query(
+      collection(db, 'connections'),
+      where('participants', 'array-contains', uid),
+      limit(30),
+    )
+
+  it('returns a connected pair to both participants', async () => {
+    await seed(PAIR, {
+      ...pendingFrom(GARY, AINA),
+      requestedBy: sortConnectionPair(GARY, AINA),
+      status: 'connected',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      connectedAt: new Date(),
+    })
+    const garySnapshot = await getDocs(subscriptionQuery(asUser(GARY), GARY))
+    expect(garySnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+    const ainaSnapshot = await getDocs(subscriptionQuery(asUser(AINA), AINA))
+    expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+  })
+
+  it('returns a pending pair to both participants', async () => {
+    await seed(PAIR, {
+      ...pendingFrom(GARY, AINA),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    const garySnapshot = await getDocs(subscriptionQuery(asUser(GARY), GARY))
+    expect(garySnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+    const ainaSnapshot = await getDocs(subscriptionQuery(asUser(AINA), AINA))
+    expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+  })
+
+  it('returns nothing to a stranger, and never fails the query itself', async () => {
+    await seed(PAIR, {
+      ...pendingFrom(GARY, AINA),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    const snapshot = await getDocs(subscriptionQuery(asUser(STRANGER), GARY))
+    expect(snapshot.docs).toEqual([])
+  })
+})
+
+// Regression coverage for a real live-project bug: `connect()` transactions
+// always read the pair's document FIRST to decide whether to create or
+// update it. Every test above seeds the document before reading it, so none
+// of them caught that a `get` on a connection that does not exist yet was
+// being denied outright (`resource` is null, so `resource.data.participants`
+// threw). That silently broke every first-ever Connect between two users.
+describe('reading a connection that does not exist yet', () => {
+  it('is allowed to either potential participant, so their transaction can check first', async () => {
+    await assertSucceeds(getDoc(doc(asUser(GARY), connectionPath(PAIR))))
+    await assertSucceeds(getDoc(doc(asUser(AINA), connectionPath(PAIR))))
+  })
+
+  it('is denied to someone the id is not about', async () => {
+    await assertFails(getDoc(doc(asUser(STRANGER), connectionPath(PAIR))))
+  })
+
+  it('is denied to an unauthenticated caller', async () => {
+    await assertFails(getDoc(doc(asGuest(), connectionPath(PAIR))))
   })
 })
 
@@ -379,6 +460,38 @@ describe('conversations', () => {
     await assertSucceeds(getDoc(doc(asUser(AINA), conversationPath())))
   })
 
+  // Regression coverage for a real live-project bug: the Messages LIST is
+  // built from `subscribeToConversations`, a `list` QUERY
+  // (`participants array-contains uid` + `limit`), never a `getDoc`. Every
+  // test above uses `getDoc`, so none of them would have caught that the
+  // original rule — sharing `connectedParticipant()` (an external `get()`
+  // into `connections`) between `get` and `list` — came back
+  // permission-denied for the WHOLE query in live Firestore, even for a
+  // genuinely connected pair. This is what surfaced as "We couldn't load
+  // these messages" during a real two-user chat test.
+  describe('listing conversations via the realtime subscription query', () => {
+    const subscriptionQuery = (db: Firestore, uid: string) =>
+      query(
+        collection(db, 'conversations'),
+        where('participants', 'array-contains', uid),
+        limit(100),
+      )
+
+    it('returns a connected pair\'s conversation to both participants', async () => {
+      await seedConversation()
+      const garySnapshot = await getDocs(subscriptionQuery(asUser(GARY), GARY))
+      expect(garySnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+      const ainaSnapshot = await getDocs(subscriptionQuery(asUser(AINA), AINA))
+      expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+    })
+
+    it('returns nothing to a stranger, and never fails the query itself', async () => {
+      await seedConversation()
+      const snapshot = await getDocs(subscriptionQuery(asUser(STRANGER), GARY))
+      expect(snapshot.docs).toEqual([])
+    })
+  })
+
   it('can be created by a connected participant', async () => {
     await seedConnected()
     await assertSucceeds(
@@ -479,6 +592,7 @@ describe('messages', () => {
     conversationId: PAIR,
     senderId: GARY,
     content: 'Badminton Saturday?',
+    participants: sortConnectionPair(GARY, AINA),
     createdAt: serverTimestamp(),
     ...overrides,
   })
@@ -587,6 +701,62 @@ describe('messages', () => {
     )
   })
 
+  it('rejects a message whose participants do not match the conversation', async () => {
+    await seedConnectedConversation()
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), `${messagesPath}/msg_1`),
+        message({ participants: [GARY, STRANGER] }),
+      ),
+    )
+  })
+
+  it('rejects a message with no participants field at all', async () => {
+    await seedConnectedConversation()
+    const { participants: _omitted, ...withoutParticipants } = message()
+    await assertFails(
+      setDoc(doc(asUser(GARY), `${messagesPath}/msg_1`), withoutParticipants),
+    )
+  })
+
+  // Regression coverage for a real live-project bug: the Messages screen's
+  // realtime subscription (`subscribeToRecentMessages`) is a `list` QUERY
+  // (`orderBy('createdAt','desc') + limit`), not a `getDoc`. The messages
+  // rule originally shared `connectedParticipant()` — which reads the
+  // CONNECTIONS collection via `get()` — for both `get` and `list`. That
+  // combination came back permission-denied for the whole query in live
+  // Firestore even though every message individually satisfied it (the
+  // exact same class of failure the `connections` list subscription hit
+  // earlier), while `getDoc`-based tests kept passing throughout — which is
+  // exactly why this went undetected until a real two-user chat test. Fixed
+  // by denormalizing `participants` onto each message so `list` can check
+  // `resource.data` directly, with zero external reads.
+  describe('listing messages via the realtime subscription query', () => {
+    it('returns messages to both connected participants', async () => {
+      await seedMessage()
+      const garySnapshot = await getDocs(
+        query(collection(asUser(GARY), messagesPath), orderBy('createdAt', 'desc'), limit(20)),
+      )
+      expect(garySnapshot.docs.map((entry) => entry.id)).toEqual(['msg_1'])
+      const ainaSnapshot = await getDocs(
+        query(collection(asUser(AINA), messagesPath), orderBy('createdAt', 'desc'), limit(20)),
+      )
+      expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual(['msg_1'])
+    })
+
+    it('returns nothing to a stranger, and never fails the query itself', async () => {
+      await seedMessage()
+      const snapshot = await getDocs(
+        query(
+          collection(asUser(STRANGER), messagesPath),
+          orderBy('createdAt', 'desc'),
+          limit(20),
+        ),
+      )
+      expect(snapshot.docs).toEqual([])
+    })
+  })
+
   it('cannot be sent while the connection is only pending', async () => {
     await seed(PAIR, {
       id: PAIR,
@@ -686,6 +856,27 @@ describe('activity plans', () => {
     await seedPlan()
     await assertSucceeds(getDoc(doc(asUser(GARY), planPath())))
     await assertSucceeds(getDoc(doc(asUser(AINA), planPath())))
+  })
+
+  // Regression coverage: `ensureActivePlan()` reads the plan document FIRST,
+  // inside a transaction, to decide whether to create it. That read must
+  // succeed for a connected participant even before the plan exists.
+  describe('reading a plan that does not exist yet', () => {
+    it('is allowed to either connected participant', async () => {
+      await seedConnected()
+      await assertSucceeds(getDoc(doc(asUser(GARY), planPath())))
+      await assertSucceeds(getDoc(doc(asUser(AINA), planPath())))
+    })
+
+    it('is denied to someone the id is not about', async () => {
+      await seedConnected()
+      await assertFails(getDoc(doc(asUser(STRANGER), planPath())))
+    })
+
+    it('is denied to an unauthenticated caller', async () => {
+      await seedConnected()
+      await assertFails(getDoc(doc(asGuest(), planPath())))
+    })
   })
 
   it('can be created by a connected participant', async () => {
@@ -1227,6 +1418,27 @@ describe('confirmed activities', () => {
     await seedActivity()
     await assertSucceeds(getDoc(doc(asUser(GARY), activityPath())))
     await assertSucceeds(getDoc(doc(asUser(AINA), activityPath())))
+  })
+
+  // Regression coverage: `createFromPlan()` reads the activity document
+  // FIRST, inside a transaction, to make confirming idempotent. That read
+  // must succeed for a plan participant even before the activity exists.
+  describe('reading an activity that does not exist yet', () => {
+    it('is allowed to either plan participant', async () => {
+      await seedVenueAgreedPlan()
+      await assertSucceeds(getDoc(doc(asUser(GARY), activityPath())))
+      await assertSucceeds(getDoc(doc(asUser(AINA), activityPath())))
+    })
+
+    it('is denied to someone the id is not about', async () => {
+      await seedVenueAgreedPlan()
+      await assertFails(getDoc(doc(asUser(STRANGER), activityPath())))
+    })
+
+    it('is denied to an unauthenticated caller', async () => {
+      await seedVenueAgreedPlan()
+      await assertFails(getDoc(doc(asGuest(), activityPath())))
+    })
   })
 
   it('can be created by a participant from a fully agreed plan', async () => {

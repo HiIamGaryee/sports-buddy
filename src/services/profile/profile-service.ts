@@ -96,7 +96,11 @@ export const profileService = {
     })
   },
 
-  /** Profile editing. Preferences are left as they are, minus dropped sports. */
+  /**
+   * Profile editing. Sports filters are left as they are, minus dropped
+   * sports; the intent filter always mirrors the edited profile (see
+   * `reconcileDiscoveryPreferences`).
+   */
   async updateProfile(
     userId: string,
     input: SaveProfileInput,
@@ -104,7 +108,11 @@ export const profileService = {
   ): Promise<SportsProfile> {
     return saveValidated(userId, {
       ...input,
-      preferences: reconcileDiscoveryPreferences(preferences, input.sports),
+      preferences: reconcileDiscoveryPreferences(
+        preferences,
+        input.sports,
+        input.intents,
+      ),
     })
   },
 

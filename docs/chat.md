@@ -247,21 +247,62 @@ function connectedParticipant() {
 
 | Operation | Rule |
 | --- | --- |
-| read conversation | `connectedParticipant()` |
+| list conversations | `uid in resource.data.participants` — see below for why this is a separate, weaker-looking rule |
+| get one conversation | `connectedParticipant()` |
 | create conversation | plus: id and `connectionId` equal the document id, `participants` **equal the connection's**, previews null, timestamps `== request.time`, exact key allowlist |
 | update conversation | plus: `id` / `connectionId` / `participants` / `createdAt` unchanged, `lastMessageSenderId == request.auth.uid`, text non-empty and ≤ 1000, timestamps `== request.time` |
 | delete conversation | denied |
-| read messages | `connectedParticipant()` |
-| create message | plus: `id == messageId`, `conversationId` matches, `senderId == request.auth.uid`, content is a string, `content.trim().size() > 0`, `size() <= 1000`, `createdAt == request.time`, exact key allowlist |
+| list messages | `uid in resource.data.get('participants', [])` |
+| get one message | `connectedParticipant()` |
+| create message | plus: `id == messageId`, `conversationId` matches, `senderId == request.auth.uid`, content is a string, `content.trim().size() > 0`, `size() <= 1000`, `participants` **equal the conversation's**, `createdAt == request.time`, exact key allowlist |
 | update / delete message | denied |
 
-`request.auth.uid in participants` alone would be far too weak: it would let
-somebody fabricate a conversation document with a person they are not
-connected to. Reading the connection is the whole point, and it costs one
-document read per rule evaluation — the price of not trusting the client.
+`request.auth.uid in participants` alone would be far too weak for a
+**write**: it would let somebody fabricate a conversation document with a
+person they are not connected to. Reading the connection is the whole point
+of `connectedParticipant()`, and every write, and every single-document
+`get()`, still goes through it.
 
 `content.trim().size() > 0` means a whitespace-only message is rejected
 server-side too, not just by the composer.
+
+### Why `list` is a separate, plain `participants` check (a real live incident)
+
+The Messages screen never does a single-document `getDoc` — both
+`subscribeToConversations` and `subscribeToRecentMessages` are `list`
+QUERIES (`array-contains` / an unfiltered collection query, each with
+`limit`). The original rules shared `connectedParticipant()` — which reads
+the **connections** collection via `get()` — between `get` and `list` for
+both `conversations` and `messages`. In a real two-user live test, this came
+back **`permission-denied` for the entire query**, for a genuinely connected
+pair, even though every individual document would have legitimately passed
+the check — Firestore could not safely evaluate a `list` query per-document
+with an external `get()` mixed into the same rule (the same class of failure
+that separately broke the `connections` realtime subscription; see
+`docs/connections.md` §9). Every emulator test used `getDoc`/`setDoc`, never
+an actual `list` query, so 106 "passing" tests never caught it — this only
+surfaced from an actual two-user chat test against live Firestore.
+
+The fix: `list` never uses `get()`/`exists()` at all.
+
+- `conversations` already stores its own `participants`, so its `list` rule
+  checks `resource.data.participants` directly — no external read.
+- `messages` documents carried no relationship data of their own, so
+  `participants` is now **denormalized onto every message** at send time
+  (`SendMessageInput.participants`, mirrored from the conversation), purely
+  so `list` has something to check without an external read. It is never a
+  domain field — `toMessageDocument()` does not read it back out, and the
+  UI never displays it. `list` reads it defensively via
+  `resource.data.get('participants', [])`, so a message sent before this
+  field existed simply doesn't match `in` for anyone (quietly excluded from
+  a fresh `list`, never a hard error) rather than breaking the whole query —
+  an acceptable one-time cost paid by test messages sent before the fix.
+
+This is a real, general trap worth remembering for any future collection:
+**a `list` rule that needs data from ANOTHER document is much riskier than a
+`get` rule that does — test the actual query shape the app uses, not just
+individual-document reads, against a real (or at least very carefully
+reasoned) Firestore evaluation, before trusting it in production.**
 
 ### Rule tests
 

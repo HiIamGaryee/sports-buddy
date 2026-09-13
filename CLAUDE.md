@@ -336,7 +336,11 @@ listener.
   and cannot change a compatibility score or the order.
 - Incoming requests are lifted into a "Wants to connect" section above the
   ranked feed. That is ordering only — the score is calculated normally and
-  never inflated because someone asked first.
+  never inflated because someone asked first. Unlike the ranked feed, this
+  section is **exempt from the viewer's active Discover filters**
+  (`NO_DISCOVER_FILTERS` in `src/lib/discover-filters.ts`): a pending
+  request must never be hidden just because the recipient happens to have a
+  sport/skill/area filter on. See `docs/discover.md`.
 - "Not now" is session-only in-memory state. No `dismissedProfiles`
   collection exists, and refresh brings the candidate back.
 - Deliberately absent: disconnect/unfriend, block/report, chat, notification

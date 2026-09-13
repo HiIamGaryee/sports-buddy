@@ -25,6 +25,22 @@ service cloud.firestore {
         || boundedString(data[key], limit);
     }
 
+    /**
+     * True when `uid` is one of the participant segments encoded in a
+     * deterministic pair-based document id — `a__b` for a connection, or
+     * `a__b__active` for its plan and confirmed activity. Used ONLY to admit
+     * a `get` on a document that does not exist yet, so a client's
+     * transaction may check "does this already exist?" before writing
+     * (`connect()`, `ensureActivePlan()`, `createFromPlan()` all do this).
+     * Once a document exists, authorization always re-derives participation
+     * from its stored `participants` field, never from the id alone — this
+     * only prevents a stranger from probing whether some OTHER pair's
+     * document exists.
+     */
+    function uidInPairId(uid, id) {
+      return uid in id.split('__');
+    }
+
     // PRIVATE. `users/{uid}` holds account fields, the sports profile and the
     // user's preferences (discovery filters, privacy, notifications). It is
     // never readable by anyone else — Discover reads publicProfiles instead.
@@ -150,7 +166,22 @@ service cloud.firestore {
           : data.status == 'pending' && data.connectedAt == null;
       }
 
-      allow get, list: if isParticipant(current());
+      // `list` is the realtime subscription's own query
+      // (`participants array-contains uid` + `limit`) — it can only ever
+      // match documents that already exist, so it stays the plain
+      // participant check. Combining a `list` rule with `exists()` (as the
+      // `get` rule below needs) risks Firestore being unable to evaluate the
+      // query per-document at all, silently failing the WHOLE subscription
+      // rather than one document — keeping them separate is what avoids that.
+      allow list: if isParticipant(current());
+
+      // The `!exists(...)` branch is only for a single-document `get`, which
+      // is what lets `connect()`'s transaction check a brand-new pair before
+      // creating it — see `uidInPairId()`.
+      allow get: if request.auth != null
+        && uidInPairId(request.auth.uid, connectionId)
+        && (!exists(/databases/$(database)/documents/connections/$(connectionId))
+            || isParticipant(current()));
 
       allow create: if isParticipant(incoming())
         && wellFormed(incoming())
@@ -212,7 +243,22 @@ service cloud.firestore {
                 'updatedAt'];
       }
 
-      allow get, list: if connectedParticipant();
+      // `list` is the Messages list's own subscription
+      // (`participants array-contains uid` + `limit`) — a real live-project
+      // failure showed that combining a `list` query with an external
+      // `get()`/`exists()` call (as `connectedParticipant()` makes, into the
+      // `connections` collection) comes back permission-denied for the WHOLE
+      // query, even when every individual document would legitimately pass.
+      // `conversations` already stores its own `participants`, so `list`
+      // checks that directly instead — no external read, and a query can
+      // only ever match a document that already exists in the first place.
+      // A stronger `connectedParticipant()` check still gates every WRITE and
+      // every single-document `get()` below, so this is not a real narrowing
+      // of who may read what — see `docs/chat.md` for the full incident.
+      allow list: if request.auth != null
+        && request.auth.uid in resource.data.participants;
+
+      allow get: if connectedParticipant();
 
       allow create: if connectedParticipant()
         && request.resource.data.keys().hasOnly(conversationFields())
@@ -247,11 +293,24 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{messageId} {
+        // `participants` is DENORMALIZED onto every message purely so `list`
+        // (below) can authorize without an external `get()` — messages carry
+        // no other relationship data, and it is never surfaced as a domain
+        // field (`toMessageDocument()` ignores it). It always equals the
+        // conversation's own participants, enforced at create time.
         function messageFields() {
-          return ['id', 'conversationId', 'senderId', 'content', 'createdAt'];
+          return ['id', 'conversationId', 'senderId', 'content', 'createdAt',
+                  'participants'];
         }
 
-        allow get, list: if connectedParticipant();
+        // Tolerant of a message written before this field existed
+        // (`.get(key, [])`), which simply will not match `in` for anyone —
+        // an old test message going temporarily unlisted is an acceptable
+        // one-time cost; a client cannot write a message without it anymore.
+        allow list: if request.auth != null
+          && request.auth.uid in resource.data.get('participants', []);
+
+        allow get: if connectedParticipant();
 
         allow create: if connectedParticipant()
           && request.resource.data.keys().hasOnly(messageFields())
@@ -265,6 +324,8 @@ service cloud.firestore {
           && request.resource.data.content.trim().size() > 0
           // Mirrors MAX_MESSAGE_LENGTH in src/constants/chat.ts.
           && request.resource.data.content.size() <= 1000
+          // Exactly the conversation's own participants — never invented.
+          && request.resource.data.participants == connection().participants
           && request.resource.data.createdAt == request.time;
 
         // Messages are immutable in this step.
@@ -384,7 +445,23 @@ service cloud.firestore {
               && before.acceptedBy.removeAll(after.acceptedBy).size() == 0);
       }
 
-      allow get, list: if connectedParticipant(current().connectionId);
+      // The `!exists(...)` branch is what lets `ensureActivePlan()`'s
+      // transaction check a brand-new draft before creating it — see
+      // `uidInPairId()`. Only valid while a plan id is `{connectionId}__active`
+      // (the only shape that exists today) — an archived-plan id scheme would
+      // need its own version of this check.
+      //
+      // `list` is split out even though no query over `activityPlans` exists
+      // today (one plan is always opened by its own known id) — combining a
+      // `list` rule with `exists()` risks Firestore being unable to evaluate
+      // a future query per-document at all, so this keeps that risk out
+      // entirely rather than relying on "nothing lists this yet."
+      allow list: if connectedParticipant(current().connectionId);
+
+      allow get: if request.auth != null
+        && uidInPairId(request.auth.uid, planId)
+        && (!exists(/databases/$(database)/documents/activityPlans/$(planId))
+            || connectedParticipant(current().connectionId));
 
       allow create: if connectedParticipant(incoming().connectionId)
         && incoming().keys().hasOnly(planFields())
@@ -493,8 +570,26 @@ service cloud.firestore {
                 'createdBy', 'createdAt', 'updatedAt'];
       }
 
-      allow get, list: if request.auth != null
+      // `getUpcomingForUser`/`getPastForUser` (STEP 13) query this collection
+      // directly (`participants array-contains uid` + a bound on `endAt`),
+      // so `list` is real here, not hypothetical. It stays the plain
+      // participant check — a query can only ever match documents that
+      // already exist. Combining a `list` rule with `exists()` (as `get`
+      // below needs) risks Firestore being unable to evaluate the query
+      // per-document at all, silently failing the WHOLE history read rather
+      // than one document.
+      allow list: if request.auth != null
         && request.auth.uid in current().participants;
+
+      // The `!exists(...)` branch is only for a single-document `get`, which
+      // is what lets `createFromPlan()`'s transaction check for an
+      // already-confirmed activity before writing one — see `uidInPairId()`.
+      // Valid while an activity id is its source plan's `{connectionId}__active`
+      // id (true today; §STEP 12).
+      allow get: if request.auth != null
+        && uidInPairId(request.auth.uid, activityId)
+        && (!exists(/databases/$(database)/documents/activities/$(activityId))
+            || request.auth.uid in current().participants);
 
       allow create: if request.auth != null
         && exists(planPath())
