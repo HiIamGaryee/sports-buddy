@@ -36,6 +36,40 @@ Owner: Lynn662312 (Player A). Last updated: 2026-09-13.
    3. Commit and push `deploy`.
    4. Open a pull request `deploy` → `main` for Player B to review.
 
+   **Second follow-up, 2026-09-14:** joins are now recorded. A post is 1v1:
+   the author chooses **Anyone can join** or **I approve who joins**; once
+   someone has the spot it shows **Full**. The author approves/declines
+   requests (and can remove someone) on the card; joining also sends a
+   connect request, approving connects back, so they can chat. Activities
+   shows posts you created AND joined (planned/past); Home shows the soonest
+   of confirmed sessions, created posts and joined posts; Discover has **From
+   your buddies**; sports buddy cards have **Unconnect** behind a
+   confirmation. Rules 160/160, unit tests 450, rules deployed.
+   Retest: Lynn posts with approval → Leo taps Request to join → Lynn
+   approves → post shows Full for a third account, Leo sees "You're in" and
+   can message Lynn → Leo leaves → spot opens again. Then Unconnect Leo from
+   a buddy card → confirm → chat stops.
+
+   **Follow-up, 2026-09-14:** Join now appears for connected buddies (it
+   opens your chat), the author can **Edit** a post, your posts show on the
+   Activities page (Planned / Created by me / Past), buddy cards show name +
+   View profile, and activity cards show the poster's playing style and what
+   they're looking for. Joins are deliberately not recorded yet. Rules
+   141/141, unit tests 443. Retest: Lynn posts → Leo (connected) taps Join →
+   chat opens; Lynn edits the time → Leo sees it after refresh; Lynn's
+   Activities shows the post under Planned and Created by me.
+
+   **Also on 2026-09-14 — Discover activity posts made real.** "Post an
+   activity" used to save nothing (the button only navigated back), and the
+   Discover list was a static JSON file of 12 invented activities pointing at
+   user ids that don't exist in Firebase. Now: posts save to a new
+   `activityPosts` collection (rules deployed; 139/139 rules tests, 440 unit
+   tests), Discover shows real open activities (author name → location →
+   sport → price range → date/time, with **Join** = connect with the author),
+   then "Wants to connect", then ranked sports buddies. Retest live: post an
+   activity as Lynn → it shows on Discover for both Lynn ("Your activity",
+   Remove) and Leo (Join) → Leo taps Join → Lynn connects back → chat works.
+
    Added on 2026-09-14 while deploying: a **Blocked users** list with
    **Unblock** in Settings → Privacy & safety (there was no way to unblock
    before — a blocked person is hidden everywhere they could be reached);
@@ -111,6 +145,11 @@ Owner: Lynn662312 (Player A). Last updated: 2026-09-13.
   new rules and rules tests (`docs/chat.md` §16).
 - **Push notifications** (OneSignal/FCM, Phase 3 optional).
 - **Codemagic CI.** Optional — signed builds already work on this machine.
+- **Android App Links** so a share link opens the installed app. Needs
+  `/.well-known/assetlinks.json` on hosting (with the release key's SHA-256)
+  and an intent filter for `sportbuddy-4d596.web.app` in `AndroidManifest.xml`.
+  Also set `VITE_PUBLIC_APP_URL` in the native build, or links shared from the
+  app will point at `localhost`.
 
 ---
 
@@ -174,13 +213,50 @@ Leo/Lynn test messages (unnecessary; only test data was lost).
   working. Saved per device for now (see "Later").
 - **Decision:** full message history is free.
 
+### Invites, share links and web hosting (2026-09-14)
+
+Deployed: rules, indexes, and the web app at https://sportbuddy-4d596.web.app.
+Not committed yet.
+
+- **Joined activities count as confirmed.** Activities → Planned now shows
+  Invitations, Looking for a buddy (your posts nobody has joined yet),
+  Waiting for approval, then **Confirmed sessions**. A post shows there once
+  its one spot is taken, for both the author and the person who joined.
+- **Invite a buddy from chat.** The **Invite** button in a chat header opens
+  a short form (sport, time, budget, venue). It creates a private post that
+  only the two of you can see, and sends the link into the chat. Your buddy
+  taps **Accept invite** and it becomes a confirmed session.
+- **Who can see a post.** When you post, you pick **Public** (on Discover) or
+  **Link only** (never on Discover; only people with the link can open it).
+- **Share.** Public and link-only posts have **Share link** (the phone's
+  share sheet, or copy the link) and **Send to a buddy** (sends the link as a
+  chat message). A link in a chat message opens the activity inside the app.
+- **Outsiders.** A link like `/activity/<id>` opens a "You've been invited
+  to play" page. After they sign up and finish onboarding, the app takes them
+  straight to that activity.
+- **Security fix before deploy.** A test showed a signed-in stranger could
+  list link-only and invite posts with an unfiltered query. The list rule now
+  reads `resource.data.visibility` directly. 171 rules tests pass.
+
+Known gaps:
+
+- The **4 live posts created before this change** have no `visibility` field,
+  so they no longer show on Discover. Their authors still see them in
+  Activities, and saving an edit adds the field. They're test posts, so you
+  can also just delete them.
+- **Settings → download APK doesn't work on the hosted site.** The free
+  Spark plan won't host `.apk` files, so `downloads/` is left out of hosting.
+  It still works in local dev.
+- **Share links in the Android app** open the website, not the app. Android
+  App Links need an `assetlinks.json` and an intent filter (see "Later").
+
 ---
 
 ## Phase checklists (from the PDF)
 
 ### Phase 2 — Monetization + RevenueCat (days 5–10)
 
-- [ ] Decide what's actually paid (with Player B)
+- [x] Decide what's actually paid (with Player B)
 - [almost] Create a RevenueCat account + project
 - [ ] Create the subscription/product in Google Play Console (needs the Play
       Console account first)

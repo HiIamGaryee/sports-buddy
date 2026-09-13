@@ -1,18 +1,21 @@
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConnectAction } from '@/features/connections/components/connect-action'
 import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
 import { useConnections } from '@/hooks/use-connections'
+import { getInitials } from '@/lib/initials'
 import {
   formatAvailability,
   formatBudget,
   getIntentLabel,
   getSkillLabel,
+  getAreaName,
   getSportName,
 } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
-import { conversationPath } from '@/routes/routes'
+import { buddyProfilePath, conversationPath } from '@/routes/routes'
 import { Link } from 'react-router-dom'
 import { MessageCircle } from 'lucide-react'
 import type { DiscoverBuddy } from '@/types/discover'
@@ -21,9 +24,10 @@ const MAX_SPORTS_SHOWN = 3
 const MAX_SLOTS_SHOWN = 2
 
 /**
- * A deliberately anonymous match card. Discover communicates what someone
- * wants to play and when, while names, photos, bios and profiles stay hidden
- * until the two people have connected.
+ * One ranked sports buddy: who they are (name, photo, area), how well you fit,
+ * what they play and when, then the action. Everything shown comes from the
+ * discovery-safe `DiscoveryProfile` projection, so nothing private can reach
+ * this card, and View profile opens the same projection in full.
  */
 export function BuddyCard({
   buddy,
@@ -50,16 +54,27 @@ export function BuddyCard({
     <Card variant="interactive" className="h-full">
       <CardContent className="flex h-full flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="text-title text-card-foreground">
-              Your next sports buddy
-            </span>
-            <span className="text-body-small text-muted-foreground">
-              {connectionState === 'connected'
-                ? "You're connected — plan a session together."
-                : 'Connect to reveal their profile.'}
-            </span>
-          </div>
+          <Link
+            to={buddyProfilePath(candidate.userId)}
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl transition-ui focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <Avatar className="size-12 shrink-0">
+              {candidate.photoUrl && (
+                <AvatarImage src={candidate.photoUrl} alt="" />
+              )}
+              <AvatarFallback className="text-title">
+                {getInitials(candidate.displayName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-title text-card-foreground">
+                {candidate.displayName}
+              </span>
+              <span className="truncate text-body-small text-muted-foreground">
+                {getAreaName(candidate.area)}
+              </span>
+            </div>
+          </Link>
           <CompatibilityScore
             score={compatibility.score}
             label={compatibility.label}
@@ -68,7 +83,7 @@ export function BuddyCard({
 
         {connectionState === 'pending-incoming' && (
           <p className="text-body-small text-primary">
-            Someone wants to connect with you.
+            {candidate.displayName} wants to connect.
           </p>
         )}
 
@@ -131,22 +146,31 @@ export function BuddyCard({
           <span className="text-body-small text-muted-foreground">
             {formatBudget(candidate.budget)} / activity
           </span>
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              to={buddyProfilePath(candidate.userId)}
+              aria-label={`View ${candidate.displayName}'s profile`}
+            >
+              View profile
+            </Link>
+          </Button>
         </div>
 
         {connectionState === 'connected' && conversationId ? (
-          <div className="mt-auto flex items-center gap-3">
+          <div className="mt-auto flex items-start gap-3">
             <ConnectAction
               userId={candidate.userId}
-              displayName="this sports buddy"
+              displayName={candidate.displayName}
               state={connectionState}
               showMessage={false}
+              allowDisconnect
               className="min-w-0 flex-1"
               connectedClassName="h-12 rounded-2xl"
             />
             <Button
               size="icon-lg"
               className="size-12 rounded-full"
-              aria-label="Message"
+              aria-label={`Message ${candidate.displayName}`}
               title="Message"
               asChild
             >
@@ -159,7 +183,7 @@ export function BuddyCard({
           <div className="mt-auto flex items-start gap-2">
             <ConnectAction
               userId={candidate.userId}
-              displayName="this sports buddy"
+              displayName={candidate.displayName}
               state={connectionState}
               className="flex-1"
             />

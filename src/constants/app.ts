@@ -26,4 +26,5 @@ export const MOCK_STORAGE_KEYS = {
   chat: 'sports-buddy.mock-chat',
   activityPlans: 'sports-buddy.mock-activity-plans',
   activities: 'sports-buddy.mock-activities',
+  activityPosts: 'sports-buddy.mock-activity-posts',
 } as const

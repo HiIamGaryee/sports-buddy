@@ -3,6 +3,8 @@ import { firebaseAuthRepository } from '@/repositories/auth/firebase-auth-reposi
 import { mockAuthRepository } from '@/repositories/auth/mock-auth-repository'
 import { firebaseActivityRepository } from '@/repositories/activity/firebase-activity-repository'
 import { mockActivityRepository } from '@/repositories/activity/mock-activity-repository'
+import { firebaseActivityPostRepository } from '@/repositories/activity-post/firebase-activity-post-repository'
+import { mockActivityPostRepository } from '@/repositories/activity-post/mock-activity-post-repository'
 import { firebaseActivityPlanRepository } from '@/repositories/activity-plan/firebase-activity-plan-repository'
 import { mockActivityPlanRepository } from '@/repositories/activity-plan/mock-activity-plan-repository'
 import { firebaseChatRepository } from '@/repositories/chat/firebase-chat-repository'
@@ -66,6 +68,11 @@ export const activityPlanRepository = useFirebase
 export const activityRepository = useFirebase
   ? firebaseActivityRepository
   : mockActivityRepository
+
+/** `activityPosts/{postId}` — public invitations to play, shown on Discover. */
+export const activityPostRepository = useFirebase
+  ? firebaseActivityPostRepository
+  : mockActivityPostRepository
 
 /**
  * Venue discovery, chosen from `env.venueSource` INDEPENDENTLY of the

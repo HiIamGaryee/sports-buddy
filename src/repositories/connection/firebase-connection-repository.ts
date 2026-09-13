@@ -140,4 +140,25 @@ export const firebaseConnectionRepository: ConnectionRepository = {
       transaction.delete(reference)
     })
   },
+
+  /** Either participant may end a connected relationship. */
+  async disconnect(currentUserId, targetUserId) {
+    const reference = connectionDoc(currentUserId, targetUserId)
+
+    await runTransaction(getFirebaseDb(), async (transaction) => {
+      const snapshot = await transaction.get(reference)
+      // Already gone — disconnecting twice is not an error.
+      if (!snapshot.exists()) return
+
+      const existing = toConnectionDocument(snapshot.id, snapshot.data())
+      if (!existing || !existing.participants.includes(currentUserId)) {
+        throw connectionError(CONNECTION_ERROR_CODES.notYourRequest)
+      }
+      if (existing.status !== 'connected') {
+        throw connectionError(CONNECTION_ERROR_CODES.notConnected)
+      }
+
+      transaction.delete(reference)
+    })
+  },
 }

@@ -3,6 +3,15 @@ import { Link } from 'react-router-dom'
 import { MessageCircle, UserCheck } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useConnections } from '@/hooks/use-connections'
 import { cn } from '@/lib/utils'
 import { conversationPath } from '@/routes/routes'
@@ -11,9 +20,9 @@ import type { ConnectionState } from '@/types/connection'
 type ActionSize = 'default' | 'lg'
 
 /**
- * The ONE place connection wording and behaviour live, so Discover and the
- * candidate profile can never drift apart. `connected` is a status, not a
- * button — there is nothing to tap and no dead action.
+ * The ONE place connection wording and behaviour live, so Discover, activity
+ * cards and the candidate profile can never drift apart. `connected` is a
+ * status, not a button — there is nothing to tap and no dead action.
  */
 const ACTIONS = {
   none: {
@@ -57,6 +66,7 @@ export function ConnectAction({
   className,
   showMessage = true,
   connectedClassName,
+  allowDisconnect = false,
 }: {
   userId: string
   displayName: string
@@ -66,19 +76,27 @@ export function ConnectAction({
   /** Discover can place the existing message route beside other quick actions. */
   showMessage?: boolean
   connectedClassName?: string
+  /**
+   * Offer "Unconnect" on a connected relationship. Always behind a
+   * confirmation, so one stray tap can never end a buddy relationship.
+   */
+  allowDisconnect?: boolean
 }) {
-  const { connect, cancelRequest, connections } = useConnections()
+  const { connect, cancelRequest, disconnect, connections } = useConnections()
   // The connection id IS the conversation id, so a Message link needs no
   // lookup and no conversation is created just to render a button — the
   // chat route ensures the document when it opens.
   const conversationId = connections.get(userId)?.id ?? null
-  const [busy, setBusy] = useState<'idle' | 'connecting' | 'cancelling'>('idle')
+  const [busy, setBusy] = useState<
+    'idle' | 'connecting' | 'cancelling' | 'disconnecting'
+  >('idle')
+  const [isConfirmingDisconnect, setIsConfirmingDisconnect] = useState(false)
   const [error, setError] = useState('')
 
   // A single busy flag is what stops a double tap creating a second request;
   // the operation itself is idempotent as a second line of defence.
   const run = async (
-    mode: 'connecting' | 'cancelling',
+    mode: 'connecting' | 'cancelling' | 'disconnecting',
     action: () => Promise<unknown>,
   ) => {
     if (busy !== 'idle') return
@@ -136,6 +154,60 @@ export function ConnectAction({
             ? ACTIONS[state].busyLabel
             : ACTIONS[state].label}
         </Button>
+      )}
+
+      {state === 'connected' && allowDisconnect && (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Unconnect from ${displayName}`}
+            disabled={busy !== 'idle'}
+            onClick={() => setIsConfirmingDisconnect(true)}
+          >
+            Unconnect
+          </Button>
+          <Dialog
+            open={isConfirmingDisconnect}
+            onOpenChange={(open) => {
+              if (busy === 'idle') setIsConfirmingDisconnect(open)
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Unconnect from {displayName}?</DialogTitle>
+                <DialogDescription>
+                  You won't be able to message or plan sessions together until
+                  you both connect again. Your chat history is kept.
+                </DialogDescription>
+              </DialogHeader>
+              {error && (
+                <p role="alert" className="text-body-small text-destructive">
+                  {error}
+                </p>
+              )}
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" disabled={busy !== 'idle'}>
+                    Keep connection
+                  </Button>
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  disabled={busy !== 'idle'}
+                  onClick={() =>
+                    void run('disconnecting', async () => {
+                      await disconnect(userId)
+                      setIsConfirmingDisconnect(false)
+                    })
+                  }
+                >
+                  {busy === 'disconnecting' ? 'Unconnecting…' : 'Unconnect'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
 
       {state === 'pending-outgoing' && (

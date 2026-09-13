@@ -351,8 +351,14 @@ listener.
   sport/skill/area filter on. See `docs/discover.md`.
 - "Not now" is session-only in-memory state. No `dismissedProfiles`
   collection exists, and refresh brings the candidate back.
-- Deliberately absent: disconnect/unfriend, block/report, chat, notification
-  delivery, a connections list screen.
+- **Unconnect** (added later): either participant may end a CONNECTED
+  relationship — `connectionService.disconnect()` deletes the pair document in
+  a transaction, and the rules allow deleting a `connected` document for its
+  participants. Chat and planning stop immediately (both check the
+  connection); the conversation is kept, so reconnecting brings the history
+  back. `ConnectAction allowDisconnect` shows it, always behind a confirmation
+  dialog.
+- Deliberately absent: a connections list screen, notification delivery.
 - Full walkthrough: `docs/connections.md`.
 
 ### Realtime chat (STEP 9)
@@ -783,6 +789,65 @@ participant ids, the connection id and the source plan id cannot reach a file.
   plugin is installed). ICS is the universal path, including inside a
   WebView. `selectProvider()` is the one function that changes later.
 - Full walkthrough: `docs/calendar.md`.
+
+### Discover activity posts
+
+```
+Post an activity page → activityPostService → activityPostRepository → activityPosts/{postId}
+Discover page ← useActivityPosts() (one batch + ONE batched publicProfiles read for authors)
+```
+
+- **A post is a public invitation, not an `Activity`.** `ActivityPost`
+  (`src/types/activity-post.ts`) says "badminton, Sat 5pm, Subang Jaya,
+  RM10–20" and nobody has agreed to it. `Activity` stays the private, agreed
+  snapshot between two connected people.
+- **Joins ARE recorded; a post is 1v1 (`capacity` 1).** The author picks a
+  `joinPolicy`: `open` (Join takes the spot) or `approval` (Join files a
+  request the author approves or declines). Once the spot is taken the post
+  reads **Full** to everyone else. `joinedIds` / `pendingIds` live on the
+  post; every transition is ONE pure function (`applyJoin`, `applyLeave`,
+  `applyApprove`, `applyDecline` in `src/lib/activity-post.ts`) run inside a
+  transaction on the live document, and what a viewer sees is
+  `getPostViewerState()` (`author | joined | requested | full | can-join |
+  can-request | past`). Posts from before joins existed read as open, one
+  spot, empty — in the mapper and in the rules (`data.get(...)`).
+- **A connection is still the only chat permission.** `usePostActions()`
+  composes the two systems: joining (or requesting) also asks to connect with
+  the author, and approving connects back, so once someone is in the two can
+  chat. Neither service imports the other.
+- **The author can edit their post** (time, place, sport, budget), e.g. after
+  someone asks in chat. The same form (`/discover/post-activity/:postId`),
+  the same validation, a server `updatedAt`; identity fields never move.
+- **Activities page** shows your posts next to confirmed sessions: planned
+  posts under Planned and Created by me, past posts (read-only) under Past.
+  Posts you joined appear only once a session is confirmed together.
+- Pure rules in `src/lib/activity-post.ts` (`getActivityPostError`,
+  `toCreateActivityPostInput`, `isUpcomingPost`, `compareActivityPosts`),
+  `now` always injected; limits in `src/constants/activity-posts.ts`. The
+  local date/time + author's IANA zone resolve to an instant ONCE, at post
+  time, via `resolvePlannedInstant`.
+- Stores ids and the author's choices only; the author's name and photo come
+  from `publicProfiles` at render time. Posts from people you blocked are
+  hidden; your own posts show with Remove instead of Join. Past posts are
+  excluded by the query (`startAt > now`, ordered by `startAt` — no composite
+  index).
+- Rules: any signed-in member may read. The author creates (one spot, empty
+  lists), edits (same validation, join lists and capacity frozen) and
+  deletes. Everyone else may change ONLY the join lists, and only by the
+  exact legal move: add or remove THEMSELVES (open: into `joinedIds` while a
+  spot is free and the post has not started; approval: into `pendingIds`).
+  Only the author may move one waiting id into the spot (never past capacity,
+  never someone who did not ask) or remove one id.
+- **Discover** groups open activities as **From your buddies** (authors you
+  are connected with) then **More activities**. **Home** shows the soonest of:
+  a confirmed session, a post you created, a post you have a spot in.
+- Buddy cards on Discover show the buddy's name, photo and area with View
+  profile; the profile page opens for any signed-in member (it renders the
+  public `DiscoveryProfile` projection only).
+- Discover shows REAL data only: open activities, then "Wants to connect",
+  then ranked sports buddies. Location and activity filters narrow both;
+  "Wants to connect" is never filtered. The static `discover-list.json` demo
+  data, with invented distances and match percentages, was removed.
 
 ### Profile editing and settings (STEP 5)
 
@@ -1553,6 +1618,10 @@ it. Feature logic never leaks into `components/ui/`.
 - Open a second conversations subscription (e.g. for a badge); read
   `useConversationsFeed()` from `ConversationsProvider` instead.
 - Touch `CHAT_READ_STATE_KEY` outside `src/lib/chat-read-state.ts`.
+- Render static or JSON "demo" people or activities in a signed-in screen, or
+  show a distance / match percentage the matching engine did not compute.
+- Copy an author's display name or photo into an activity post, or let
+  anyone but its author edit or remove it.
 - Add a second pair-id system for conversations; the conversation id IS the
   connection id.
 - Let a pending (or absent) connection reach an activity plan — the check

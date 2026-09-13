@@ -17,6 +17,12 @@ export const env = {
   dataSource,
   /** Where venue search comes from. Defaults to `mock`. */
   venueSource,
+  /**
+   * Where the web app is publicly hosted (e.g. `https://sportbuddy-4d596.web.app`),
+   * used to build share links. Optional: the browser's own origin is used when
+   * it is missing, which is right on the web but not inside the native app.
+   */
+  publicAppUrl: import.meta.env.VITE_PUBLIC_APP_URL,
   google: {
     /**
      * A Maps browser key is public by design — it is restricted in Google

@@ -31,6 +31,13 @@ export interface ConnectionRepository {
    * reject a `connected` relationship and somebody else's request.
    */
   cancelPending(currentUserId: string, targetUserId: string): Promise<void>
+
+  /**
+   * Ends a `connected` relationship — either participant may. Deletes the
+   * pair document, so connecting again starts from a fresh request. Must
+   * reject a pending relationship (that is `cancelPending`).
+   */
+  disconnect(currentUserId: string, targetUserId: string): Promise<void>
 }
 
 export const CONNECTIONS_COLLECTION = 'connections'

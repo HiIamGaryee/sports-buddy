@@ -1,43 +1,471 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
+import { AreaSelector } from '@/components/profile/area-selector'
+import { BudgetSelector } from '@/components/profile/budget-selector'
+import { SelectableCard } from '@/components/profile/selectable-card'
+import { ErrorState } from '@/components/common/error-state'
+import { FormField } from '@/components/common/form-field'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AppDropdown } from '@/components/ui/AppDropdown'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  JOIN_POLICY_OPTIONS,
+  MAX_VENUE_NAME_LENGTH,
+  VISIBILITY_OPTIONS,
+} from '@/constants/activity-posts'
 import { SPORTS } from '@/constants/sports'
-import { ROUTES } from '@/routes/routes'
+import { useAuth } from '@/hooks/use-auth'
+import { useConnections } from '@/hooks/use-connections'
+import { useProfile } from '@/hooks/use-profile'
+import { useSafety } from '@/hooks/use-safety'
+import { toDraftFromPost } from '@/lib/activity-post'
+import { validDocumentId } from '@/lib/ids'
+import { describeActivityForSharing } from '@/lib/share'
+import { activityPostService } from '@/services/activity-post/activity-post-service'
+import { chatService } from '@/services/chat/chat-service'
+import { discoverService } from '@/services/discover/discover-service'
+import { shareService } from '@/services/share/share-service'
+import { activityPostPath, conversationPath, ROUTES } from '@/routes/routes'
+import type { ActivityPost, ActivityPostDraft } from '@/types/activity-post'
 import type { SportId } from '@/types/sports-profile'
 
-const STEPS = ['Sport', 'Time', 'Budget', 'Venue'] as const
+const STEPS = ['Sport', 'Time', 'Budget', 'Venue', 'Joining'] as const
+/** An invite has exactly one possible guest, so there is no joining step. */
+const INVITE_STEPS = ['Sport', 'Time', 'Budget', 'Venue'] as const
 
+/** `<input type="datetime-local">` wants local wall time, not an ISO instant. */
+function toLocalInputValue(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+type EditState =
+  | { status: 'creating' }
+  | { status: 'loading' }
+  | { status: 'unavailable' }
+  | { status: 'editing'; post: ActivityPost }
+
+/**
+ * Posting, INVITING and editing an activity — one form, so a field can never
+ * be validated one way on create and another on edit.
+ *
+ *  - `/discover/post-activity` posts a public or link-only activity.
+ *  - `/discover/post-activity/invite/:userId` invites ONE connected buddy
+ *    privately (opened from chat); the invite link is sent into your chat.
+ *  - `/discover/post-activity/:postId` edits a post; only its author gets
+ *    the form.
+ */
 export function PostActivityPage() {
   const navigate = useNavigate()
+  const { postId, userId: rawInviteeId } = useParams<{
+    postId: string
+    userId: string
+  }>()
+  const { user } = useAuth()
+  const { profile } = useProfile()
+  const { connections, getConnectionState, isLoading: isLoadingConnections } =
+    useConnections()
+  const { blockedIds } = useSafety()
+  const isEdit = postId !== undefined
+  const isInviteRoute = rawInviteeId !== undefined
+  const inviteeId = validDocumentId(rawInviteeId)
+  const [inviteeName, setInviteeName] = useState('')
+
   const [step, setStep] = useState(0)
-  const [sportId, setSportId] = useState<SportId>('badminton')
-  const [date, setDate] = useState('')
-  const [budget, setBudget] = useState('')
-  const [venue, setVenue] = useState('')
-  const isLastStep = step === STEPS.length - 1
-  const canContinue = [Boolean(sportId), Boolean(date), Boolean(budget), Boolean(venue.trim())][step]
+  const [draft, setDraft] = useState<ActivityPostDraft>(() => ({
+    sportId: profile?.sports[0]?.sportId ?? SPORTS[0]?.id ?? null,
+    localDateTime: '',
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    // Most people post near home; they can change it.
+    areaId: profile?.area ?? null,
+    venueName: '',
+    budget: profile?.budget ?? null,
+    // Approval is the safer default for a 1v1: the author picks their buddy.
+    // An invite has its one guest already, so it is simply open to them.
+    joinPolicy: isInviteRoute ? 'open' : 'approval',
+    visibility: isInviteRoute ? 'invite' : 'public',
+    invitedId: isInviteRoute ? inviteeId : null,
+  }))
+  const [editState, setEditState] = useState<EditState>(() =>
+    isEdit ? { status: 'loading' } : { status: 'creating' },
+  )
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!postId || !user) return
+    let active = true
+    activityPostService
+      .getById(postId)
+      .then((post) => {
+        if (!active) return
+        // Someone else's post, or a missing one, look the same.
+        if (!post || post.authorId !== user.id) {
+          setEditState({ status: 'unavailable' })
+          return
+        }
+        setDraft(toDraftFromPost(post))
+        setEditState({ status: 'editing', post })
+      })
+      .catch(() => {
+        if (active) setEditState({ status: 'unavailable' })
+      })
+    return () => {
+      active = false
+    }
+  }, [postId, user])
+
+  useEffect(() => {
+    if (!inviteeId) return
+    let active = true
+    discoverService
+      .getProfiles([inviteeId])
+      .then(([found]) => {
+        if (active && found) setInviteeName(found.displayName)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [inviteeId])
+
+  // An invite can only go to someone you are connected with and have not
+  // blocked; the rules check the connection again on create.
+  const inviteConnection =
+    isInviteRoute &&
+    inviteeId &&
+    !blockedIds.has(inviteeId) &&
+    getConnectionState(inviteeId) === 'connected'
+      ? (connections.get(inviteeId) ?? null)
+      : null
+
+  const update = (patch: Partial<ActivityPostDraft>) => {
+    setError('')
+    setDraft((current) => ({ ...current, ...patch }))
+  }
+
+  const isInviteForm = draft.visibility === 'invite'
+  const steps = isInviteForm ? INVITE_STEPS : STEPS
+  const isLastStep = step === steps.length - 1
+  const canContinue = [
+    Boolean(draft.sportId),
+    Boolean(draft.localDateTime),
+    Boolean(draft.budget),
+    Boolean(draft.areaId && draft.venueName.trim()),
+    Boolean(draft.joinPolicy),
+  ][step]
+
+  const save = async () => {
+    if (!user) return
+    setIsSaving(true)
+    setError('')
+    try {
+      if (editState.status === 'editing') {
+        await activityPostService.update(editState.post, user.id, draft, new Date())
+        navigate(-1)
+      } else if (inviteConnection) {
+        const post = await activityPostService.create(user.id, draft, new Date())
+        // The invite already exists and shows under their Invitations, so a
+        // message that fails to send must not undo it or strand the user.
+        await chatService
+          .sendFromElsewhere(
+            inviteConnection,
+            user.id,
+            `I invited you to play: ${describeActivityForSharing(post)} ${shareService.activityUrl(post.id)}`,
+          )
+          .catch(() => {})
+        navigate(conversationPath(inviteConnection.id))
+      } else {
+        const post = await activityPostService.create(user.id, draft, new Date())
+        // Straight to the post, where it can be shared — a link-only post
+        // would never appear on Discover.
+        navigate(activityPostPath(post.id), { replace: true })
+      }
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "We couldn't save your activity. Please try again.",
+      )
+      setIsSaving(false)
+    }
+  }
+
+  const header = (
+    <AppHeader
+      title={
+        isEdit
+          ? 'Edit activity'
+          : isInviteRoute
+            ? `Invite ${inviteeName || 'your buddy'}`
+            : 'Post an activity'
+      }
+      subtitle={
+        isEdit
+          ? 'Change the time, place, sport or budget.'
+          : isInviteRoute
+            ? 'A private session just for the two of you. Only they can see it.'
+            : 'Invite someone to play. Share it, or let people find it on Discover.'
+      }
+      size="wide"
+      showBack
+    />
+  )
+
+  if (isInviteRoute && isLoadingConnections) {
+    return (
+      <>
+        {header}
+        <PageContainer size="narrow">
+          <Skeleton className="h-64 w-full rounded-2xl" />
+        </PageContainer>
+      </>
+    )
+  }
+
+  if (isInviteRoute && !inviteConnection) {
+    return (
+      <>
+        {header}
+        <PageContainer size="narrow">
+          <ErrorState
+            title="You can only invite a connected buddy."
+            description="Connect with them first, then invite them from your chat."
+          />
+        </PageContainer>
+      </>
+    )
+  }
+
+  if (editState.status === 'loading') {
+    return (
+      <>
+        {header}
+        <PageContainer size="narrow">
+          <Skeleton className="h-64 w-full rounded-2xl" />
+        </PageContainer>
+      </>
+    )
+  }
+
+  if (editState.status === 'unavailable') {
+    return (
+      <>
+        {header}
+        <PageContainer size="narrow">
+          <ErrorState title="This activity is unavailable." />
+        </PageContainer>
+      </>
+    )
+  }
+
+  const saveLabel = isEdit
+    ? 'Save changes'
+    : isInviteRoute
+      ? 'Send invite'
+      : 'Post activity'
+  const savingLabel = isEdit ? 'Saving…' : isInviteRoute ? 'Sending…' : 'Posting…'
 
   return (
     <>
-      <AppHeader title="Post an activity" subtitle="Create a public session people can join." size="wide" showBack />
+      {header}
       <PageContainer size="narrow">
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-4 gap-2">
-            {STEPS.map((label, index) => <div key={label} className="flex flex-col gap-2"><span className={`h-1 rounded-full ${index <= step ? 'bg-primary' : 'bg-muted'}`} /><span className={`text-caption ${index === step ? 'text-primary' : 'text-muted-foreground'}`}>{label}</span></div>)}
-          </div>
-          <Card><CardContent className="flex flex-col gap-5">
-            {step === 0 && <AppDropdown label="What sport?" value={sportId} onChange={(value) => setSportId(value as SportId)} options={SPORTS.map(({ id, name }) => ({ value: id, label: name }))} />}
-            {step === 1 && <label className="flex flex-col gap-2 text-body-small">When are you playing?<Input type="datetime-local" value={date} onChange={(event) => setDate(event.target.value)} /></label>}
-            {step === 2 && <label className="flex flex-col gap-2 text-body-small">Budget per person (RM)<Input type="number" min="0" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="e.g. 20" /></label>}
-            {step === 3 && <label className="flex flex-col gap-2 text-body-small">Where will you play?<Input value={venue} onChange={(event) => setVenue(event.target.value)} placeholder="e.g. KL Sports City" /></label>}
-            <div className="flex justify-between gap-3"><Button variant="outline" onClick={() => step === 0 ? navigate(ROUTES.discover) : setStep((current) => current - 1)}>{step === 0 ? 'Cancel' : 'Back'}</Button><Button disabled={!canContinue} onClick={() => isLastStep ? navigate(ROUTES.discover) : setStep((current) => current + 1)}>{isLastStep ? 'Post activity' : 'Continue'}</Button></div>
-          </CardContent></Card>
+          <ol
+            className={`grid gap-2 ${isInviteForm ? 'grid-cols-4' : 'grid-cols-5'}`}
+            aria-label="Steps"
+          >
+            {steps.map((label, index) => (
+              <li
+                key={label}
+                className="flex flex-col gap-2"
+                aria-current={index === step ? 'step' : undefined}
+              >
+                <button
+                  type="button"
+                  // Editing is a quick change, so any step can be reopened.
+                  disabled={!isEdit}
+                  onClick={() => setStep(index)}
+                  className="flex flex-col gap-2 text-left disabled:cursor-default"
+                >
+                  <span
+                    className={`h-1 rounded-full ${index <= step ? 'bg-primary' : 'bg-muted'}`}
+                  />
+                  <span
+                    className={`text-caption ${index === step ? 'text-primary' : 'text-muted-foreground'}`}
+                  >
+                    {label}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+
+          <Card>
+            <CardContent className="flex flex-col gap-5">
+              {step === 0 && (
+                <AppDropdown
+                  label="What sport?"
+                  value={draft.sportId ?? ''}
+                  onChange={(value) => update({ sportId: value as SportId })}
+                  options={SPORTS.map(({ id, name }) => ({ value: id, label: name }))}
+                />
+              )}
+
+              {step === 1 && (
+                <FormField id="post-when" label="When are you playing?">
+                  <Input
+                    id="post-when"
+                    type="datetime-local"
+                    min={toLocalInputValue(new Date())}
+                    value={draft.localDateTime}
+                    onChange={(event) =>
+                      update({ localDateTime: event.target.value })
+                    }
+                  />
+                </FormField>
+              )}
+
+              {step === 2 && (
+                <div className="flex flex-col gap-3">
+                  <span className="text-label text-foreground">
+                    Budget per person
+                  </span>
+                  <BudgetSelector
+                    value={draft.budget}
+                    onChange={(budget) => update({ budget })}
+                  />
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-3">
+                    <span className="text-label text-foreground">Area</span>
+                    <AreaSelector
+                      value={draft.areaId}
+                      onChange={(areaId) => update({ areaId })}
+                      inputId="post-area-search"
+                    />
+                  </div>
+                  <FormField
+                    id="post-venue"
+                    label="Venue"
+                    hint={`${draft.venueName.length}/${MAX_VENUE_NAME_LENGTH}`}
+                  >
+                    <Input
+                      id="post-venue"
+                      value={draft.venueName}
+                      onChange={(event) =>
+                        update({ venueName: event.target.value })
+                      }
+                      placeholder="e.g. KL Sports City"
+                    />
+                  </FormField>
+                </div>
+              )}
+
+              {step === 4 && !isInviteForm && (
+                <div className="flex flex-col gap-6">
+                <div
+                  role="radiogroup"
+                  aria-label="Who can join"
+                  className="flex flex-col gap-3"
+                >
+                  <span className="text-label text-foreground">
+                    Who can join?
+                  </span>
+                  {JOIN_POLICY_OPTIONS.map((option) => (
+                    <SelectableCard
+                      key={option.id}
+                      title={option.label}
+                      description={option.description}
+                      selected={draft.joinPolicy === option.id}
+                      onClick={() => update({ joinPolicy: option.id })}
+                    />
+                  ))}
+                  <span className="text-body-small text-muted-foreground">
+                    This is a 1v1 session, so it has one spot. It shows as Full
+                    once someone has it.
+                  </span>
+                </div>
+                <div
+                  role="radiogroup"
+                  aria-label="Who can see it"
+                  className="flex flex-col gap-3"
+                >
+                  <span className="text-label text-foreground">
+                    Who can see it?
+                  </span>
+                  {VISIBILITY_OPTIONS.map((option) => (
+                    <SelectableCard
+                      key={option.id}
+                      title={option.label}
+                      description={option.description}
+                      selected={draft.visibility === option.id}
+                      onClick={() => update({ visibility: option.id })}
+                    />
+                  ))}
+                  <span className="text-body-small text-muted-foreground">
+                    Either way, you can share a link once it is posted.
+                  </span>
+                </div>
+                </div>
+              )}
+
+              {error && (
+                <p role="alert" className="text-body-small text-destructive">
+                  {error}
+                </p>
+              )}
+
+              <div className="flex justify-between gap-3">
+                <Button
+                  variant="outline"
+                  disabled={isSaving}
+                  onClick={() =>
+                    step > 0
+                      ? setStep((current) => current - 1)
+                      : isEdit
+                        ? navigate(-1)
+                        : navigate(ROUTES.discover)
+                  }
+                >
+                  {step === 0 ? 'Cancel' : 'Back'}
+                </Button>
+                <div className="flex gap-3">
+                  {isEdit && !isLastStep && (
+                    <Button
+                      variant="outline"
+                      disabled={isSaving}
+                      onClick={() => void save()}
+                    >
+                      {isSaving ? savingLabel : saveLabel}
+                    </Button>
+                  )}
+                  <Button
+                    disabled={!canContinue || isSaving}
+                    onClick={() =>
+                      isLastStep
+                        ? void save()
+                        : setStep((current) => current + 1)
+                    }
+                  >
+                    {isLastStep
+                      ? isSaving
+                        ? savingLabel
+                        : saveLabel
+                      : 'Continue'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </PageContainer>
     </>

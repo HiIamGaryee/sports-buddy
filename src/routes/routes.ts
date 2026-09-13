@@ -8,6 +8,11 @@ export const ROUTES = {
   map: '/map',
   discover: '/discover',
   postActivity: '/discover/post-activity',
+  editActivityPost: '/discover/post-activity/:postId',
+  inviteActivity: '/discover/post-activity/invite/:userId',
+  activityPost: '/discover/activity/:postId',
+  /** The public share link. Works signed out; see `shared-activity-page`. */
+  sharedActivity: '/activity/:postId',
   buddyProfile: '/discover/:userId',
   activities: '/activities',
   activityDetail: '/activities/:activityId',
@@ -23,6 +28,17 @@ export const ROUTES = {
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES]
 
 export const buddyProfilePath = (userId: string) => `/discover/${userId}`
+
+/** The same form as posting, prefilled; only the author can save it. */
+export const editActivityPostPath = (postId: string) =>
+  `/discover/post-activity/${postId}`
+
+/** A private 1v1 invite for one connected buddy, usually opened from chat. */
+export const inviteActivityPath = (userId: string) =>
+  `/discover/post-activity/invite/${userId}`
+
+/** One activity post, inside the signed-in app. */
+export const activityPostPath = (postId: string) => `/discover/activity/${postId}`
 
 /** The conversation id IS the connection id — see docs/chat.md. */
 export const conversationPath = (conversationId: string) =>

@@ -13,6 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { APP_NAME, APP_TAGLINE_LINES } from '@/constants/app'
 import { ActivityCard } from '@/features/activities/components/activity-card'
 import { useCoarseNow, useUpcomingActivities } from '@/features/activities/use-activities'
+import { useMyActivityPosts } from '@/features/activities/use-my-activity-posts'
+import { ActivityPostCard } from '@/features/discover/components/activity-post-card'
 import { RecommendationSwiper } from '@/features/home/components/recommendation-swiper'
 import { useProfile } from '@/hooks/use-profile'
 import { useTheme } from '@/hooks/use-theme'
@@ -23,8 +25,21 @@ export function HomePage() {
   const { resolvedTheme } = useTheme()
   const now = useCoarseNow()
   const { items, isLoading: isLoadingActivities } = useUpcomingActivities()
+  const myPosts = useMyActivityPosts(now)
   const firstName = profile?.displayName.split(' ')[0]
-  const nextActivity = items[0] ?? null
+
+  // The soonest thing you are actually doing: a confirmed session, a post you
+  // created, or a post you have a spot in. A request still waiting for
+  // approval, or an invite not yet accepted, is not something you are doing.
+  const nextSession = items[0] ?? null
+  const nextPost =
+    [...myPosts.openPlanned, ...myPosts.confirmedPlanned].sort((a, b) =>
+      a.startAt.localeCompare(b.startAt),
+    )[0] ?? null
+  const showPost =
+    nextPost !== null &&
+    (nextSession === null || nextPost.startAt < nextSession.activity.startAt)
+  const isLoadingUpcoming = isLoadingActivities || myPosts.isLoading
 
   return (
     <>
@@ -55,8 +70,29 @@ export function HomePage() {
         <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
           <section className="flex min-w-0 flex-col gap-3">
             <SectionHeader title="Upcoming" />
-            {isLoadingActivities ? <Skeleton className="h-36 w-full rounded-2xl" /> : nextActivity ? <ActivityCard item={nextActivity} now={now} /> : (
-              <EmptyState icon={CalendarDays} title="No upcoming activities yet." description="Once you plan a session with a buddy, it shows up here." />
+            {isLoadingUpcoming ? (
+              <Skeleton className="h-36 w-full rounded-2xl" />
+            ) : showPost && nextPost ? (
+              <ActivityPostCard
+                post={nextPost}
+                people={myPosts.people}
+                now={now}
+                onChanged={myPosts.refresh}
+                onRemove={myPosts.remove}
+              />
+            ) : nextSession ? (
+              <ActivityCard item={nextSession} now={now} />
+            ) : (
+              <EmptyState
+                icon={CalendarDays}
+                title="No upcoming activities yet."
+                description="Post an activity or join one on Discover, and it shows up here."
+                action={
+                  <Button variant="outline" asChild>
+                    <Link to={ROUTES.discover}>Find an activity</Link>
+                  </Button>
+                }
+              />
             )}
           </section>
           <RecommendationSwiper />
