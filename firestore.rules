@@ -84,7 +84,15 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly(['reporterId', 'reportedUserId', 'reason', 'note', 'context', 'status', 'createdAt'])
         && request.resource.data.reporterId == request.auth.uid
+        && boundedString(request.resource.data.reportedUserId, 128)
         && request.resource.data.reportedUserId != request.auth.uid
+        // Where the report was filed from. Without a shape check this map
+        // accepted anything a client chose to attach.
+        && request.resource.data.context is map
+        && request.resource.data.context.keys().hasOnly(['type', 'connectionId', 'conversationId'])
+        && request.resource.data.context.type in ['profile', 'conversation']
+        && boundedOptionalString(request.resource.data.context, 'connectionId', 200)
+        && boundedOptionalString(request.resource.data.context, 'conversationId', 200)
         && request.resource.data.reason in ['harassment', 'spam', 'inappropriate-content', 'fake-profile', 'safety-concern', 'other']
         && (request.resource.data.note == null || (request.resource.data.note is string && request.resource.data.note.size() <= 500))
         && request.resource.data.status == 'submitted'

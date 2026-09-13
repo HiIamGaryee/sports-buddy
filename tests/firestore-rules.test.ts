@@ -1921,11 +1921,118 @@ describe('reports', () => {
         reportedUserId: AINA,
         reason: 'spam',
         note: null,
-        context: 'profile',
+        context: { type: 'profile' },
         status: 'submitted',
         createdAt: serverTimestamp(),
       }),
     )
     await assertFails(getDocs(collection(asUser(GARY), 'reports')))
+  })
+})
+
+describe('unblocking', () => {
+  const blockId = `${GARY}__${AINA}`
+
+  async function seedGaryBlocksAina() {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), `blocks/${blockId}`), {
+        blockerId: GARY,
+        blockedUserId: AINA,
+        reason: null,
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  it('lets the blocker remove their own block', async () => {
+    await seedGaryBlocksAina()
+    await assertSucceeds(deleteDoc(doc(asUser(GARY), `blocks/${blockId}`)))
+  })
+
+  it('never lets the blocked person remove it', async () => {
+    await seedGaryBlocksAina()
+    await assertFails(deleteDoc(doc(asUser(AINA), `blocks/${blockId}`)))
+    await assertFails(deleteDoc(doc(asUser(STRANGER), `blocks/${blockId}`)))
+  })
+
+  it('treats unblocking twice as harmless', async () => {
+    await assertSucceeds(deleteDoc(doc(asUser(GARY), `blocks/${blockId}`)))
+  })
+
+  it('restores reading the conversation once the block is gone', async () => {
+    await seed(PAIR, {
+      id: PAIR,
+      participants: sortConnectionPair(GARY, AINA),
+      requestedBy: sortConnectionPair(GARY, AINA),
+      status: 'connected',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      connectedAt: new Date(),
+    })
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), `conversations/${PAIR}`), {
+        id: PAIR,
+        connectionId: PAIR,
+        participants: sortConnectionPair(GARY, AINA),
+        lastMessageText: null,
+        lastMessageSenderId: null,
+        lastMessageAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    })
+    await seedGaryBlocksAina()
+    await assertFails(getDoc(doc(asUser(AINA), `conversations/${PAIR}`)))
+
+    await deleteDoc(doc(asUser(GARY), `blocks/${blockId}`))
+    await assertSucceeds(getDoc(doc(asUser(AINA), `conversations/${PAIR}`)))
+  })
+})
+
+describe('report shape', () => {
+  const report = (context: unknown) => ({
+    reporterId: GARY,
+    reportedUserId: AINA,
+    reason: 'harassment',
+    note: 'Kept messaging after I said no.',
+    context,
+    status: 'submitted',
+    createdAt: serverTimestamp(),
+  })
+
+  it('accepts the contexts the app sends', async () => {
+    await assertSucceeds(
+      addDoc(collection(asUser(GARY), 'reports'), report({ type: 'profile' })),
+    )
+    await assertSucceeds(
+      addDoc(
+        collection(asUser(GARY), 'reports'),
+        report({ type: 'conversation', conversationId: PAIR }),
+      ),
+    )
+  })
+
+  it('rejects an unknown context shape', async () => {
+    await assertFails(
+      addDoc(
+        collection(asUser(GARY), 'reports'),
+        report({ type: 'admin', escalate: true }),
+      ),
+    )
+    await assertFails(
+      addDoc(collection(asUser(GARY), 'reports'), report('profile')),
+    )
+  })
+
+  it('rejects reporting yourself or forging the reporter', async () => {
+    await assertFails(
+      addDoc(collection(asUser(GARY), 'reports'), {
+        ...report({ type: 'profile' }),
+        reportedUserId: GARY,
+      }),
+    )
+    await assertFails(
+      addDoc(collection(asUser(AINA), 'reports'), report({ type: 'profile' })),
+    )
   })
 })
