@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { useConnections } from '@/hooks/use-connections'
 import { useSafety } from '@/hooks/use-safety'
+import { useChatReadState } from '@/features/chat/use-chat-read-state'
 import { canChat, mergeMessages } from '@/lib/chat'
 import { getOtherParticipantId } from '@/lib/connection'
 import { chatService } from '@/services/chat/chat-service'
@@ -91,17 +92,19 @@ export function useConversation(conversationId: string | undefined) {
           conversationId,
           (page) => {
             if (!active) return
-            setState((current) => {
-              const isFirst = !hasReceivedFirstPage.current
-              hasReceivedFirstPage.current = true
-              return {
-                key: requestKey,
-                messages: mergeMessages(current.messages, page.messages),
-                hasMore: isFirst ? page.hasMore : current.hasMore,
-                isLoading: false,
-                error: '',
-              }
-            })
+            // Decided OUTSIDE the updater: React may call an updater twice
+            // (StrictMode does, on purpose), and mutating the ref inside it
+            // made the second call see "not first" and return `hasMore:
+            // false` — which hid "Load earlier messages" entirely.
+            const isFirst = !hasReceivedFirstPage.current
+            hasReceivedFirstPage.current = true
+            setState((current) => ({
+              key: requestKey,
+              messages: mergeMessages(current.messages, page.messages),
+              hasMore: isFirst ? page.hasMore : current.hasMore,
+              isLoading: false,
+              error: '',
+            }))
           },
           (subscriptionError) => {
             if (!active) return
@@ -130,6 +133,24 @@ export function useConversation(conversationId: string | undefined) {
       unsubscribe?.()
     }
   }, [conversationId, userId, isAuthorized, connection, requestKey])
+
+  /**
+   * Seeing the thread IS reading it. This runs on every delivered page, not
+   * just on open, because a message that arrives while the screen is in front
+   * of the user must not leave an unread dot behind on the list beside it.
+   *
+   * The marker is the newest message's own timestamp rather than `now`, so a
+   * message whose `serverTimestamp()` has not resolved yet (`createdAt: null`)
+   * is never silently marked read — it will be, on the next emission that
+   * carries the resolved value.
+   */
+  const { markRead } = useChatReadState()
+  const newestReadableAt = state.messages.at(-1)?.createdAt ?? null
+
+  useEffect(() => {
+    if (!conversationId || !isAuthorized || !newestReadableAt) return
+    markRead(conversationId, newestReadableAt)
+  }, [conversationId, isAuthorized, newestReadableAt, markRead])
 
   // One read for the chat header — from publicProfiles, never `users/{uid}`.
   const [buddy, setBuddy] = useState<{

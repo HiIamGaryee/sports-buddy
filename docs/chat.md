@@ -13,8 +13,9 @@ forwarding, reactions, typing indicators, presence, read receipts, seen
 status, delivery ticks, editing, deletion, disappearing messages, group chat
 and calls. This is reliable text communication, not a messaging platform.
 
-There is also **no unread count and no bottom-nav badge**, because unread
-semantics are not implemented and a fake badge is worse than none.
+There IS an **unread dot** — on each conversation row and on the Messages tab
+— and it is real, not decorative. See §16 for exactly what it tracks and its
+one known limitation (it is per device).
 
 ## 2. Authorization
 
@@ -247,21 +248,84 @@ function connectedParticipant() {
 
 | Operation | Rule |
 | --- | --- |
-| read conversation | `connectedParticipant()` |
+| list conversations | `uid in resource.data.participants` — see below for why this is a separate, weaker-looking rule |
+| get one conversation | `connectedParticipant()` |
 | create conversation | plus: id and `connectionId` equal the document id, `participants` **equal the connection's**, previews null, timestamps `== request.time`, exact key allowlist |
 | update conversation | plus: `id` / `connectionId` / `participants` / `createdAt` unchanged, `lastMessageSenderId == request.auth.uid`, text non-empty and ≤ 1000, timestamps `== request.time` |
 | delete conversation | denied |
-| read messages | `connectedParticipant()` |
+| list messages | `uidInPairId(uid, conversationId)` — query-independent, see below |
+| get one message | `connectedParticipant()` |
 | create message | plus: `id == messageId`, `conversationId` matches, `senderId == request.auth.uid`, content is a string, `content.trim().size() > 0`, `size() <= 1000`, `createdAt == request.time`, exact key allowlist |
 | update / delete message | denied |
 
-`request.auth.uid in participants` alone would be far too weak: it would let
-somebody fabricate a conversation document with a person they are not
-connected to. Reading the connection is the whole point, and it costs one
-document read per rule evaluation — the price of not trusting the client.
+`request.auth.uid in participants` alone would be far too weak for a
+**write**: it would let somebody fabricate a conversation document with a
+person they are not connected to. Reading the connection is the whole point
+of `connectedParticipant()`, and every write, and every single-document
+`get()`, still goes through it.
 
 `content.trim().size() > 0` means a whitespace-only message is rejected
 server-side too, not just by the composer.
+
+### SECURITY RULES ARE NOT FILTERS — the rule that governs every `list` here
+
+This is the single most important thing to understand before writing or
+changing any rule in this file, and it cost a full live-debugging session to
+learn the hard way.
+
+For a `get` (one document), Firestore evaluates the rule against that
+document and answers yes or no. For a **`list` (any query)**, it does **not**
+evaluate per document and quietly drop the failures. It requires that the
+**query itself** prove that every document it could possibly return will
+satisfy the rule. If the rule reads `resource.data.<field>` and the query
+carries no constraint guaranteeing that field matches, Firestore refuses the
+**entire query** with `permission-denied` — even when every stored document
+would in fact have passed.
+
+So a `list` rule must be one of exactly two shapes:
+
+1. **Data-dependent, matched by the query.** The rule reads
+   `resource.data.X` and the query contains the `where` clause that pins
+   `X`. `connections`, `conversations` and `activities` are all this shape:
+   the rule is `uid in resource.data.participants` and every one of their
+   queries carries `where('participants','array-contains', uid)`. The two
+   halves must be kept in sync — changing one without the other breaks the
+   read with no compile-time warning.
+2. **Query-independent.** The rule depends only on the path wildcards and
+   `request.auth`, never on document data, so there is nothing for a query
+   to contradict. `conversations/{id}/messages` is this shape, because
+   `subscribeToRecentMessages` queries with `orderBy('createdAt','desc') +
+   limit()` and **no `where` clause at all** — there is no constraint it
+   could be matched against. The rule is
+   `uidInPairId(request.auth.uid, conversationId)`: the conversation id IS
+   the connection id, which already encodes both participants, so the path
+   alone authorizes the read.
+
+What this rules out: a `list` rule that reads a **different** document via
+`get()`/`exists()` (as `connectedParticipant()` does) is not usable for an
+unconstrained query either. That is why `get` and `list` are separate
+`allow` statements throughout this file — `get`, `create` and `update` all
+still go through the full `connectedParticipant()` connection check, which
+is where the real authorization lives. A `list` rule is a coarse gate on
+*which collection you may scan*; the fine-grained check belongs on the
+writes and the single-document reads.
+
+Two dead ends were tried before landing on the above, both recorded here so
+nobody repeats them:
+
+- **Denormalizing `participants` onto every message** so `list` could read
+  `resource.data.participants`. This cannot work: the message query has no
+  `where('participants', ...)` clause to match it, so it is shape 1 with the
+  matching half missing. It was implemented, deployed, and reverted.
+- **Deleting existing messages** to "migrate" them to that field. This was
+  unnecessary — the query was failing for every message, new or old.
+
+Every emulator test in this suite used `getDoc`/`setDoc`, so none of them
+exercised a real `list` query, and 106 passing tests never caught any of it.
+`tests/firestore-rules.test.ts` now has explicit "via the realtime
+subscription query" blocks for `connections`, `conversations` and `messages`
+that issue the **exact query shape the app issues**. Any new collection with
+a query needs the same.
 
 ### Rule tests
 
@@ -342,7 +406,8 @@ conversation/message access. That is the price of server-side authorization.
 
 - **No push notifications.** A user with the app closed is not notified of a
   message. FCM/OneSignal is STEP 14.
-- **No unread state**, so no badge anywhere.
+- **Unread state is per device** (§16). Two devices signed in as the same
+  user each keep their own read markers.
 - **No presence, typing or read receipts.**
 - **No media, replies, reactions, editing or deletion.**
 - **No disconnect**, so a conversation cannot become inaccessible through the
@@ -354,10 +419,8 @@ conversation/message access. That is the price of server-side authorization.
   conversation exists, and no message request is made until access resolves.
 - **No retention or deletion policy.** Messages persist normally.
 - **No virtualization.** With 20-message pages it is unnecessary.
-- **Live two-user Firebase verification is outstanding** — no project
-  credentials exist in this environment. Rules are verified against the
-  emulator; the client transaction, batch and subscription paths are
-  implemented and typed but have not run against a real project.
+- **Live two-user Firebase verification was run on 2026-09-13** and surfaced
+  real rules bugs, all fixed — see §12, "SECURITY RULES ARE NOT FILTERS".
 
 ### Capacitor / mobile keyboard
 
@@ -371,12 +434,50 @@ navigation is not there to fight it. The composer input inherits the shared
 No keyboard plugin was added. Final keyboard behaviour inside a real
 Capacitor WebView still needs native QA.
 
-## 16. Future: notifications
+## 16. Unread state
 
-STEP 14 delivers messages the user has not seen. The data needed is already
-there — `lastMessageAt`, `lastMessageSenderId` and `participants` — and
-unread semantics (a per-participant read marker) should be designed with the
-notification step rather than faked now.
+**What "unread" means** — one pure function, `isConversationUnread()` in
+`src/lib/chat-read-state.ts`, used by both the row dot and the tab badge:
+
+- no message yet → not unread
+- the newest message is **yours** → not unread
+- never opened this thread → unread
+- the buddy's `lastMessageAt` is later than your read marker → unread
+
+**Where the marker lives: `localStorage`, deliberately.** Key
+`CHAT_READ_STATE_KEY`, shape `{ [userId]: { [conversationId]: ISO } }`, read
+through the guarded `readStore`. Keyed by user so two accounts in one browser
+(exactly what two-user testing does) never share state. No Firestore schema
+change, no rule, no extra read.
+
+**When it moves.** `useConversation()` marks the open thread read up to its
+newest message's **own** `createdAt` on every delivered page — not on open
+only, so a message arriving while the thread is on screen never leaves a dot
+behind in the list beside it on tablet/desktop. It uses the message's
+timestamp rather than `now`, so a message whose `serverTimestamp()` has not
+resolved yet is not silently marked read. The marker never moves backwards.
+
+**Same-tab updates.** `localStorage` fires no event in the tab that wrote it,
+so the module keeps its own listener set and `useChatReadState()` reads it
+through `useSyncExternalStore` — the row dot and the tab dot clear instantly.
+
+**No extra subscription.** The conversations listener moved from
+`useConversations` into `ConversationsProvider`, so the Messages list and the
+badge share it. Still exactly one conversations listener.
+
+**Known limitation and the upgrade path.** Read state is per device. Moving
+it to Firestore (`conversations/{id}.lastReadAt: { [uid]: timestamp }`, where
+a participant may only write their OWN key) changes `chat-read-state.ts` and
+nothing that renders. Do it with STEP 14 push notifications, which need a
+server-visible read marker anyway. When you do: the conversation `update`
+rule and its key allowlist must change, and the rules tests must include the
+exact `updateDoc` shape the client sends.
+
+## 17. Future: notifications
+
+STEP 14 delivers messages the user has not seen. `lastMessageAt`,
+`lastMessageSenderId` and `participants` are already on the conversation;
+the read marker in §16 must move server-side first.
 
 ## 17. Plan Together (STEP 10)
 

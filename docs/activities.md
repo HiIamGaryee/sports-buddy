@@ -247,13 +247,24 @@ No streaks, no counts, no "calories" — none of that is implemented.
 
 | Operation | Rule |
 | --- | --- |
-| read | signed in **and** `uid in resource.data.participants` |
+| read (`list`) | signed in **and** `uid in resource.data.participants` — what `getUpcomingForUser`/`getPastForUser` actually use; no `exists()` involved |
+| read (`get`) | signed in, `uid` is one of the two ids encoded in `activityId` (`uidInPairId`), **and** the activity doesn't exist yet OR `uid in resource.data.participants` |
 | create | source plan exists at the same id; caller is a plan participant; **all four proposals agreed by both**; participants, connection, sport, venue and budget match the plan; `status == 'upcoming'`; `createdBy == uid`; `endAt > startAt`; exact key allowlist; timestamps `== request.time` |
 | update / delete | **denied** |
 
 So a client cannot invent an activity, attach a different venue or sport,
 confirm somebody else's plan, or create one from a plan that is not fully
 agreed — the rules re-derive all of it from the plan document itself.
+
+The "doesn't exist yet" read branch exists because `createFromPlan()` always
+reads the activity document first, inside a transaction, to make confirming
+idempotent — the same gap that broke every first-ever Connect (see
+`docs/connections.md` §9) would otherwise have broken every first-ever
+activity confirmation too. `get` and `list` are split into two separate
+`allow` statements rather than combined, because `list` here is real (STEP
+13's history queries) and mixing it with `exists()` risks Firestore being
+unable to evaluate the query at all — see `docs/connections.md` §9 for the
+live incident that pattern caused for connections.
 
 The plan's own rules gained one permitted transition: `venue-agreed →
 confirmed`, with every other field frozen and all four proposals agreed. Once

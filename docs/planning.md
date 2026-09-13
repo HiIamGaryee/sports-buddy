@@ -290,10 +290,17 @@ listener fire.
 
 | Operation | Rule |
 | --- | --- |
-| read | connected participant of `resource.data.connectionId`, and `planId == connectionId + '__active'` |
+| read (`list`) | connected participant of `resource.data.connectionId` — unused in practice (no query over `activityPlans` exists; one plan is always opened by its known id), split out anyway so it never risks combining with `exists()` |
+| read (`get`) | `uid` is one of the two ids encoded in `planId` (`uidInPairId`), **and** the plan doesn't exist yet OR the caller is a connected participant of `resource.data.connectionId` (`planId == connectionId + '__active'`) |
 | create | plus: exact key allowlist, `id == planId`, `participants` **equal the connection's**, `createdBy == request.auth.uid`, `status == 'draft'`, all three proposals empty (`version 0`, `value null`), timestamps `== request.time` |
 | update | plus: `id`, `connectionId`, `participants`, `createdBy`, `createdAt` frozen; every proposal change legal (below); `status` matches actual agreement; `updatedAt == request.time` |
 | delete | denied |
+
+The "doesn't exist yet" branch exists because `ensureActivePlan()` always
+reads the plan document first, inside a transaction, to decide whether to
+create it — a read that a plain participant-of-`resource.data` check cannot
+grant on a document that has no `resource.data` yet. See `docs/connections.md`
+§9 for the full rationale (the same gap broke every first-ever Connect).
 
 A proposal may change in exactly three ways, and no other:
 

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useConnections } from '@/hooks/use-connections'
 import { useProfile } from '@/hooks/use-profile'
 import { useSafety } from '@/hooks/use-safety'
-import { createFiltersFromPreferences } from '@/lib/discover-filters'
+import { createFiltersFromPreferences, NO_DISCOVER_FILTERS } from '@/lib/discover-filters'
 import { discoverService } from '@/services/discover/discover-service'
 import { toMatchingSubject } from '@/services/matching/matching-service'
 import type { DiscoverFilters } from '@/types/discover'
@@ -102,11 +102,28 @@ export function useDiscover() {
       .filter((buddy) => !dismissed.includes(buddy.profile.userId))
   }, [feed.candidates, filters, profile, connections, dismissed, blockedIds])
 
-  // People waiting on the user come first; their score is untouched.
-  const incoming = useMemo(
-    () => buddies.filter((buddy) => buddy.connectionState === 'pending-incoming'),
-    [buddies],
-  )
+  // Ranked from the FULL candidate set, filters bypassed entirely: someone
+  // already asking to connect is a stronger signal than "would my current
+  // filters have shown me this person," so an incoming request must never be
+  // hidden by the recipient's own session filters.
+  const incoming = useMemo(() => {
+    if (!profile) return []
+    const rankedAll = discoverService.getRankedCandidates(
+      feed.candidates,
+      { filters: NO_DISCOVER_FILTERS, availability: profile.availability },
+      toMatchingSubject(profile),
+    )
+    return discoverService
+      .joinConnectionStates(rankedAll, connections, profile.id)
+      .filter(
+        (buddy) =>
+          buddy.connectionState === 'pending-incoming' &&
+          !dismissed.includes(buddy.profile.userId) &&
+          // Filters are bypassed here; a block never is.
+          !blockedIds.has(buddy.profile.userId),
+      )
+  }, [feed.candidates, profile, connections, dismissed, blockedIds])
+
   const suggested = useMemo(
     () => buddies.filter((buddy) => buddy.connectionState !== 'pending-incoming'),
     [buddies],
@@ -130,7 +147,10 @@ export function useDiscover() {
   return {
     incoming,
     suggested,
-    visibleCount: buddies.length,
+    // Everything actually rendered: incoming requests plus the filtered
+    // feed. Not `buddies.length` alone, since incoming is no longer a
+    // subset of `buddies` once filters diverge.
+    visibleCount: incoming.length + suggested.length,
     totalCandidates: feed.candidates.length,
     isLoading: feed.isLoading,
     error: feed.error,

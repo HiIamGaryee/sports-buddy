@@ -156,6 +156,19 @@ Chat needs the same two accounts, already connected:
    `/messages/<their conversation id>`: it must show the generic
    "This conversation is unavailable." and read nothing.
 
+### Known gotcha: Google sign-in silently reported as cancelled
+
+A successful Google popup sign-in can be misreported as
+`auth/popup-closed-by-user` (so `signInWithGoogle()` quietly resolves
+`null`, per `isCancelledAuthError`) on Chrome versions that default
+`Cross-Origin-Opener-Policy` to `same-origin`, which breaks the SDK's
+`window.closed` popup-tracking. This is a known `firebase-js-sdk` /
+Chrome interaction, not an app bug. `vite.config.ts` sets
+`Cross-Origin-Opener-Policy: same-origin-allow-popups` on both the dev and
+preview servers, which fixes it locally. It does **not** need to be set
+anywhere else yet, since no hosting is configured (§10) — revisit this the
+moment Firebase Hosting or another static host is added.
+
 ## 10. Security notes
 
 - The web `apiKey` is public by design — Firestore rules are the real

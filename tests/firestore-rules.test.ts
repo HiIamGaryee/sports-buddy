@@ -13,9 +13,13 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   type Firestore,
 } from 'firebase/firestore'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
@@ -132,6 +136,95 @@ describe('reading a connection', () => {
     })
     await assertSucceeds(getDoc(doc(asUser(GARY), connectionPath(PAIR))))
     await assertSucceeds(getDoc(doc(asUser(AINA), connectionPath(PAIR))))
+  })
+})
+
+// Regression coverage for a second real live-project bug: `ConnectionProvider`
+// never calls `getDoc` — its only read is the realtime subscription's own
+// QUERY (`participants array-contains uid` + `limit`), which is a `list`
+// operation, not `get`. Every test above and below uses `getDoc`, so none of
+// them would have caught a `list`-specific regression. This is exactly what
+// happened when `get, list` were first combined with an `exists()` branch:
+// Firestore could evaluate a single-document `get` fine, but the realtime
+// `list` query came back permission-denied for BOTH participants, which
+// looked like "the connection resets to none on every refresh" in the app
+// even though `getDoc` against the same document kept succeeding.
+describe('listing connections via the realtime subscription query', () => {
+  const subscriptionQuery = (db: Firestore, uid: string) =>
+    query(
+      collection(db, 'connections'),
+      where('participants', 'array-contains', uid),
+      limit(30),
+    )
+
+  it('returns a connected pair to both participants', async () => {
+    await seed(PAIR, {
+      ...pendingFrom(GARY, AINA),
+      requestedBy: sortConnectionPair(GARY, AINA),
+      status: 'connected',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      connectedAt: new Date(),
+    })
+    const garySnapshot = await getDocs(subscriptionQuery(asUser(GARY), GARY))
+    expect(garySnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+    const ainaSnapshot = await getDocs(subscriptionQuery(asUser(AINA), AINA))
+    expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+  })
+
+  it('returns a pending pair to both participants', async () => {
+    await seed(PAIR, {
+      ...pendingFrom(GARY, AINA),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    const garySnapshot = await getDocs(subscriptionQuery(asUser(GARY), GARY))
+    expect(garySnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+    const ainaSnapshot = await getDocs(subscriptionQuery(asUser(AINA), AINA))
+    expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+  })
+
+  // Rules are not filters: a stranger querying for GARY's rows cannot be
+  // proved to satisfy `uid in resource.data.participants`, so Firestore
+  // refuses the whole query rather than returning an empty page.
+  it('is denied when a stranger queries for someone else\'s connections', async () => {
+    await seed(PAIR, {
+      ...pendingFrom(GARY, AINA),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    await assertFails(getDocs(subscriptionQuery(asUser(STRANGER), GARY)))
+  })
+
+  it('returns an empty page to a stranger querying their own connections', async () => {
+    await seed(PAIR, {
+      ...pendingFrom(GARY, AINA),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    const snapshot = await getDocs(subscriptionQuery(asUser(STRANGER), STRANGER))
+    expect(snapshot.docs).toEqual([])
+  })
+})
+
+// Regression coverage for a real live-project bug: `connect()` transactions
+// always read the pair's document FIRST to decide whether to create or
+// update it. Every test above seeds the document before reading it, so none
+// of them caught that a `get` on a connection that does not exist yet was
+// being denied outright (`resource` is null, so `resource.data.participants`
+// threw). That silently broke every first-ever Connect between two users.
+describe('reading a connection that does not exist yet', () => {
+  it('is allowed to either potential participant, so their transaction can check first', async () => {
+    await assertSucceeds(getDoc(doc(asUser(GARY), connectionPath(PAIR))))
+    await assertSucceeds(getDoc(doc(asUser(AINA), connectionPath(PAIR))))
+  })
+
+  it('is denied to someone the id is not about', async () => {
+    await assertFails(getDoc(doc(asUser(STRANGER), connectionPath(PAIR))))
+  })
+
+  it('is denied to an unauthenticated caller', async () => {
+    await assertFails(getDoc(doc(asGuest(), connectionPath(PAIR))))
   })
 })
 
@@ -379,6 +472,46 @@ describe('conversations', () => {
     await assertSucceeds(getDoc(doc(asUser(AINA), conversationPath())))
   })
 
+  // Regression coverage for a real live-project bug: the Messages LIST is
+  // built from `subscribeToConversations`, a `list` QUERY
+  // (`participants array-contains uid` + `limit`), never a `getDoc`. Every
+  // test above uses `getDoc`, so none of them would have caught that the
+  // original rule — sharing `connectedParticipant()` (an external `get()`
+  // into `connections`) between `get` and `list` — came back
+  // permission-denied for the WHOLE query in live Firestore, even for a
+  // genuinely connected pair. This is what surfaced as "We couldn't load
+  // these messages" during a real two-user chat test.
+  describe('listing conversations via the realtime subscription query', () => {
+    const subscriptionQuery = (db: Firestore, uid: string) =>
+      query(
+        collection(db, 'conversations'),
+        where('participants', 'array-contains', uid),
+        limit(100),
+      )
+
+    it('returns a connected pair\'s conversation to both participants', async () => {
+      await seedConversation()
+      const garySnapshot = await getDocs(subscriptionQuery(asUser(GARY), GARY))
+      expect(garySnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+      const ainaSnapshot = await getDocs(subscriptionQuery(asUser(AINA), AINA))
+      expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual([PAIR])
+    })
+
+    // Rules are not filters — see the connections suite above.
+    it('is denied when a stranger queries for someone else\'s conversations', async () => {
+      await seedConversation()
+      await assertFails(getDocs(subscriptionQuery(asUser(STRANGER), GARY)))
+    })
+
+    it('returns an empty page to a stranger querying their own conversations', async () => {
+      await seedConversation()
+      const snapshot = await getDocs(
+        subscriptionQuery(asUser(STRANGER), STRANGER),
+      )
+      expect(snapshot.docs).toEqual([])
+    })
+  })
+
   it('can be created by a connected participant', async () => {
     await seedConnected()
     await assertSucceeds(
@@ -587,6 +720,58 @@ describe('messages', () => {
     )
   })
 
+  // Regression coverage for a real live-project bug. SECURITY RULES ARE NOT
+  // FILTERS: the message subscription queries this subcollection with
+  // `orderBy('createdAt','desc') + limit()` and NO `where` clause, so any
+  // `list` rule that reads `resource.data` makes Firestore reject the WHOLE
+  // query (it cannot prove every possible result passes) rather than drop
+  // individual documents. The rule must be query-independent — path and
+  // `request.auth` only. Every test around this one uses `getDoc`/`setDoc`,
+  // which is why this went undetected until a real two-user chat test.
+  describe('listing messages via the realtime subscription query', () => {
+    it('returns messages to both connected participants', async () => {
+      await seedMessage()
+      const garySnapshot = await getDocs(
+        query(collection(asUser(GARY), messagesPath), orderBy('createdAt', 'desc'), limit(20)),
+      )
+      expect(garySnapshot.docs.map((entry) => entry.id)).toEqual(['msg_1'])
+      const ainaSnapshot = await getDocs(
+        query(collection(asUser(AINA), messagesPath), orderBy('createdAt', 'desc'), limit(20)),
+      )
+      expect(ainaSnapshot.docs.map((entry) => entry.id)).toEqual(['msg_1'])
+    })
+
+    // The rule authorizes from the conversation id, which encodes both
+    // participants — so an outsider is refused outright rather than handed
+    // an empty page. That is the correct shape for an unfiltered query:
+    // there is no `where` clause that could narrow them to "their own" rows.
+    it('is denied to someone the conversation id is not about', async () => {
+      await seedMessage()
+      await assertFails(
+        getDocs(
+          query(
+            collection(asUser(STRANGER), messagesPath),
+            orderBy('createdAt', 'desc'),
+            limit(20),
+          ),
+        ),
+      )
+    })
+
+    it('is denied to an unauthenticated caller', async () => {
+      await seedMessage()
+      await assertFails(
+        getDocs(
+          query(
+            collection(asGuest(), messagesPath),
+            orderBy('createdAt', 'desc'),
+            limit(20),
+          ),
+        ),
+      )
+    })
+  })
+
   it('cannot be sent while the connection is only pending', async () => {
     await seed(PAIR, {
       id: PAIR,
@@ -686,6 +871,27 @@ describe('activity plans', () => {
     await seedPlan()
     await assertSucceeds(getDoc(doc(asUser(GARY), planPath())))
     await assertSucceeds(getDoc(doc(asUser(AINA), planPath())))
+  })
+
+  // Regression coverage: `ensureActivePlan()` reads the plan document FIRST,
+  // inside a transaction, to decide whether to create it. That read must
+  // succeed for a connected participant even before the plan exists.
+  describe('reading a plan that does not exist yet', () => {
+    it('is allowed to either connected participant', async () => {
+      await seedConnected()
+      await assertSucceeds(getDoc(doc(asUser(GARY), planPath())))
+      await assertSucceeds(getDoc(doc(asUser(AINA), planPath())))
+    })
+
+    it('is denied to someone the id is not about', async () => {
+      await seedConnected()
+      await assertFails(getDoc(doc(asUser(STRANGER), planPath())))
+    })
+
+    it('is denied to an unauthenticated caller', async () => {
+      await seedConnected()
+      await assertFails(getDoc(doc(asGuest(), planPath())))
+    })
   })
 
   it('can be created by a connected participant', async () => {
@@ -1229,6 +1435,27 @@ describe('confirmed activities', () => {
     await assertSucceeds(getDoc(doc(asUser(AINA), activityPath())))
   })
 
+  // Regression coverage: `createFromPlan()` reads the activity document
+  // FIRST, inside a transaction, to make confirming idempotent. That read
+  // must succeed for a plan participant even before the activity exists.
+  describe('reading an activity that does not exist yet', () => {
+    it('is allowed to either plan participant', async () => {
+      await seedVenueAgreedPlan()
+      await assertSucceeds(getDoc(doc(asUser(GARY), activityPath())))
+      await assertSucceeds(getDoc(doc(asUser(AINA), activityPath())))
+    })
+
+    it('is denied to someone the id is not about', async () => {
+      await seedVenueAgreedPlan()
+      await assertFails(getDoc(doc(asUser(STRANGER), activityPath())))
+    })
+
+    it('is denied to an unauthenticated caller', async () => {
+      await seedVenueAgreedPlan()
+      await assertFails(getDoc(doc(asGuest(), activityPath())))
+    })
+  })
+
   it('can be created by a participant from a fully agreed plan', async () => {
     await seedVenueAgreedPlan()
     await assertSucceeds(
@@ -1568,5 +1795,137 @@ describe('the pair id', () => {
   it('agrees with the rules, whichever way round it is built', () => {
     expect(createConnectionId(AINA, GARY)).toBe(PAIR)
     expect(PAIR).toBe(`${AINA}__${GARY}`)
+  })
+})
+
+describe('blocks', () => {
+  const blockPath = (blocker: string, blocked: string) =>
+    `blocks/${blocker}__${blocked}`
+  const conversationPath = `conversations/${PAIR}`
+  const messagesPath = `${conversationPath}/messages`
+
+  const newBlock = (blocker: string, blocked: string) => ({
+    blockerId: blocker,
+    blockedUserId: blocked,
+    reason: 'spam',
+    createdAt: serverTimestamp(),
+  })
+
+  async function seedConnectedConversationWithMessage() {
+    await seed(PAIR, {
+      id: PAIR,
+      participants: sortConnectionPair(GARY, AINA),
+      requestedBy: sortConnectionPair(GARY, AINA),
+      status: 'connected',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      connectedAt: new Date(),
+    })
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = modular(context)
+      await setDoc(doc(db, conversationPath), {
+        id: PAIR,
+        connectionId: PAIR,
+        participants: sortConnectionPair(GARY, AINA),
+        lastMessageText: null,
+        lastMessageSenderId: null,
+        lastMessageAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      await setDoc(doc(db, `${messagesPath}/msg_1`), {
+        id: 'msg_1',
+        conversationId: PAIR,
+        senderId: GARY,
+        content: 'Badminton Saturday?',
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  async function seedBlock(blocker: string, blocked: string) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), blockPath(blocker, blocked)), {
+        ...newBlock(blocker, blocked),
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  const recentMessages = (db: Firestore) =>
+    query(collection(db, messagesPath), orderBy('createdAt', 'desc'), limit(20))
+
+  // Regression coverage: `blockUser()` reads the block document BEFORE
+  // creating it. With a rule reading `resource.data.blockerId`, that read
+  // failed on a document that does not exist yet — so the very first block
+  // could never be made.
+  it('lets the blocker check a block that does not exist yet', async () => {
+    await assertSucceeds(getDoc(doc(asUser(GARY), blockPath(GARY, AINA))))
+  })
+
+  it('does not let anyone else check it', async () => {
+    await assertFails(getDoc(doc(asUser(AINA), blockPath(GARY, AINA))))
+    await assertFails(getDoc(doc(asUser(STRANGER), blockPath(GARY, AINA))))
+  })
+
+  it('can be created by the blocker at the matching id', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(GARY), blockPath(GARY, AINA)), newBlock(GARY, AINA)),
+    )
+  })
+
+  it('cannot be created on somebody else\'s behalf', async () => {
+    await assertFails(
+      setDoc(doc(asUser(AINA), blockPath(GARY, AINA)), newBlock(GARY, AINA)),
+    )
+  })
+
+  it('lists only the blocker\'s own blocks via the app query', async () => {
+    await seedBlock(GARY, AINA)
+    const snapshot = await getDocs(
+      query(collection(asUser(GARY), 'blocks'), where('blockerId', '==', GARY)),
+    )
+    expect(snapshot.docs.map((entry) => entry.id)).toEqual([`${GARY}__${AINA}`])
+  })
+
+  it('cuts off reading message history in either direction', async () => {
+    await seedConnectedConversationWithMessage()
+    await assertSucceeds(getDocs(recentMessages(asUser(AINA))))
+
+    await seedBlock(GARY, AINA)
+    await assertFails(getDocs(recentMessages(asUser(GARY))))
+    await assertFails(getDocs(recentMessages(asUser(AINA))))
+  })
+
+  it('cuts off opening the conversation and sending', async () => {
+    await seedConnectedConversationWithMessage()
+    await seedBlock(AINA, GARY)
+    await assertFails(getDoc(doc(asUser(GARY), conversationPath)))
+    await assertFails(
+      setDoc(doc(asUser(GARY), `${messagesPath}/msg_2`), {
+        id: 'msg_2',
+        conversationId: PAIR,
+        senderId: GARY,
+        content: 'Hello?',
+        createdAt: serverTimestamp(),
+      }),
+    )
+  })
+})
+
+describe('reports', () => {
+  it('can be submitted about someone else, and never read back', async () => {
+    await assertSucceeds(
+      addDoc(collection(asUser(GARY), 'reports'), {
+        reporterId: GARY,
+        reportedUserId: AINA,
+        reason: 'spam',
+        note: null,
+        context: 'profile',
+        status: 'submitted',
+        createdAt: serverTimestamp(),
+      }),
+    )
+    await assertFails(getDocs(collection(asUser(GARY), 'reports')))
   })
 })
