@@ -32,4 +32,9 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- QR check-in: @capacitor/camera's takePhoto() needs this to open the
+         camera. No gallery/storage permission is requested — check-in only
+         ever takes a fresh photo, never picks an existing one. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

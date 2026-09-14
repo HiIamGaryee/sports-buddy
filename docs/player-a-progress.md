@@ -34,11 +34,34 @@ Full detail: `docs/monetization.md`, `docs/group-activities.md`. Short version:
   and a Test Store product, then put the Test Store API key in `.env` as
   `VITE_REVENUECAT_ANDROID_API_KEY` and rebuild the APK. Step-by-step in
   `docs/monetization.md` under "RevenueCat Test Store — manual dashboard setup".
-- Not built yet: QR check-in / verified attendance / Reliability Profile,
-  monthly recap + sharing polish, a Vercel deploy (Firebase Hosting already
-  works as the web demo at https://sportbuddy-4d596.web.app).
+- Not built yet: monthly recap + sharing polish, a Vercel deploy (Firebase
+  Hosting already works as the web demo at https://sportbuddy-4d596.web.app).
 - Not verified: an actual Test Store purchase (needs your dashboard setup
   above), and the new screens on a real/emulated Android device.
+
+### 2026-09-14 (same day) — QR check-in + verified attendance + Reliability Profile
+
+Full detail: `docs/attendance.md`. Short version:
+
+- Organizer shows a QR at the venue (Show check-in code, on their activity
+  card once it starts); each player taps Scan check-in code, takes one
+  photo of it, and is checked in. No new native plugin — reused the
+  already-installed `@capacitor/camera`, added one Android permission
+  (camera) and two tiny new libraries (`jsqr` to decode, `qrcode-generator`
+  to draw the code, both offline, no network calls).
+- The QR code is a rotating secret the organizer can regenerate any time to
+  kill a leaked/screenshotted one — not just the activity id, since anyone
+  who joined already knows that.
+- Your Profile page now shows a Reliability card once you've checked in
+  somewhere: "N Verified Sessions" and "M% Show-up Rate" — plain numbers,
+  no "always shows up" style claims.
+- `android/gradlew assembleDebug` succeeded again with the camera
+  permission and QR libraries included.
+- Not built yet: an actual Discover filter that prioritizes reliable
+  buddies (would need a real decision about writing that stat into public
+  profiles — flagged, not rushed), monthly recap, Vercel deploy.
+- Not verified: the check-in flow on a real/emulated device with an actual
+  camera (checked with unit + Firestore-rules tests only so far).
 
 ---
 

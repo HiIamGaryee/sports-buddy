@@ -24,6 +24,7 @@ import { AvailabilitySummary } from '@/features/profile/components/availability-
 import { ProfileCompletenessCard } from '@/features/profile/components/profile-completeness-card'
 import { ProfileHero } from '@/features/profile/components/profile-hero'
 import { ProfileSection } from '@/features/profile/components/profile-section'
+import { ReliabilityCard } from '@/features/profile/components/reliability-card'
 import { SportSkillList } from '@/features/profile/components/sport-skill-list'
 import { useProfile } from '@/hooks/use-profile'
 import { toDiscoveryProfile } from '@/lib/discovery-profile'
@@ -84,6 +85,8 @@ export function ProfilePage() {
             />
 
             <ProfileCompletenessCard completeness={completeness} />
+
+            <ReliabilityCard />
 
             <div className="flex gap-3">
               <Button size="icon-lg" className="rounded-full" aria-label="Edit profile" title="Edit profile" asChild>

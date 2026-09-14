@@ -2275,8 +2275,59 @@ project/API key configured in this environment — see `docs/monetization.md`
 for the one-time manual dashboard setup needed before this can be
 demonstrated), the paywall and group-activity screens on a physical/emulated
 Android device (only the production web build and the Android *compile* were
-checked here), and QR check-in / verified attendance / a Reliability
-Profile / monthly recap (not built in this pass).
+checked here).
+
+STEP 14D — QR Check-in + Verified Attendance + Reliability Profile:
+
+- **`AttendanceRecord` is a SEPARATE, additive fact from `GroupActivity` /
+  `Activity` — "past is not completed" (STEP 13) is not reversed.** No field
+  on either activity type says whether anyone attended; a record's absence
+  is never read as "did not attend" (no signal, forgot to scan — same as
+  nothing happened). `src/types/attendance.ts` states this explicitly.
+- **One photo, not a live scan.** `@capacitor/camera`'s `takePhoto()` (an
+  already-installed, previously-unused dependency) captures a single frame;
+  `jsqr` (new, zero runtime dependencies) decodes it off an offscreen
+  canvas. No new native Capacitor plugin — only one new Android manifest
+  permission (`CAMERA`, plus an optional `camera` hardware feature so the
+  app still installs on a device without one).
+- **The QR is a rotating secret, not the activity id** — the id alone is not
+  enough, since `groupActivities` is fully public-readable and every
+  participant already knows it. `groupActivities/{id}/checkIn/current` holds
+  a random `code` (`crypto.getRandomValues`), organizer-only readable; the
+  QR encodes `sportsbuddy:checkin:<activityId>:<code>` (never a real URL, so
+  a generic scanner shows plain text); "Regenerate code" invalidates a
+  leaked/screenshotted one immediately.
+- `attendanceRecords/{activityId}__{userId}`: create-only, by the named
+  attendee alone, only if they are involved (joined or the organizer), only
+  once the activity has started, and only with the current code (checked by
+  the RULES via a privileged cross-document `get()` — the attendee's own
+  read of `checkIn/current` is denied by its organizer-only rule, so the
+  comparison happens server-side, not on the client). Immutable: no update,
+  no delete.
+- **Reliability Profile**: `calculateReliability()` (pure,
+  `src/lib/attendance.ts`) returns verified sessions and a show-up rate from
+  a member's own STARTED hosted/joined activities against their own
+  check-ins — `null`, never `0%`, with nothing started yet. Shown on
+  `/profile` (`ReliabilityCard`) in evidence-based language only ("11
+  Verified Sessions", "92% Show-up Rate") — never an absolute claim.
+  Deliberately NOT wired into a Discover filter yet (would mean writing a
+  derived score into `publicProfiles`, a real privacy/architecture decision
+  left for its own pass — `canUseReliabilityFilter` exists as an unused
+  capability gate).
+- New dependencies used immediately: `jsqr` (decode), `qrcode-generator`
+  (generate, offline, no network call — the code never leaves the device
+  except inside the Firestore write it authorizes).
+- Vitest suite grew to 502 tests; emulator rules tests to 205 (15 new, for
+  `checkIn` codes and `attendanceRecords`).
+- `npx cap sync android` (registers no new plugin — only the manifest
+  permission changed) and `android/gradlew assembleDebug` — **BUILD
+  SUCCESSFUL**, verified in this environment.
+- Full walkthrough: `docs/attendance.md`.
+
+Not verified: the check-in flow on a physical/emulated Android device
+(camera capture → QR decode → Firestore write was checked by unit + rules
+tests only, not end-to-end with a real camera), and monthly recap / sharing
+polish (still not built).
 
 ## 21. Local development credentials (mock mode only)
 
@@ -2319,9 +2370,10 @@ STEP 13 — Calendar + Upcoming/Past Activity History
 Discover activity posts (1v1 public invitations, joins, edit, share)
 STEP 14B — Safety: Block + Report
 STEP 14C — RevenueCat + Buddy+ + Public Group Activities (Shipaton)
+STEP 14D — QR Check-in + Verified Attendance + Reliability Profile (Shipaton)
 
-**Current Step:** STEP 14C — RevenueCat + Buddy+ + Public Group Activities
+**Current Step:** STEP 14D — QR Check-in + Verified Attendance + Reliability Profile
 
-**Next Step:** QR check-in + verified attendance + Reliability Profile, then
-monthly recap + sharing polish, then Account Deletion + Data Cleanup
+**Next Step:** Monthly recap + sharing polish, then a Vercel deploy (Firebase
+Hosting already works as the web demo), then Account Deletion + Data Cleanup
 (previously tracked as STEP 15B) and push notifications.

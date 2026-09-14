@@ -29,6 +29,8 @@ import { nativePurchasesRepository } from '@/repositories/purchases/native-purch
 import { webPurchasesRepository } from '@/repositories/purchases/web-purchases-repository'
 import { firebaseGroupActivityRepository } from '@/repositories/group-activity/firebase-group-activity-repository'
 import { mockGroupActivityRepository } from '@/repositories/group-activity/mock-group-activity-repository'
+import { firebaseAttendanceRepository } from '@/repositories/attendance/firebase-attendance-repository'
+import { mockAttendanceRepository } from '@/repositories/attendance/mock-attendance-repository'
 
 /** The single place the backend is chosen. Nothing else reads env.dataSource. */
 const useFirebase = env.dataSource === 'firebase'
@@ -84,6 +86,11 @@ export const activityPostRepository = useFirebase
 export const groupActivityRepository = useFirebase
   ? firebaseGroupActivityRepository
   : mockGroupActivityRepository
+
+/** QR check-in codes and immutable attendance records. */
+export const attendanceRepository = useFirebase
+  ? firebaseAttendanceRepository
+  : mockAttendanceRepository
 
 /**
  * Venue discovery, chosen from `env.venueSource` INDEPENDENTLY of the

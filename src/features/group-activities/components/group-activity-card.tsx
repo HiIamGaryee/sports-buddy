@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarClock, Check, MapPin, Users, Wallet } from 'lucide-react'
+import { CalendarClock, Check, MapPin, QrCode, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { StatusPill } from '@/components/ui/status-pill'
 import { SKILL_PREFERENCE_OPTIONS } from '@/constants/group-activities'
+import { CheckInQrDialog } from '@/features/group-activities/components/check-in-qr-dialog'
+import { ScanCheckInButton } from '@/features/group-activities/components/scan-check-in-button'
 import { ShareGroupActivityActions } from '@/features/group-activities/components/share-group-activity-actions'
 import { useGroupActivityActions } from '@/features/group-activities/use-group-activity-actions'
 import { formatActivityDate, formatActivityTime } from '@/lib/activity-format'
@@ -53,6 +55,8 @@ export function GroupActivityCard({
   const { viewerId, join, leave, removeParticipant } = useGroupActivityActions(onChanged)
   const [busy, setBusy] = useState<Busy>('idle')
   const [error, setError] = useState('')
+  const [isQrOpen, setIsQrOpen] = useState(false)
+  const [checkedIn, setCheckedIn] = useState(false)
 
   const viewerState = viewerId ? getGroupActivityViewerState(activity, viewerId, now) : 'past'
   const isOrganizer = viewerState === 'organizer'
@@ -60,7 +64,10 @@ export function GroupActivityCard({
   const organizerName = organizer?.displayName ?? 'Sports buddy'
   const full = isGroupActivityFull(activity)
   const spotsLeft = groupActivitySpotsLeft(activity)
+  // Named for "the start time has passed" (this activity is no longer
+  // upcoming) — also exactly when QR check-in becomes available.
   const isPast = new Date(activity.startAt).getTime() <= now.getTime()
+  const hasStarted = isPast
 
   const run = async (mode: Busy, action: () => Promise<unknown>) => {
     if (busy !== 'idle') return
@@ -210,25 +217,54 @@ export function GroupActivityCard({
                   )}
                 </div>
               )}
+
+              {hasStarted && (
+                <Button variant="outline" onClick={() => setIsQrOpen(true)}>
+                  <QrCode className="size-4" />
+                  Show check-in code
+                </Button>
+              )}
+              {isQrOpen && (
+                <CheckInQrDialog
+                  activityId={activity.id}
+                  organizerId={activity.organizerId}
+                  onClose={() => setIsQrOpen(false)}
+                />
+              )}
             </>
           )}
 
           {viewerState === 'joined' && (
-            <div className="flex items-center justify-between gap-2">
-              <StatusPill tone="success" icon={Check}>
-                You&apos;re in
-              </StatusPill>
-              {!isPast && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={busy !== 'idle'}
-                  onClick={() => void run('leave', () => leave(activity))}
-                >
-                  {busy === 'leave' ? 'Leaving…' : 'Leave'}
-                </Button>
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <StatusPill tone="success" icon={Check}>
+                  You&apos;re in
+                </StatusPill>
+                {!isPast && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy !== 'idle'}
+                    onClick={() => void run('leave', () => leave(activity))}
+                  >
+                    {busy === 'leave' ? 'Leaving…' : 'Leave'}
+                  </Button>
+                )}
+              </div>
+              {hasStarted && viewerId && (
+                checkedIn ? (
+                  <StatusPill tone="success" icon={ShieldCheck}>
+                    Checked in
+                  </StatusPill>
+                ) : (
+                  <ScanCheckInButton
+                    activityId={activity.id}
+                    userId={viewerId}
+                    onCheckedIn={() => setCheckedIn(true)}
+                  />
+                )
               )}
-            </div>
+            </>
           )}
 
           {viewerState === 'full' && (

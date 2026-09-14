@@ -517,6 +517,80 @@ service cloud.firestore {
 
       allow delete: if request.auth != null
         && request.auth.uid == resource.data.organizerId;
+
+      // QR CHECK-IN CODE — one document, at `checkIn/current`. Readable and
+      // writable only by the activity's organizer; `attendanceRecords`
+      // below reads it via `get()` (a privileged cross-document read, not
+      // subject to this collection's OWN `allow get`) to verify a scan.
+      match /checkIn/{checkInId} {
+        function isOrganizer() {
+          return request.auth.uid
+            == get(/databases/$(database)/documents/groupActivities/$(activityId)).data.organizerId;
+        }
+
+        allow get: if request.auth != null && isOrganizer();
+        allow list: if false;
+        allow create, update: if request.auth != null
+          && isOrganizer()
+          && request.resource.data.keys().hasOnly(['organizerId', 'code', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['organizerId', 'code', 'updatedAt'])
+          && request.resource.data.organizerId == request.auth.uid
+          && request.resource.data.code is string
+          && request.resource.data.code.size() > 0
+          && request.resource.data.code.size() <= 64
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
+    }
+
+    // QR CHECK-IN — immutable verified-attendance records. "Past is not
+    // completed" (STEP 13) still holds for `groupActivities`: a record here
+    // is a SEPARATE, additive fact ("this device scanned this activity's
+    // code"), never a status on the activity, and its absence is never read
+    // as "did not attend". See `src/types/attendance.ts`.
+    match /attendanceRecords/{recordId} {
+      function checkedInActivity(id) {
+        return get(/databases/$(database)/documents/groupActivities/$(id));
+      }
+
+      function currentCheckInCode(id) {
+        return get(/databases/$(database)/documents/groupActivities/$(id)/checkIn/current).data.code;
+      }
+
+      /** Involved: a joined participant, or the organizer checking themselves in. */
+      function isInvolvedInActivity(id) {
+        return request.auth.uid in checkedInActivity(id).data.participantIds
+          || request.auth.uid == checkedInActivity(id).data.organizerId;
+      }
+
+      // The attendee themselves, or the activity's organizer (to see who came).
+      allow get: if request.auth != null
+        && (request.auth.uid == resource.data.userId
+            || request.auth.uid == checkedInActivity(resource.data.activityId).data.organizerId);
+
+      // Every query must prove itself: a member's own Reliability Profile
+      // pins `userId ==`; the organizer's attendee list pins `activityId ==`.
+      allow list: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || request.auth.uid == checkedInActivity(resource.data.activityId).data.organizerId);
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['id', 'activityId', 'userId', 'code', 'checkedInAt'])
+        && request.resource.data.keys().hasAll(['id', 'activityId', 'userId', 'code', 'checkedInAt'])
+        && request.resource.data.id == recordId
+        && recordId == request.resource.data.activityId + '__' + request.resource.data.userId
+        // Only the attendee may record their OWN check-in — never someone else's.
+        && request.resource.data.userId == request.auth.uid
+        && isInvolvedInActivity(request.resource.data.activityId)
+        // The activity has actually started.
+        && checkedInActivity(request.resource.data.activityId).data.startAt <= request.time
+        // The scanned code matches the organizer's CURRENT code — a stale
+        // screenshot stops working the moment the organizer regenerates it.
+        && request.resource.data.code == currentCheckInCode(request.resource.data.activityId)
+        && request.resource.data.checkedInAt == request.time;
+
+      // Immutable: a check-in is a fact about the past, never edited or removed.
+      allow update, delete: if false;
     }
 
     // PRIVATE. `users/{uid}` holds account fields, the sports profile and the
