@@ -1,6 +1,7 @@
-import { MessageCircle, Users } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import shirtIcon from '@/assets/svg/shirt-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
 import { AppHeader } from '@/components/layout/app-header'
 import { Button } from '@/components/ui/button'
@@ -60,7 +61,7 @@ export function MessagesListPane({ selectedId }: { selectedId?: string | null })
         {!isLoading && !error && items.length === 0 && (
           <div className="flex flex-col gap-4">
             <EmptyState
-              icon={Users}
+              illustration={shirtIcon}
               title="No sports buddies yet."
               description="Connect with someone in Discover and your conversations show up here."
             />

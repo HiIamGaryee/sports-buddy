@@ -1,5 +1,6 @@
 import { History } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import clipboardIllustration from '@/assets/svg/clipboard-svgrepo-com.svg'
@@ -8,8 +9,8 @@ import { ErrorState } from '@/components/common/error-state'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
+import { SegmentedToggle } from '@/components/ui/segmented-toggle'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActivityCard } from '@/features/activities/components/activity-card'
 import { ActivityHistory } from '@/features/activities/components/activity-history'
 import {
@@ -26,11 +27,20 @@ const SKELETON_CARDS = [0, 1, 2]
 /** Sizes from the cards, not from a per-breakpoint column count. */
 const CARD_GRID = 'grid-cards'
 
+const activityTabs = [
+  { label: 'Planned', value: 'planned' },
+  { label: 'Created by me', value: 'created' },
+  { label: 'Past', value: 'past' },
+] as const
+
+type ActivityTab = (typeof activityTabs)[number]['value']
+
 /**
  * Planned and created sessions use the same upcoming source, while Past uses
  * its temporal query. Every view keeps the same cards and empty states.
  */
 export function ActivitiesPage() {
+  const [activeTab, setActiveTab] = useState<ActivityTab>('planned')
   const { user } = useAuth()
   const now = useCoarseNow()
   const upcoming = useUpcomingActivities()
@@ -47,20 +57,14 @@ export function ActivitiesPage() {
         size="wide"
       />
       <PageContainer size="wide">
-        <Tabs defaultValue="planned">
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="planned" className="flex-1 sm:flex-none sm:px-6">
-              Planned
-            </TabsTrigger>
-            <TabsTrigger value="created" className="flex-1 sm:flex-none sm:px-6">
-              Created by me
-            </TabsTrigger>
-            <TabsTrigger value="past" className="flex-1 sm:flex-none sm:px-6">
-              Past
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex flex-col gap-6">
+          <SegmentedToggle
+            options={activityTabs}
+            value={activeTab}
+            onChange={setActiveTab}
+          />
 
-          <TabsContent value="planned" className="pt-5">
+          {activeTab === 'planned' && (
             <ActivityTabBody
               {...upcoming}
               emptyIllustration={clipboardIllustration}
@@ -78,9 +82,9 @@ export function ActivitiesPage() {
                 ))}
               </div>
             </ActivityTabBody>
-          </TabsContent>
+          )}
 
-          <TabsContent value="created" className="pt-5">
+          {activeTab === 'created' && (
             <ActivityTabBody
               {...upcoming}
               items={createdItems}
@@ -99,9 +103,9 @@ export function ActivitiesPage() {
                 ))}
               </div>
             </ActivityTabBody>
-          </TabsContent>
+          )}
 
-          <TabsContent value="past" className="pt-5">
+          {activeTab === 'past' && (
             <ActivityTabBody
               {...past}
               emptyIcon={History}
@@ -110,10 +114,14 @@ export function ActivitiesPage() {
                  passed, which says nothing about whether anyone went. */
               emptyDescription="Your confirmed sessions appear here after their scheduled time."
             >
-              <ActivityHistory items={past.items} now={now} />
+              <ActivityHistory
+                items={past.items}
+                now={now}
+                reviewerId={user?.id ?? 'current-user'}
+              />
             </ActivityTabBody>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </PageContainer>
     </>
   )

@@ -1,8 +1,15 @@
 import { getSkillLabel, getSportName } from '@/lib/profile-format'
 import { getSport } from '@/lib/profile-format'
+import { cn } from '@/lib/utils'
 import type { UserSport } from '@/types/sports-profile'
 
-export function SportSkillList({ sports }: { sports: UserSport[] }) {
+export function SportSkillList({
+  sports,
+  className,
+}: {
+  sports: UserSport[]
+  className?: string
+}) {
   if (sports.length === 0) {
     return (
       <p className="text-body-small text-muted-foreground">
@@ -12,16 +19,16 @@ export function SportSkillList({ sports }: { sports: UserSport[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={cn('flex flex-col divide-y divide-border', className)}>
       {sports.map(({ sportId, skillLevel }) => {
         const Icon = getSport(sportId)?.icon
         return (
           <div
             key={sportId}
-            className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-3"
+            className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
           >
             {Icon && (
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-muted-foreground">
                 <Icon aria-hidden className="size-4" />
               </span>
             )}
