@@ -120,6 +120,13 @@ instantly. Each member's own profile shows plain, evidence-based numbers —
 "11 Verified Sessions", "92% Show-up Rate" — never a personality claim like
 "reliable" or "flaky".
 
+**Monthly recap** — "Jia Ying's September: Climbing ×7, Badminton ×3 — 12
+verified sessions, 92% show-up rate", computed live from existing activity
+and check-in data (nothing new is stored for it). Shown as a branded card
+with the Sports Buddy name on it, with a Share button that produces an
+actual image (via the phone's share sheet, or a saved file if the browser
+has no share sheet) — not just a text link. Free for everyone.
+
 **Monetization plumbing (Buddy+)** — A single premium tier wired end to end
 through RevenueCat's official Capacitor SDK: paywall screen, entitlement
 state, and the free-plan limits above actually enforced in the app. See §5
@@ -141,9 +148,6 @@ Said plainly, so nothing here is assumed to exist by accident:
   is finished and tested, but nobody has done the one-time setup (create
   the RevenueCat project, turn on its Test Store, create the product) — see
   §5. Until that happens, tapping "buy" on the paywall can't succeed.
-- **Monthly recap** ("Jia Ying's September: Climbing ×7, Badminton ×3 — 12
-  verified sessions, 92% show-up rate") and sharing it externally. Not
-  started.
 - **A Discover filter for "prioritize reliable people."** The Reliability
   Profile exists and is real, but using it to *rank or filter* other
   members would mean publishing that score on their public profile — a
@@ -253,10 +257,35 @@ in §5 is complete.
 
 1. Do the RevenueCat dashboard setup (§5) and confirm one real Test Store
    purchase end to end on a device.
-2. Click through group activities + QR check-in on a real Android phone.
-3. Monthly recap + sharing it (§4).
-4. Account deletion (required before any Play Store submission).
-5. Google Play Console submission.
+2. Click through group activities, QR check-in and the monthly recap on a
+   real Android phone.
+3. Account deletion (required before any Play Store submission).
+4. Google Play Console submission.
+
+See §10 for which of the *not-yet-built* items in §4 can be picked up right
+now, without anything from you first, versus which are blocked on an
+external account or a device only you have.
+
+## 10. What can be built next without waiting on anything
+
+Every "not built yet" item in §4 needs one of three things before it can
+happen: **code** (nothing external — can start immediately), **your access
+to an external dashboard** (RevenueCat, Google Cloud, Play Console, a
+notification provider), or **a real device in someone's hands**. Sorted so
+the code-only work is never blocked behind the others:
+
+| Can continue right now (code only) | Needs YOUR action first |
+| --- | --- |
+| Account deletion (Auth + Firestore cleanup) | An actual RevenueCat purchase (needs the dashboard setup in §5) |
+| Advanced Discover filters (Buddy+) | Native Google Sign-In (needs a Google Cloud OAuth client + your app's SHA-1) |
+| Advanced recap/analytics (trends, month comparisons, Buddy+) | Push notifications (needs a Firebase Cloud Messaging or OneSignal account) |
+| A Discover "reliability" filter — *needs one product decision from you first: should a member's reliability score become part of their public profile?* | A Vercel deployment (needs your Vercel login — Firebase Hosting already works meanwhile) |
+| | Google Play Store submission (needs a $25 developer account, store assets, and device testing) |
+| | Confirming the Android build (QR, camera, paywall, recap) on a real or emulated phone |
+
+**Recommended pick, if you want one:** account deletion — it's a real Play
+Store submission requirement, entirely code, and does not depend on any
+decision or account you'd need to set up first.
 
 ---
 
