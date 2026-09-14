@@ -344,7 +344,11 @@ listener.
   and cannot change a compatibility score or the order.
 - Incoming requests are lifted into a "Wants to connect" section above the
   ranked feed. That is ordering only — the score is calculated normally and
-  never inflated because someone asked first.
+  never inflated because someone asked first. Unlike the ranked feed, this
+  section is **exempt from the viewer's active Discover filters**
+  (`NO_DISCOVER_FILTERS` in `src/lib/discover-filters.ts`): a pending
+  request must never be hidden just because the recipient happens to have a
+  sport/skill/area filter on. See `docs/discover.md`.
 - "Not now" is session-only in-memory state. No `dismissedProfiles`
   collection exists, and refresh brings the candidate back.
 - Deliberately absent: disconnect/unfriend, block/report, chat, notification
@@ -445,9 +449,22 @@ reject any extra field. 23 of the 43 emulator rules tests cover chat.
   with **no `orderBy`** (ordering is client-side because the list merges with
   buddies who have no conversation), and the message query is single-field
   inside a subcollection.
-- Deliberately absent: unread state and any nav badge, read receipts, typing,
-  presence, media, replies, reactions, editing, deletion, group chat, push
-  notifications, and structured planning.
+- **Unread state is REAL but device-local.** `src/lib/chat-read-state.ts`
+  stores a per-user, per-conversation "read up to" timestamp in
+  `localStorage` (`CHAT_READ_STATE_KEY`), and `isConversationUnread()` is the
+  one definition of unread: the buddy's newest message is later than the
+  marker; your own message is never unread. Opening a thread marks it read up
+  to its newest *resolved* message timestamp. It drives a dot on the
+  conversation row and on the Messages tab in all three nav shells. Known
+  cost: two devices have two read states. Moving it to Firestore
+  (`conversations/{id}.lastReadAt[uid]`) changes that ONE file — the UI never
+  touches storage. That move belongs with push notifications.
+- The conversations subscription lives in `ConversationsProvider` (mounted in
+  `ProtectedRoute` beside `ConnectionProvider`), shared by the Messages list
+  and the tab badge, so it is still ONE listener.
+- Deliberately absent: read receipts / "seen", typing, presence, media,
+  replies, reactions, editing, deletion, group chat, push notifications, and
+  structured planning.
 - Full walkthrough: `docs/chat.md`.
 
 ### Plan Together (STEP 10)
@@ -1530,8 +1547,12 @@ it. Feature logic never leaks into `components/ui/`.
 - Write a message without updating the conversation preview in the same
   atomic operation.
 - Edit or delete a message — they are immutable in this step.
-- Show an unread badge, a read receipt, a typing indicator or presence; none
-  of them are implemented, and a fake one is worse than none.
+- Show a read receipt, "seen", a typing indicator or presence; none of them
+  are implemented, and a fake one is worse than none. Unread IS implemented —
+  derive it only through `isConversationUnread()`, never a second rule.
+- Open a second conversations subscription (e.g. for a badge); read
+  `useConversationsFeed()` from `ConversationsProvider` instead.
+- Touch `CHAT_READ_STATE_KEY` outside `src/lib/chat-read-state.ts`.
 - Add a second pair-id system for conversations; the conversation id IS the
   connection id.
 - Let a pending (or absent) connection reach an activity plan — the check

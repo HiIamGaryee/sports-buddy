@@ -9,9 +9,13 @@ import { conversationPath } from '@/routes/routes'
 import type { ConversationListItem as ConversationRow } from '@/features/chat/use-conversations'
 
 /**
- * A connected buddy, with their thread if one exists. No unread dot, no
- * "seen", no presence — none of those are implemented, and a fake one is
- * worse than none.
+ * A connected buddy, with their thread if one exists.
+ *
+ * The unread dot is REAL: it is derived from the viewer's own read marker
+ * (`src/lib/chat-read-state.ts`) against the conversation's last message, and
+ * clears the moment the thread is opened. Still no "seen" and no presence —
+ * those would need the other person's state, which is not tracked, and a fake
+ * one is worse than none.
  */
 export function ConversationListItem({
   item,
@@ -45,13 +49,22 @@ export function ConversationListItem({
       </Avatar>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-title text-card-foreground">
+        <span
+          className={cn(
+            'truncate text-title text-card-foreground',
+            item.isUnread && 'font-semibold',
+          )}
+        >
           {item.displayName}
         </span>
         <span
-          className={`truncate text-body-small ${
-            item.lastMessageText ? 'text-muted-foreground' : 'text-primary'
-          }`}
+          className={cn(
+            'truncate text-body-small',
+            item.lastMessageText ? 'text-muted-foreground' : 'text-primary',
+            // Unread is never colour alone: the preview gains weight and
+            // full-strength text, and the dot below carries a real label.
+            item.isUnread && 'font-medium text-card-foreground',
+          )}
         >
           {preview}
         </span>
@@ -59,9 +72,24 @@ export function ConversationListItem({
 
       <div className="flex shrink-0 items-center gap-1">
         {time && (
-          <span className="text-caption text-muted-foreground">{time}</span>
+          <span
+            className={cn(
+              'text-caption',
+              item.isUnread ? 'text-primary' : 'text-muted-foreground',
+            )}
+          >
+            {time}
+          </span>
         )}
-        <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
+        {item.isUnread ? (
+          <span
+            role="status"
+            aria-label={`Unread message from ${item.displayName}`}
+            className="size-2.5 rounded-full bg-primary"
+          />
+        ) : (
+          <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
+        )}
       </div>
     </Link>
   )

@@ -2,12 +2,20 @@ import { NavItem } from '@/components/layout/nav-item'
 import { mobileBottomNavigation } from '@/config/navigation'
 import { cn } from '@/lib/utils'
 
+import type { NavigationBadges } from '@/config/navigation'
+
 /**
  * MOBILE navigation (<768px) only — `AppShell` renders a rail on tablet and a
  * sidebar on desktop instead. It is not rendered above `md` at all, rather
  * than being present and visually hidden.
  */
-export function BottomNavigation({ className }: { className?: string }) {
+export function BottomNavigation({
+  className,
+  badges = {},
+}: {
+  className?: string
+  badges?: NavigationBadges
+}) {
   return (
     <nav
       aria-label="Main"
@@ -19,7 +27,13 @@ export function BottomNavigation({ className }: { className?: string }) {
       <ul className="flex h-bottom-nav items-stretch px-1">
         {mobileBottomNavigation.map(({ label, path, icon: Icon }) => (
           <li key={path} className="flex-1">
-            <NavItem shape="bar" to={path} label={label} icon={Icon} />
+            <NavItem
+              shape="bar"
+              to={path}
+              label={label}
+              icon={Icon}
+              badgeCount={badges[path]}
+            />
           </li>
         ))}
       </ul>

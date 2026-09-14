@@ -7,6 +7,7 @@ import type {
 } from '@/types/preferences'
 import type {
   SkillLevel,
+  SportsIntent,
   SportsProfileFields,
   UserSport,
 } from '@/types/sports-profile'
@@ -128,10 +129,25 @@ export function normalizeUserPreferences(
   }
 }
 
-/** Keeps discovery preferences consistent after the profile's sports change. */
+/**
+ * Keeps discovery preferences consistent after a profile edit.
+ *
+ * Sports are only PRUNED — a dropped sport falls out of the filter, but
+ * adding a new one never silently widens it, since a person may reasonably
+ * want a narrower "who I'm looking for" than "everything I play."
+ *
+ * Intents always MIRROR the profile exactly, on every save. Unlike sports,
+ * "who I am" (profile intents) and "who I want to see" (this filter) share
+ * the same small, closed vocabulary — there's no reasonable case for
+ * wanting a narrower intent filter than what you just declared, and leaving
+ * it stale is confusing: a newly added intent (e.g. "New sports friends")
+ * would otherwise never appear as discoverable until the user separately
+ * remembers to update Settings → Discovery by hand.
+ */
 export function reconcileDiscoveryPreferences(
   preferences: UserPreferences,
   sports: UserSport[],
+  intents: SportsIntent[],
 ): UserPreferences {
   const sportIds = sports.map((sport) => sport.sportId)
   const kept = preferences.discovery.preferredSports.filter((sportId) =>
@@ -142,6 +158,7 @@ export function reconcileDiscoveryPreferences(
     discovery: {
       ...preferences.discovery,
       preferredSports: kept.length > 0 ? kept : sportIds,
+      preferredIntents: [...intents],
     },
   }
 }

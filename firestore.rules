@@ -25,13 +25,45 @@ service cloud.firestore {
         || boundedString(data[key], limit);
     }
 
+    /**
+     * True when `uid` is one of the participant segments encoded in a
+     * deterministic pair-based document id — `a__b` for a connection, or
+     * `a__b__active` for its plan and confirmed activity. Used to admit a
+     * `get` on a document that does not exist yet (a transaction checking
+     * before it writes), and as the query-independent `list` rule for
+     * messages. Once a document exists, `get`/writes still re-derive
+     * participation from its stored `participants`.
+     */
+    function uidInPairId(uid, id) {
+      return uid in id.split('__');
+    }
+
+    /**
+     * No block exists between the two users, in either direction. A block
+     * document's id is `blockerId__blockedUserId`, so both orders are
+     * checked. Used by connection writes, `connectedParticipant()`, plans and
+     * activities, so a block cuts off connecting, chatting and planning.
+     */
     function pairIsUnblocked(participants) {
       return !exists(/databases/$(database)/documents/blocks/$(participants[0] + '__' + participants[1]))
         && !exists(/databases/$(database)/documents/blocks/$(participants[1] + '__' + participants[0]));
     }
 
+    // SAFETY — blocks. One document per direction at `blockerId__blockedUserId`.
+    // Only the blocker can see or remove it; the blocked person is never told.
     match /blocks/{blockId} {
-      allow get, list: if request.auth != null && request.auth.uid == resource.data.blockerId;
+      // `blockUser()` reads the document BEFORE creating it (idempotency), so
+      // `get` must work when it does not exist yet — `resource.data` is null
+      // then, which is exactly the bug that broke every first-ever Connect.
+      // Authorize from the id instead: its first segment is the blocker.
+      allow get: if request.auth != null
+        && blockId.split('__')[0] == request.auth.uid;
+
+      // Matched by the client query `where('blockerId', '==', uid)`, so this
+      // data-dependent rule is provable from the query (rules are not filters).
+      allow list: if request.auth != null
+        && request.auth.uid == resource.data.blockerId;
+
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly(['blockerId', 'blockedUserId', 'reason', 'createdAt'])
         && request.resource.data.blockerId == request.auth.uid
@@ -39,15 +71,28 @@ service cloud.firestore {
         && blockId == request.auth.uid + '__' + request.resource.data.blockedUserId
         && (request.resource.data.reason == null || request.resource.data.reason in ['unwanted-contact', 'inappropriate-behavior', 'spam', 'safety-concern', 'other'])
         && request.resource.data.createdAt == request.time;
+
       allow update: if false;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.blockerId;
+
+      // From the id, so unblocking twice is not an error on a missing document.
+      allow delete: if request.auth != null
+        && blockId.split('__')[0] == request.auth.uid;
     }
 
+    // SAFETY — reports. Write-only for members; nobody can read one back.
     match /reports/{reportId} {
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly(['reporterId', 'reportedUserId', 'reason', 'note', 'context', 'status', 'createdAt'])
         && request.resource.data.reporterId == request.auth.uid
+        && boundedString(request.resource.data.reportedUserId, 128)
         && request.resource.data.reportedUserId != request.auth.uid
+        // Where the report was filed from. Without a shape check this map
+        // accepted anything a client chose to attach.
+        && request.resource.data.context is map
+        && request.resource.data.context.keys().hasOnly(['type', 'connectionId', 'conversationId'])
+        && request.resource.data.context.type in ['profile', 'conversation']
+        && boundedOptionalString(request.resource.data.context, 'connectionId', 200)
+        && boundedOptionalString(request.resource.data.context, 'conversationId', 200)
         && request.resource.data.reason in ['harassment', 'spam', 'inappropriate-content', 'fake-profile', 'safety-concern', 'other']
         && (request.resource.data.note == null || (request.resource.data.note is string && request.resource.data.note.size() <= 500))
         && request.resource.data.status == 'submitted'
@@ -180,7 +225,22 @@ service cloud.firestore {
           : data.status == 'pending' && data.connectedAt == null;
       }
 
-      allow get, list: if isParticipant(current());
+      // `list` is the realtime subscription's own query
+      // (`participants array-contains uid` + `limit`) — it can only ever
+      // match documents that already exist, so it stays the plain
+      // participant check. Combining a `list` rule with `exists()` (as the
+      // `get` rule below needs) risks Firestore being unable to evaluate the
+      // query per-document at all, silently failing the WHOLE subscription
+      // rather than one document — keeping them separate is what avoids that.
+      allow list: if isParticipant(current());
+
+      // The `!exists(...)` branch is only for a single-document `get`, which
+      // is what lets `connect()`'s transaction check a brand-new pair before
+      // creating it — see `uidInPairId()`.
+      allow get: if request.auth != null
+        && uidInPairId(request.auth.uid, connectionId)
+        && (!exists(/databases/$(database)/documents/connections/$(connectionId))
+            || isParticipant(current()));
 
       allow create: if isParticipant(incoming())
         && wellFormed(incoming())
@@ -245,7 +305,22 @@ service cloud.firestore {
                 'updatedAt'];
       }
 
-      allow get, list: if connectedParticipant();
+      // `list` is the Messages list's own subscription
+      // (`participants array-contains uid` + `limit`) — a real live-project
+      // failure showed that combining a `list` query with an external
+      // `get()`/`exists()` call (as `connectedParticipant()` makes, into the
+      // `connections` collection) comes back permission-denied for the WHOLE
+      // query, even when every individual document would legitimately pass.
+      // `conversations` already stores its own `participants`, so `list`
+      // checks that directly instead — no external read, and a query can
+      // only ever match a document that already exists in the first place.
+      // A stronger `connectedParticipant()` check still gates every WRITE and
+      // every single-document `get()` below, so this is not a real narrowing
+      // of who may read what — see `docs/chat.md` for the full incident.
+      allow list: if request.auth != null
+        && request.auth.uid in resource.data.participants;
+
+      allow get: if connectedParticipant();
 
       allow create: if connectedParticipant()
         && request.resource.data.keys().hasOnly(conversationFields())
@@ -284,7 +359,29 @@ service cloud.firestore {
           return ['id', 'conversationId', 'senderId', 'content', 'createdAt'];
         }
 
-        allow get, list: if connectedParticipant();
+        /**
+         * SECURITY RULES ARE NOT FILTERS. The message subscription queries
+         * this subcollection with `orderBy('createdAt','desc') + limit()`
+         * and NO `where` clause, so Firestore cannot prove that a rule
+         * reading `resource.data` holds for every possible result — it
+         * rejects the WHOLE query rather than dropping documents. A `list`
+         * rule here must therefore be QUERY-INDEPENDENT: path and
+         * `request.auth` only, never document data.
+         *
+         * `conversationId` IS the connection id, which already encodes both
+         * participants, so `uidInPairId` authorizes from the path alone —
+         * no document read, nothing for a query to contradict. Every WRITE,
+         * and every single-document `get`, still goes through the full
+         * `connectedParticipant()` check below.
+         */
+        //
+        // The block check uses the same path-derived pair, so it stays
+        // query-independent: a blocked pair can no longer read the history.
+        allow list: if request.auth != null
+          && uidInPairId(request.auth.uid, conversationId)
+          && pairIsUnblocked(conversationId.split('__'));
+
+        allow get: if connectedParticipant();
 
         allow create: if connectedParticipant()
           && request.resource.data.keys().hasOnly(messageFields())
@@ -418,7 +515,23 @@ service cloud.firestore {
               && before.acceptedBy.removeAll(after.acceptedBy).size() == 0);
       }
 
-      allow get, list: if connectedParticipant(current().connectionId);
+      // The `!exists(...)` branch is what lets `ensureActivePlan()`'s
+      // transaction check a brand-new draft before creating it — see
+      // `uidInPairId()`. Only valid while a plan id is `{connectionId}__active`
+      // (the only shape that exists today) — an archived-plan id scheme would
+      // need its own version of this check.
+      //
+      // `list` is split out even though no query over `activityPlans` exists
+      // today (one plan is always opened by its own known id) — combining a
+      // `list` rule with `exists()` risks Firestore being unable to evaluate
+      // a future query per-document at all, so this keeps that risk out
+      // entirely rather than relying on "nothing lists this yet."
+      allow list: if connectedParticipant(current().connectionId);
+
+      allow get: if request.auth != null
+        && uidInPairId(request.auth.uid, planId)
+        && (!exists(/databases/$(database)/documents/activityPlans/$(planId))
+            || connectedParticipant(current().connectionId));
 
       allow create: if connectedParticipant(incoming().connectionId)
         && incoming().keys().hasOnly(planFields())
@@ -527,8 +640,26 @@ service cloud.firestore {
                 'createdBy', 'createdAt', 'updatedAt'];
       }
 
-      allow get, list: if request.auth != null
+      // `getUpcomingForUser`/`getPastForUser` (STEP 13) query this collection
+      // directly (`participants array-contains uid` + a bound on `endAt`),
+      // so `list` is real here, not hypothetical. It stays the plain
+      // participant check — a query can only ever match documents that
+      // already exist. Combining a `list` rule with `exists()` (as `get`
+      // below needs) risks Firestore being unable to evaluate the query
+      // per-document at all, silently failing the WHOLE history read rather
+      // than one document.
+      allow list: if request.auth != null
         && request.auth.uid in current().participants;
+
+      // The `!exists(...)` branch is only for a single-document `get`, which
+      // is what lets `createFromPlan()`'s transaction check for an
+      // already-confirmed activity before writing one — see `uidInPairId()`.
+      // Valid while an activity id is its source plan's `{connectionId}__active`
+      // id (true today; §STEP 12).
+      allow get: if request.auth != null
+        && uidInPairId(request.auth.uid, activityId)
+        && (!exists(/databases/$(database)/documents/activities/$(activityId))
+            || request.auth.uid in current().participants);
 
       allow create: if request.auth != null
         && exists(planPath())

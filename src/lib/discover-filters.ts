@@ -17,6 +17,20 @@ export function createFiltersFromPreferences(
   }
 }
 
+/**
+ * The filter state that excludes nobody. Used to rank/join the full
+ * candidate set for "Wants to connect" — an incoming request is a stronger
+ * signal than "would I have chosen to see this person," so it must never be
+ * hidden by the recipient's own session filters.
+ */
+export const NO_DISCOVER_FILTERS: DiscoverFilters = {
+  sports: [],
+  skillLevels: [],
+  intents: [],
+  areas: [],
+  requireAvailabilityOverlap: false,
+}
+
 export const countActiveFilters = (filters: DiscoverFilters) =>
   (filters.sports.length > 0 ? 1 : 0) +
   (filters.skillLevels.length > 0 ? 1 : 0) +

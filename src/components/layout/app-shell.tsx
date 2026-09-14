@@ -1,9 +1,13 @@
+import { useMemo } from 'react'
 import { Outlet, useMatch } from 'react-router-dom'
 
 import { BottomNavigation } from '@/components/layout/bottom-navigation'
 import { DesktopSidebar } from '@/components/layout/desktop-sidebar'
 import { NavigationRail } from '@/components/layout/navigation-rail'
+import { useUnreadConversationCount } from '@/features/chat/use-unread-conversation-count'
 import { ROUTES } from '@/routes/routes'
+
+import type { NavigationBadges } from '@/config/navigation'
 
 /**
  * The signed-in app frame, and the ONLY place that decides which navigation
@@ -27,17 +31,26 @@ import { ROUTES } from '@/routes/routes'
  */
 export function AppShell() {
   const isConversation = useMatch(ROUTES.conversation) !== null
+  const unreadConversations = useUnreadConversationCount()
+
+  // Computed once here, so all three navigation shells show the same thing.
+  const badges = useMemo<NavigationBadges>(
+    () => ({ [ROUTES.messages]: unreadConversations }),
+    [unreadConversations],
+  )
 
   return (
     <div className="flex min-h-dvh bg-background pl-safe-left pr-safe-right md:h-dvh md:overflow-hidden">
-      <NavigationRail className="hidden md:flex lg:hidden" />
-      <DesktopSidebar className="hidden lg:flex" />
+      <NavigationRail className="hidden md:flex lg:hidden" badges={badges} />
+      <DesktopSidebar className="hidden lg:flex" badges={badges} />
 
       <div className="flex min-w-0 flex-1 flex-col md:h-dvh md:overflow-y-auto">
         <Outlet />
       </div>
 
-      {!isConversation && <BottomNavigation className="md:hidden" />}
+      {!isConversation && (
+        <BottomNavigation className="md:hidden" badges={badges} />
+      )}
     </div>
   )
 }

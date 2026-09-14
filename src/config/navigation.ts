@@ -14,6 +14,13 @@ export interface NavigationItem {
   icon: string
 }
 
+/**
+ * Live counts shown as a dot on a destination, keyed by its path. Only routes
+ * with something genuinely unread appear; the navigation shells just render
+ * what they are handed and never compute it.
+ */
+export type NavigationBadges = Partial<Record<AppRoute, number>>
+
 /** Single source of truth for the main app tabs. */
 export const mainNavigation: readonly NavigationItem[] = [
   { label: 'Home', path: ROUTES.home, icon: buildingIcon },

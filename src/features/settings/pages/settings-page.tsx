@@ -8,6 +8,7 @@ import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { APP_VERSION } from '@/constants/app'
+import { BlockedUsersList } from '@/features/settings/components/blocked-users-list'
 import { PreferenceToggle } from '@/features/settings/components/preference-toggle'
 import { SettingsRow } from '@/features/settings/components/settings-row'
 import { SettingsSection } from '@/features/settings/components/settings-section'
@@ -225,6 +226,8 @@ export function SettingsPage() {
               }
             />
           )}
+          <Separator />
+          <BlockedUsersList />
           <Separator />
           <ul className="flex flex-col gap-1.5 text-body-small text-muted-foreground">
             <li>Only your general area is shared — never your exact location.</li>

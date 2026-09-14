@@ -168,8 +168,18 @@ inflated because someone asked first. Within each section the ranking is
 still score-descending.
 
 Low scores are never hidden: only active filters remove people. Filters
-continue to work unchanged — sport, skill, intent, area and availability all
-apply before scoring and before the join.
+apply to the **"For you"** section — sport, skill, intent, area and
+availability all apply before scoring and before the join. **"Wants to
+connect" is exempt from active filters**: `use-discover.ts` ranks/joins the
+incoming section from the full candidate set with
+`NO_DISCOVER_FILTERS` (`src/lib/discover-filters.ts`), independent of
+whatever the viewer currently has selected. A real person asking to connect
+is a stronger signal than "would my current filters have shown me this
+person," and hiding a pending request behind a forgotten filter is
+confusing, not a feature — this surfaced during live two-user testing where
+an active filter made a genuine incoming request invisible. `visibleCount`
+is `incoming.length + suggested.length`, not the size of one shared filtered
+list, since the two sections are now independently derived.
 
 "Not now" is in-memory only. It hides a candidate for this Discover session
 and is deliberately not persisted; refresh (or the refresh button) brings
