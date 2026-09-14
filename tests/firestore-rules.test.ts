@@ -2528,3 +2528,251 @@ describe('who can see an activity post', () => {
     })
   })
 })
+
+describe('group activities', () => {
+  const activityPath = (id = 'activity_1') => `groupActivities/${id}`
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+
+  const newActivity = (overrides: Record<string, unknown> = {}) => ({
+    id: 'activity_1',
+    organizerId: GARY,
+    sportId: 'badminton',
+    title: 'Saturday Badminton Meetup',
+    description: 'Casual doubles, all welcome.',
+    startAt: inDays(2),
+    endAt: null,
+    timeZone: 'Asia/Kuala_Lumpur',
+    areaId: 'subang-jaya',
+    venueName: 'KL Sports City',
+    budget: { min: 10, max: 20 },
+    preferredSkillLevel: 'any',
+    maxParticipants: 8,
+    participantIds: [],
+    createdAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  async function seedActivity(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), activityPath()), {
+        ...newActivity(overrides),
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  it('can be created by its organizer', async () => {
+    await assertSucceeds(setDoc(doc(asUser(GARY), activityPath()), newActivity()))
+  })
+
+  it('accepts an open-ended budget and no end time', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ budget: { min: 60, max: null } })),
+    )
+  })
+
+  it("cannot be created on somebody else's behalf", async () => {
+    await assertFails(setDoc(doc(asUser(AINA), activityPath()), newActivity()))
+    await assertFails(setDoc(doc(asGuest(), activityPath()), newActivity()))
+  })
+
+  it('rejects a session in the past or too far ahead', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ startAt: inDays(-1) })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ startAt: inDays(120) })),
+    )
+  })
+
+  it('rejects an end time before the start', async () => {
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), activityPath()),
+        newActivity({ startAt: inDays(2), endAt: inDays(1) }),
+      ),
+    )
+  })
+
+  it('rejects a participant cap outside 2..30', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ maxParticipants: 1 })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ maxParticipants: 31 })),
+    )
+  })
+
+  it('rejects malformed fields and extra keys', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ title: '' })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ venueName: '' })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ featured: true })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath('other')), newActivity({ id: 'activity_1' })),
+    )
+  })
+
+  it('can be browsed by any signed-in member, never a guest', async () => {
+    await seedActivity()
+    const snapshot = await getDocs(
+      query(
+        collection(asUser(STRANGER), 'groupActivities'),
+        where('startAt', '>', new Date()),
+        orderBy('startAt', 'asc'),
+        limit(30),
+      ),
+    )
+    expect(snapshot.docs.map((entry) => entry.id)).toEqual(['activity_1'])
+    await assertFails(getDocs(collection(asGuest(), 'groupActivities')))
+  })
+
+  const edit = (overrides: Record<string, unknown> = {}) => ({
+    sportId: 'badminton',
+    title: 'Saturday Badminton Meetup (moved)',
+    description: 'Casual doubles, all welcome.',
+    startAt: inDays(3),
+    endAt: null,
+    timeZone: 'Asia/Kuala_Lumpur',
+    areaId: 'petaling-jaya',
+    venueName: 'Somewhere else',
+    budget: { min: 20, max: 40 },
+    preferredSkillLevel: 'any',
+    maxParticipants: 8,
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  it('can be edited by its organizer', async () => {
+    await seedActivity()
+    await assertSucceeds(updateDoc(doc(asUser(GARY), activityPath()), edit()))
+  })
+
+  it('cannot be edited by anyone else', async () => {
+    await seedActivity()
+    await assertFails(updateDoc(doc(asUser(AINA), activityPath()), edit()))
+    await assertFails(updateDoc(doc(asUser(STRANGER), activityPath()), edit()))
+  })
+
+  it('never lets an edit move identity, participants or break the create rules', async () => {
+    await seedActivity()
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ organizerId: AINA })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ createdAt: new Date(0) })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ startAt: inDays(-1) })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ participantIds: [AINA] })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ updatedAt: new Date(0) })),
+    )
+  })
+
+  it('can be removed only by its organizer', async () => {
+    await seedActivity()
+    await assertFails(deleteDoc(doc(asUser(AINA), activityPath())))
+    await assertSucceeds(deleteDoc(doc(asUser(GARY), activityPath())))
+  })
+})
+
+describe('joining group activities', () => {
+  const activityPath = 'groupActivities/activity_1'
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+
+  async function seedActivity(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), activityPath), {
+        id: 'activity_1',
+        organizerId: GARY,
+        sportId: 'badminton',
+        title: 'Saturday Badminton Meetup',
+        description: 'Casual doubles, all welcome.',
+        startAt: inDays(2),
+        endAt: null,
+        timeZone: 'Asia/Kuala_Lumpur',
+        areaId: 'subang-jaya',
+        venueName: 'KL Sports City',
+        budget: { min: 10, max: 20 },
+        preferredSkillLevel: 'any',
+        maxParticipants: 2,
+        participantIds: [],
+        createdAt: new Date(),
+        ...overrides,
+      })
+    })
+  }
+
+  it('lets a member take a free spot', async () => {
+    await seedActivity()
+    await assertSucceeds(
+      updateDoc(doc(asUser(AINA), activityPath), { participantIds: [AINA] }),
+    )
+  })
+
+  it('is full once every spot is taken', async () => {
+    await seedActivity({ participantIds: [AINA], maxParticipants: 1 })
+    await assertFails(
+      updateDoc(doc(asUser(STRANGER), activityPath), { participantIds: [AINA, STRANGER] }),
+    )
+  })
+
+  it('never lets a member add someone else, or join their own activity', async () => {
+    await seedActivity()
+    await assertFails(
+      updateDoc(doc(asUser(AINA), activityPath), { participantIds: [STRANGER] }),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath), { participantIds: [GARY] }),
+    )
+  })
+
+  it('cannot be joined once it has started', async () => {
+    await seedActivity({ startAt: inDays(-1) })
+    await assertFails(
+      updateDoc(doc(asUser(AINA), activityPath), { participantIds: [AINA] }),
+    )
+  })
+
+  it('lets a participant give up their own spot, even once started', async () => {
+    await seedActivity({ participantIds: [AINA], startAt: inDays(-1) })
+    await assertSucceeds(
+      updateDoc(doc(asUser(AINA), activityPath), { participantIds: [] }),
+    )
+  })
+
+  it('never lets anyone but that person remove them, except the organizer', async () => {
+    await seedActivity({ participantIds: [AINA] })
+    await assertFails(
+      updateDoc(doc(asUser(STRANGER), activityPath), { participantIds: [] }),
+    )
+    await assertSucceeds(
+      updateDoc(doc(asUser(GARY), activityPath), { participantIds: [] }),
+    )
+  })
+
+  it('can be found by organizer or participant queries', async () => {
+    await seedActivity({ participantIds: [AINA] })
+    const organizerSnapshot = await getDocs(
+      query(collection(asUser(GARY), 'groupActivities'), where('organizerId', '==', GARY)),
+    )
+    expect(organizerSnapshot.docs.map((entry) => entry.id)).toEqual(['activity_1'])
+
+    const participantSnapshot = await getDocs(
+      query(
+        collection(asUser(AINA), 'groupActivities'),
+        where('participantIds', 'array-contains', AINA),
+      ),
+    )
+    expect(participantSnapshot.docs.map((entry) => entry.id)).toEqual(['activity_1'])
+  })
+})

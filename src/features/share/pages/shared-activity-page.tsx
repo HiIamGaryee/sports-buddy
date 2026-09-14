@@ -8,35 +8,41 @@ import { Card, CardContent } from '@/components/ui/card'
 import { APP_NAME, APP_TAGLINE_LINES } from '@/constants/app'
 import { validDocumentId } from '@/lib/ids'
 import { rememberSharedActivity } from '@/routes/return-path'
-import { activityPostPath, ROUTES } from '@/routes/routes'
+import { activityPostPath, groupActivityDetailPath, ROUTES } from '@/routes/routes'
 import { useRouteState } from '@/routes/use-route-state'
 
 /**
- * `/activity/:postId` — the address a share link points at, for members and
- * outsiders alike.
+ * `/activity/:postId` (a 1v1 `ActivityPost`) and `/group-activity/:activityId`
+ * (a public `GroupActivity`) — the addresses a share link points at, for
+ * members and outsiders alike. Both render the SAME page: only which
+ * document kind they resolve to at the end differs.
  *
  * A signed-in member goes straight to the activity. Anyone else is told what
- * the link is and asked to join; the post id is remembered so sign-up,
- * sign-in and onboarding all end on the activity. Nothing about the post is
- * shown here: reading a post needs an account, so a signed-out visitor learns
+ * the link is and asked to join; the id is remembered so sign-up, sign-in
+ * and onboarding all end on it. Nothing about the activity is shown here:
+ * reading either kind needs an account, so a signed-out visitor learns
  * nothing from a guessed id.
  */
-export function SharedActivityPage() {
-  const { postId: rawPostId } = useParams<{ postId: string }>()
-  const postId = validDocumentId(rawPostId)
+export function SharedActivityPage({ kind }: { kind: 'post' | 'group' }) {
+  const params = useParams<{ postId?: string; activityId?: string }>()
+  const id = validDocumentId(kind === 'group' ? params.activityId : params.postId)
   const state = useRouteState()
 
   // Remember it as soon as we know they are not ready yet — before any
   // redirect — so it survives whatever sign-in path they take.
   useEffect(() => {
-    if (postId && (state === 'guest' || state === 'onboarding-required')) {
-      rememberSharedActivity(postId)
+    if (id && (state === 'guest' || state === 'onboarding-required')) {
+      rememberSharedActivity(id, kind)
     }
-  }, [postId, state])
+  }, [id, kind, state])
 
-  if (!postId) return <Navigate to={ROUTES.home} replace />
+  if (!id) return <Navigate to={ROUTES.home} replace />
   if (state === 'loading') return <AppSplash />
-  if (state === 'ready') return <Navigate to={activityPostPath(postId)} replace />
+  if (state === 'ready') {
+    return (
+      <Navigate to={kind === 'group' ? groupActivityDetailPath(id) : activityPostPath(id)} replace />
+    )
+  }
   if (state === 'onboarding-required') {
     return <Navigate to={ROUTES.onboarding} replace />
   }

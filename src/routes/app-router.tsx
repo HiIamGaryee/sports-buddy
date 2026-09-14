@@ -15,7 +15,10 @@ import { BuddyProfilePage } from '@/features/discover/pages/buddy-profile-page'
 import { DiscoverPage } from '@/features/discover/pages/discover-page'
 import { PostActivityPage } from '@/features/planning/pages/post-activity-page'
 import { ActivityPostPage } from '@/features/discover/pages/activity-post-page'
+import { GroupActivityFormPage } from '@/features/group-activities/pages/group-activity-form-page'
+import { GroupActivityDetailPage } from '@/features/group-activities/pages/group-activity-detail-page'
 import { SharedActivityPage } from '@/features/share/pages/shared-activity-page'
+import { PaywallPage } from '@/features/premium/pages/paywall-page'
 import { EditProfilePage } from '@/features/profile/pages/edit-profile-page'
 import { ProfilePage } from '@/features/profile/pages/profile-page'
 import { DiscoverySettingsPage } from '@/features/settings/pages/discovery-settings-page'
@@ -51,6 +54,9 @@ export function AppRouter() {
             <Route path={ROUTES.editActivityPost} element={<PostActivityPage />} />
             <Route path={ROUTES.inviteActivity} element={<PostActivityPage />} />
             <Route path={ROUTES.activityPost} element={<ActivityPostPage />} />
+            <Route path={ROUTES.createGroupActivity} element={<GroupActivityFormPage />} />
+            <Route path={ROUTES.editGroupActivity} element={<GroupActivityFormPage />} />
+            <Route path={ROUTES.groupActivityDetail} element={<GroupActivityDetailPage />} />
             <Route
               path={ROUTES.buddyProfile}
               element={<BuddyProfilePage />}
@@ -79,6 +85,7 @@ export function AppRouter() {
             <Route path={ROUTES.profile} element={<ProfilePage />} />
             <Route path={ROUTES.profileEdit} element={<EditProfilePage />} />
             <Route path={ROUTES.settings} element={<SettingsPage />} />
+            <Route path={ROUTES.paywall} element={<PaywallPage />} />
             <Route
               path={ROUTES.discoverySettings}
               element={<DiscoverySettingsPage />}
@@ -88,7 +95,11 @@ export function AppRouter() {
 
         {/* A share link. Outside every guard: it must open for someone who
             has no account yet, and routes signed-in members onward itself. */}
-        <Route path={ROUTES.sharedActivity} element={<SharedActivityPage />} />
+        <Route path={ROUTES.sharedActivity} element={<SharedActivityPage kind="post" />} />
+        <Route
+          path={ROUTES.sharedGroupActivity}
+          element={<SharedActivityPage kind="group" />}
+        />
 
         <Route
           path={ROUTES.auth}

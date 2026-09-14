@@ -19,7 +19,10 @@ import { ActivityPostCard } from '@/features/discover/components/activity-post-c
 import { BuddyCard } from '@/features/discover/components/buddy-card'
 import { useActivityPosts } from '@/features/discover/use-activity-posts'
 import { useDiscover } from '@/features/discover/use-discover'
+import { GroupActivityCard } from '@/features/group-activities/components/group-activity-card'
+import { useGroupActivities } from '@/features/group-activities/use-group-activities'
 import { useConnections } from '@/hooks/use-connections'
+import { groupActivityService } from '@/services/group-activity/group-activity-service'
 import { ROUTES } from '@/routes/routes'
 import type { ActivityPost } from '@/types/activity-post'
 
@@ -66,6 +69,7 @@ function CardSkeletons() {
 export function DiscoverPage() {
   const people = useDiscover()
   const activities = useActivityPosts()
+  const groupActivities = useGroupActivities()
   const { getConnectionState } = useConnections()
   const now = useCoarseNow()
   const [area, setArea] = useState(ALL)
@@ -122,6 +126,16 @@ export function DiscoverPage() {
     [people.suggested, area, sport],
   )
 
+  const visibleGroupActivities = useMemo(
+    () =>
+      groupActivities.activities.filter(
+        (activity) =>
+          (area === ALL || activity.areaId === area) &&
+          (sport === ALL || activity.sportId === sport),
+      ),
+    [groupActivities.activities, area, sport],
+  )
+
   const clearFilters = () => {
     setArea(ALL)
     setSport(ALL)
@@ -129,7 +143,13 @@ export function DiscoverPage() {
 
   const refreshAll = () => {
     activities.refresh()
+    groupActivities.refresh()
     people.refresh()
+  }
+
+  const removeGroupActivity = async (id: string) => {
+    await groupActivityService.remove(id)
+    groupActivities.refresh()
   }
 
   return (
@@ -150,7 +170,7 @@ export function DiscoverPage() {
               size="icon-sm"
               aria-label="Refresh"
               onClick={refreshAll}
-              disabled={activities.isLoading || people.isLoading}
+              disabled={activities.isLoading || groupActivities.isLoading || people.isLoading}
             >
               <RefreshCw className="size-5" />
             </Button>
@@ -185,6 +205,73 @@ export function DiscoverPage() {
             )}
           </CardContent>
         </Card>
+
+        <section className="flex flex-col gap-4">
+          <SectionHeader
+            title="Group activities"
+            description="Public activities anyone can join — no connection needed."
+            action={
+              <Button variant="outline" size="sm" asChild>
+                <Link to={ROUTES.createGroupActivity}>Create activity</Link>
+              </Button>
+            }
+          />
+          {groupActivities.isLoading && <CardSkeletons />}
+          {!groupActivities.isLoading && groupActivities.error && (
+            <EmptyState
+              title={groupActivities.error}
+              action={
+                <Button variant="outline" onClick={groupActivities.refresh}>
+                  Try again
+                </Button>
+              }
+            />
+          )}
+          {!groupActivities.isLoading &&
+            !groupActivities.error &&
+            visibleGroupActivities.length === 0 && (
+              <EmptyState
+                illustration={compassIllustration}
+                title={
+                  hasFilters
+                    ? 'No group activities match these filters'
+                    : 'No group activities yet'
+                }
+                description={
+                  hasFilters
+                    ? 'Try another location or activity.'
+                    : 'Be the first — create one and let people join.'
+                }
+                action={
+                  hasFilters ? (
+                    <Button variant="outline" onClick={clearFilters}>
+                      Clear filters
+                    </Button>
+                  ) : (
+                    <Button asChild>
+                      <Link to={ROUTES.createGroupActivity}>Create activity</Link>
+                    </Button>
+                  )
+                }
+              />
+            )}
+          {!groupActivities.isLoading &&
+            !groupActivities.error &&
+            visibleGroupActivities.length > 0 && (
+              <div className="grid-cards gap-6">
+                {visibleGroupActivities.map((activity) => (
+                  <GroupActivityCard
+                    key={activity.id}
+                    activity={activity}
+                    people={groupActivities.people}
+                    now={now}
+                    onChanged={groupActivities.refresh}
+                    onRemove={removeGroupActivity}
+                  />
+                ))}
+              </div>
+            )}
+        </section>
 
         <section className="flex flex-col gap-4">
           <SectionHeader

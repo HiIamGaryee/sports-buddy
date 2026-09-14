@@ -1,5 +1,5 @@
 import { env } from '@/config/env'
-import { buildActivityShareUrl, toShareOrigin } from '@/lib/share'
+import { buildActivityShareUrl, buildGroupActivityShareUrl, toShareOrigin } from '@/lib/share'
 
 export type ShareOutcome = 'shared' | 'copied' | 'cancelled'
 
@@ -21,6 +21,10 @@ function shareOrigin(): string {
 export const shareService = {
   activityUrl(postId: string): string {
     return buildActivityShareUrl(shareOrigin(), postId)
+  },
+
+  groupActivityUrl(activityId: string): string {
+    return buildGroupActivityShareUrl(shareOrigin(), activityId)
   },
 
   /** Origins whose activity links a chat message may render as in-app links. */

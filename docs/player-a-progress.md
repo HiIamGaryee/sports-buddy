@@ -4,17 +4,41 @@ Tracks the checklist in `Sports-Buddy-Shipaton-Task-Split.pdf` (Player A:
 Firebase → Android build → RevenueCat + Billing → Play Console). The PDF isn't
 editable, so this file is the running record. Update it as items close.
 
-Owner: Lynn662312 (Player A). Last updated: 2026-09-13.
+Owner: Lynn662312 (Player A). Last updated: 2026-09-14.
 
 ## Where things stand
 
 | Phase | Status |
 | --- | --- |
 | 1 — Firebase + Android | **9 of 10.** Last item needs one retest (see "To do → Right now"). |
-| 2 — Monetization + RevenueCat | Not started. Mostly blocked on deciding what's paid with Player B. |
+| 2 — Monetization + RevenueCat | **Code done, not demoed.** RevenueCat Capacitor SDK integrated, Buddy+ entitlement, paywall, free/premium limits, all wired against public group activities (a new feature added alongside — see below). Blocked on YOU doing the one-time RevenueCat dashboard setup (`docs/monetization.md`) before a real Test Store purchase can be shown. |
 | 3 — Build pipeline, crash tracking, push | Not started. Not blocked. |
 | 4 — Play Console submission | Not started. Needs Phase 2 + Player B's store assets. |
 | 5 — Buffer | Not started. |
+
+### 2026-09-14 — RevenueCat + Buddy+ + Public Group Activities
+
+Full detail: `docs/monetization.md`, `docs/group-activities.md`. Short version:
+
+- Buddy+ (one tier) via `@revenuecat/purchases-capacitor`. `npx cap sync` and
+  `android/gradlew assembleDebug` both succeeded with the plugin included —
+  the Android app still builds.
+- New **public group activities** (multi-player, e.g. "Saturday Badminton
+  Meetup, 8 players") — separate from your existing 1v1 activity posts.
+  Shows on Discover, has its own create form, join/leave, share link.
+- Free plan: 3 joined + 2 hosted group activities at once. Buddy+ removes
+  both caps. This cap is enforced in the app only (documented, honest gap —
+  see `docs/monetization.md`) — nothing to worry about for the Shipaton demo.
+- **You still need to do, before a purchase can be demoed:** create/open the
+  RevenueCat project, enable Test Store, create the `buddy_plus` entitlement
+  and a Test Store product, then put the Test Store API key in `.env` as
+  `VITE_REVENUECAT_ANDROID_API_KEY` and rebuild the APK. Step-by-step in
+  `docs/monetization.md` under "RevenueCat Test Store — manual dashboard setup".
+- Not built yet: QR check-in / verified attendance / Reliability Profile,
+  monthly recap + sharing polish, a Vercel deploy (Firebase Hosting already
+  works as the web demo at https://sportbuddy-4d596.web.app).
+- Not verified: an actual Test Store purchase (needs your dashboard setup
+  above), and the new screens on a real/emulated Android device.
 
 ---
 

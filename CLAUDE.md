@@ -2224,6 +2224,60 @@ Places/Maps (no API key), native calendar (no provider), and importing the
 generated `.ics` into Apple Calendar, Google Calendar or Outlook — so no
 compatibility claim is made for those clients.
 
+STEP 14C — RevenueCat + Buddy+ + Public Group Activities (Shipaton):
+
+- **RevenueCat Buddy+ entitlement**, via the official
+  `@revenuecat/purchases-capacitor` SDK (not a React Native library), chosen
+  by PLATFORM in `repositories.ts` (`Capacitor.isNativePlatform()`) rather
+  than `env.dataSource` — a real purchase only exists on the native Android
+  app; the browser build always gets an honest stand-in that never fakes a
+  purchase. `SubscriptionProvider` configures RevenueCat with the SIGNED-IN
+  Sports Buddy uid as its App User ID, so Buddy+ travels with the account.
+  `src/lib/capabilities.ts` is the ONE place a feature checks entitlement
+  (`isBuddyPlus`, `canJoinAnotherGroupActivity`,
+  `canHostAnotherGroupActivity`, plus three filter/analytics gates for later
+  use); every state but the resolved `buddy_plus` fails CLOSED. Paywall at
+  `/buddy-plus`, entry point from Settings; prices are always RevenueCat's
+  own localized strings. Full walkthrough, including the manual RevenueCat
+  Test Store dashboard setup: `docs/monetization.md`.
+- **Public group activities** — a NEW, separate `groupActivities/{id}`
+  collection (deliberately not a variant of `activityPosts`): title,
+  description, sport, time (+ optional end), venue, estimated price,
+  preferred skill level, `maxParticipants` (2–30), always public, always
+  open-join (no approval step, no group chat). Pure domain in
+  `src/lib/group-activity.ts`; join/leave/organizer-remove are Firestore
+  transactions on the live document, mirroring `activityPosts`'s pattern.
+  Discover gained a "Group activities" section; Activities gained hosted/
+  joined groups, planned and past. Full walkthrough: `docs/group-activities.md`.
+- **Free/Buddy+ limits**: 3 simultaneously joined, 2 simultaneously hosted
+  group activities for free accounts (`src/constants/entitlements.ts`),
+  enforced in `groupActivityService` before every create/join — an HONEST,
+  DOCUMENTED client-side-only limitation (`docs/monetization.md`), since
+  Firestore rules cannot count a member's other documents without a
+  maintained counter this project does not have.
+- **Sharing generalized**: `src/lib/share.ts` and `return-path.ts` now carry
+  a `kind: 'post' | 'group'` rather than assuming an `ActivityPost`, so a
+  group activity gets its own `/group-activity/:id` share link, its own
+  Share / Send-to-a-buddy actions, and renders as an in-app link inside a
+  chat message — all reusing the STEP-14-ish infrastructure built for posts.
+- Vitest suite grew to 494 tests; emulator rules tests to 190 (20 new, for
+  `groupActivities`). A security check on the `activityPosts` list rule was
+  fixed in the same pass: a query with no `visibility` filter could read
+  link-only and private-invite posts through Firestore's `get(...,
+  'public')` default value — the rule now reads `resource.data.visibility`
+  directly.
+- `npx cap sync android` registers the RevenueCat plugin, and
+  `android/gradlew assembleDebug` **BUILD SUCCESSFUL** with it included —
+  verified in this environment.
+
+Not verified: an actual RevenueCat Test Store purchase (no RevenueCat
+project/API key configured in this environment — see `docs/monetization.md`
+for the one-time manual dashboard setup needed before this can be
+demonstrated), the paywall and group-activity screens on a physical/emulated
+Android device (only the production web build and the Android *compile* were
+checked here), and QR check-in / verified attendance / a Reliability
+Profile / monthly recap (not built in this pass).
+
 ## 21. Local development credentials (mock mode only)
 
 `VITE_DATA_SOURCE=mock` seeds one demo account. These are development-only
@@ -2262,7 +2316,12 @@ STEP 12 — Confirmed Activity + Activity Card
 STEP 12.5 — Design System Refactor + Theme-First Styling
 STEP 12.6 — Security Hardening + Input Validation
 STEP 13 — Calendar + Upcoming/Past Activity History
+Discover activity posts (1v1 public invitations, joins, edit, share)
+STEP 14B — Safety: Block + Report
+STEP 14C — RevenueCat + Buddy+ + Public Group Activities (Shipaton)
 
-**Current Step:** STEP 13 — Calendar + Activity History
+**Current Step:** STEP 14C — RevenueCat + Buddy+ + Public Group Activities
 
-**Next Step:** STEP 14 — Notifications + RevenueCat + Safety
+**Next Step:** QR check-in + verified attendance + Reliability Profile, then
+monthly recap + sharing polish, then Account Deletion + Data Cleanup
+(previously tracked as STEP 15B) and push notifications.

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { formatMessageTime } from '@/lib/chat-format'
 import { splitActivityLinks } from '@/lib/share'
 import { cn } from '@/lib/utils'
-import { activityPostPath } from '@/routes/routes'
+import { activityPostPath, groupActivityDetailPath } from '@/routes/routes'
 import { shareService } from '@/services/share/share-service'
 import type { ChatMessage } from '@/types/chat'
 
@@ -46,7 +46,11 @@ export function MessageBubble({
             part.kind === 'activity' ? (
               <Link
                 key={index}
-                to={activityPostPath(part.postId)}
+                to={
+                  part.linkKind === 'group'
+                    ? groupActivityDetailPath(part.id)
+                    : activityPostPath(part.id)
+                }
                 className="font-medium underline underline-offset-4"
               >
                 View activity

@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core'
+
 import { env } from '@/config/env'
 import { firebaseAuthRepository } from '@/repositories/auth/firebase-auth-repository'
 import { mockAuthRepository } from '@/repositories/auth/mock-auth-repository'
@@ -23,6 +25,10 @@ import { firebasePublicProfileRepository } from '@/repositories/public-profile/f
 import { mockPublicProfileRepository } from '@/repositories/public-profile/mock-public-profile-repository'
 import { googleVenueRepository } from '@/repositories/venue/google-venue-repository'
 import { mockVenueRepository } from '@/repositories/venue/mock-venue-repository'
+import { nativePurchasesRepository } from '@/repositories/purchases/native-purchases-repository'
+import { webPurchasesRepository } from '@/repositories/purchases/web-purchases-repository'
+import { firebaseGroupActivityRepository } from '@/repositories/group-activity/firebase-group-activity-repository'
+import { mockGroupActivityRepository } from '@/repositories/group-activity/mock-group-activity-repository'
 
 /** The single place the backend is chosen. Nothing else reads env.dataSource. */
 const useFirebase = env.dataSource === 'firebase'
@@ -74,6 +80,11 @@ export const activityPostRepository = useFirebase
   ? firebaseActivityPostRepository
   : mockActivityPostRepository
 
+/** `groupActivities/{activityId}` — public, multi-participant activities. */
+export const groupActivityRepository = useFirebase
+  ? firebaseGroupActivityRepository
+  : mockGroupActivityRepository
+
 /**
  * Venue discovery, chosen from `env.venueSource` INDEPENDENTLY of the
  * backend — Firebase plus mock venues is a normal development setup. This is
@@ -81,3 +92,13 @@ export const activityPostRepository = useFirebase
  */
 export const venueRepository =
   env.venueSource === 'google' ? googleVenueRepository : mockVenueRepository
+
+/**
+ * Buddy+ purchases, chosen by PLATFORM rather than `env.dataSource` — a real
+ * Play Store purchase can only happen inside the native Android app, so a
+ * browser (Vercel, Firebase Hosting, `npm run dev`) always gets the honest
+ * web stand-in, never a faked purchase, whatever the data source is.
+ */
+export const purchasesRepository = Capacitor.isNativePlatform()
+  ? nativePurchasesRepository
+  : webPurchasesRepository

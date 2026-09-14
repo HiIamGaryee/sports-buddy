@@ -14,7 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActivityCard } from '@/features/activities/components/activity-card'
 import { ActivityHistory } from '@/features/activities/components/activity-history'
 import { useMyActivityPosts } from '@/features/activities/use-my-activity-posts'
+import { useMyGroupActivities } from '@/features/activities/use-my-group-activities'
 import { ActivityPostCard } from '@/features/discover/components/activity-post-card'
+import { GroupActivityCard } from '@/features/group-activities/components/group-activity-card'
 import {
   useCoarseNow,
   usePastActivities,
@@ -25,6 +27,7 @@ import { ROUTES } from '@/routes/routes'
 import type { ActivityWithBuddy } from '@/types/activity'
 import type { ActivityPost } from '@/types/activity-post'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
+import type { GroupActivity } from '@/types/group-activity'
 
 const SKELETON_CARDS = [0, 1, 2]
 
@@ -48,6 +51,7 @@ export function ActivitiesPage() {
   const upcoming = useUpcomingActivities()
   const past = usePastActivities()
   const myPosts = useMyActivityPosts(now)
+  const myGroupActivities = useMyGroupActivities(now)
   const postProps = {
     people: myPosts.people,
     now,
@@ -55,6 +59,14 @@ export function ActivitiesPage() {
     error: myPosts.error,
     onRetry: myPosts.refresh,
     onRemove: myPosts.remove,
+  }
+  const groupActivityProps = {
+    people: myGroupActivities.people,
+    now,
+    isLoading: myGroupActivities.isLoading,
+    error: myGroupActivities.error,
+    onRetry: myGroupActivities.refresh,
+    onRemove: myGroupActivities.remove,
   }
   const createdItems = upcoming.items.filter(
     ({ activity }) => activity.createdBy === user?.id,
@@ -82,6 +94,16 @@ export function ActivitiesPage() {
           </TabsList>
 
           <TabsContent value="planned" className="flex flex-col gap-6 pt-5">
+            <GroupActivities
+              title="Group activities you're hosting"
+              activities={myGroupActivities.hostedPlanned}
+              {...groupActivityProps}
+            />
+            <GroupActivities
+              title="Group activities you joined"
+              activities={myGroupActivities.joinedPlanned}
+              {...groupActivityProps}
+            />
             <PostedActivities
               title="Invitations"
               posts={myPosts.invitations}
@@ -132,6 +154,11 @@ export function ActivitiesPage() {
           </TabsContent>
 
           <TabsContent value="created" className="flex flex-col gap-6 pt-5">
+            <GroupActivities
+              title="Group activities you're hosting"
+              activities={myGroupActivities.hostedPlanned}
+              {...groupActivityProps}
+            />
             <PostedActivities
               title="Posted by you"
               posts={myPosts.createdPlanned}
@@ -165,6 +192,16 @@ export function ActivitiesPage() {
           </TabsContent>
 
           <TabsContent value="past" className="flex flex-col gap-6 pt-5">
+            <GroupActivities
+              title="Group activities you hosted"
+              activities={myGroupActivities.hostedPast}
+              {...groupActivityProps}
+            />
+            <GroupActivities
+              title="Past group activities you joined"
+              activities={myGroupActivities.joinedPast}
+              {...groupActivityProps}
+            />
             <PostedActivities
               title="Your past posts"
               posts={myPosts.createdPast}
@@ -232,6 +269,54 @@ function PostedActivities({
             <ActivityPostCard
               key={post.id}
               post={post}
+              people={people}
+              now={now}
+              onChanged={onRetry}
+              onRemove={onRemove}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/**
+ * One group of public group activities for a tab (hosted, joined, past).
+ * Renders nothing when the group is empty. Mirrors `PostedActivities`.
+ */
+function GroupActivities({
+  title,
+  activities,
+  people,
+  now,
+  isLoading,
+  error,
+  onRetry,
+  onRemove,
+}: {
+  title: string
+  activities: readonly GroupActivity[]
+  people: ReadonlyMap<string, DiscoveryProfile>
+  now: Date
+  isLoading: boolean
+  error: string
+  onRetry: () => void
+  onRemove: (activityId: string) => Promise<void>
+}) {
+  if (isLoading || (activities.length === 0 && !error)) return null
+
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionHeader title={title} />
+      {error ? (
+        <ErrorState title={error} onRetry={onRetry} />
+      ) : (
+        <div className={CARD_GRID}>
+          {activities.map((activity) => (
+            <GroupActivityCard
+              key={activity.id}
+              activity={activity}
               people={people}
               now={now}
               onChanged={onRetry}

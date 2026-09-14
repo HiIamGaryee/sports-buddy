@@ -1,21 +1,26 @@
 import { isValidDocumentId } from '@/lib/ids'
-import { activityPostPath } from '@/routes/routes'
+import { activityPostPath, groupActivityDetailPath } from '@/routes/routes'
 
 /**
  * Where to go after sign-in or onboarding, when someone arrived through a
  * share link. Kept in sessionStorage so it survives the Google popup, a
  * register → onboarding detour and a reload, but not a new browser session.
  *
- * Only an ACTIVITY POST path is ever stored or returned — never an arbitrary
- * string — so a crafted value cannot turn this into an open redirect.
+ * Only a validated (kind, id) pair is ever stored or returned — never an
+ * arbitrary string — so a crafted value cannot turn this into an open
+ * redirect.
  */
+
+type SharedKind = 'post' | 'group'
 
 const KEY = 'sports-buddy:return-to-activity'
 
-export function rememberSharedActivity(postId: string) {
-  if (!isValidDocumentId(postId)) return
+const isSharedKind = (value: unknown): value is SharedKind => value === 'post' || value === 'group'
+
+export function rememberSharedActivity(id: string, kind: SharedKind = 'post') {
+  if (!isValidDocumentId(id)) return
   try {
-    sessionStorage.setItem(KEY, postId)
+    sessionStorage.setItem(KEY, JSON.stringify({ kind, id }))
   } catch {
     // Storage unavailable (private mode): the user lands on Home instead.
   }
@@ -24,8 +29,13 @@ export function rememberSharedActivity(postId: string) {
 /** The path to resume, or `null`. Reading does not clear it. */
 export function peekReturnPath(): string | null {
   try {
-    const postId = sessionStorage.getItem(KEY)
-    return isValidDocumentId(postId) ? activityPostPath(postId) : null
+    const raw = sessionStorage.getItem(KEY)
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null) return null
+    const { kind, id } = parsed as { kind?: unknown; id?: unknown }
+    if (!isSharedKind(kind) || !isValidDocumentId(id)) return null
+    return kind === 'group' ? groupActivityDetailPath(id) : activityPostPath(id)
   } catch {
     return null
   }

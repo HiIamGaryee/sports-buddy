@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildActivityShareUrl,
+  buildGroupActivityShareUrl,
   parseActivityShareUrl,
+  parseSharedActivityUrl,
   splitActivityLinks,
   toShareOrigin,
 } from '@/lib/share'
@@ -32,6 +34,15 @@ describe('share links', () => {
     const url = buildActivityShareUrl(ORIGIN, 'post_123')
     expect(url).toBe(`${ORIGIN}/activity/post_123`)
     expect(parseActivityShareUrl(url, [ORIGIN])).toBe('post_123')
+    expect(parseSharedActivityUrl(url, [ORIGIN])).toEqual({ kind: 'post', id: 'post_123' })
+  })
+
+  it('round-trips a group activity id, distinctly from a post', () => {
+    const url = buildGroupActivityShareUrl(ORIGIN, 'group_123')
+    expect(url).toBe(`${ORIGIN}/group-activity/group_123`)
+    expect(parseSharedActivityUrl(url, [ORIGIN])).toEqual({ kind: 'group', id: 'group_123' })
+    // The post-only helper never mistakes a group link for a post.
+    expect(parseActivityShareUrl(url, [ORIGIN])).toBeNull()
   })
 
   it('ignores links to any other host', () => {
@@ -54,8 +65,14 @@ describe('splitActivityLinks', () => {
       splitActivityLinks(`Join me! ${ORIGIN}/activity/p1 see you`, [ORIGIN]),
     ).toEqual([
       { kind: 'text', text: 'Join me! ' },
-      { kind: 'activity', text: `${ORIGIN}/activity/p1`, postId: 'p1' },
+      { kind: 'activity', text: `${ORIGIN}/activity/p1`, linkKind: 'post', id: 'p1' },
       { kind: 'text', text: ' see you' },
+    ])
+  })
+
+  it('picks out a group activity link too', () => {
+    expect(splitActivityLinks(`${ORIGIN}/group-activity/g1`, [ORIGIN])).toEqual([
+      { kind: 'activity', text: `${ORIGIN}/group-activity/g1`, linkKind: 'group', id: 'g1' },
     ])
   })
 
