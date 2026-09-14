@@ -19,6 +19,7 @@ import { GroupActivityFormPage } from '@/features/group-activities/pages/group-a
 import { GroupActivityDetailPage } from '@/features/group-activities/pages/group-activity-detail-page'
 import { SharedActivityPage } from '@/features/share/pages/shared-activity-page'
 import { PaywallPage } from '@/features/premium/pages/paywall-page'
+import { MonthlyRecapPage } from '@/features/recap/pages/monthly-recap-page'
 import { EditProfilePage } from '@/features/profile/pages/edit-profile-page'
 import { ProfilePage } from '@/features/profile/pages/profile-page'
 import { DiscoverySettingsPage } from '@/features/settings/pages/discovery-settings-page'
@@ -86,6 +87,7 @@ export function AppRouter() {
             <Route path={ROUTES.profileEdit} element={<EditProfilePage />} />
             <Route path={ROUTES.settings} element={<SettingsPage />} />
             <Route path={ROUTES.paywall} element={<PaywallPage />} />
+            <Route path={ROUTES.recap} element={<MonthlyRecapPage />} />
             <Route
               path={ROUTES.discoverySettings}
               element={<DiscoverySettingsPage />}

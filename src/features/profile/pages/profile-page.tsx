@@ -88,6 +88,10 @@ export function ProfilePage() {
 
             <ReliabilityCard />
 
+            <Button variant="outline" asChild>
+              <Link to={ROUTES.recap}>See your monthly recap</Link>
+            </Button>
+
             <div className="flex gap-3">
               <Button size="icon-lg" className="rounded-full" aria-label="Edit profile" title="Edit profile" asChild>
                 <Link to={ROUTES.profileEdit}>

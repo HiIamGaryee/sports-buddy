@@ -28,6 +28,7 @@ export const ROUTES = {
   settings: '/settings',
   discoverySettings: '/settings/discovery',
   paywall: '/buddy-plus',
+  recap: '/recap',
 } as const
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES]
