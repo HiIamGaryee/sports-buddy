@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Search } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useReducer, useState } from 'react'
 
 import { FormField } from '@/components/common/form-field'
@@ -14,8 +14,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { AREAS } from '@/constants/areas'
 import { SPORTS } from '@/constants/sports'
-import { useVenueMapSearch } from '@/features/map/use-venue-map-search'
 import { formatPlanDate } from '@/lib/plan-format'
 import type { ParticipantRule } from '@/types/discover-item'
 import type { SportId } from '@/types/sports-profile'
@@ -24,18 +24,40 @@ const STEP_COUNT = 4
 const MAX_DISCOVER_PLAYERS = 50
 const MAX_PRICE = 1_000
 const MAX_LOCATION_TEXT_LENGTH = 120
+const CUSTOM_LOCATION = 'custom'
 
 const STEPS = [
-  { number: 1, label: 'Activity' },
-  { number: 2, label: 'Date & Time' },
-  { number: 3, label: 'Budget' },
-  { number: 4, label: 'Location' },
+  {
+    number: 1,
+    label: 'Activity',
+    tooltip: 'Choose the sport and group size.',
+  },
+  {
+    number: 2,
+    label: 'Date & Time',
+    tooltip: 'Choose when the activity will happen.',
+  },
+  {
+    number: 3,
+    label: 'Buddy Preference',
+    tooltip: 'Choose who you want to play with.',
+  },
+  {
+    number: 4,
+    label: 'Location',
+    tooltip: 'Choose where the activity will happen.',
+  },
 ] as const
 
 const GROUP_RULES = [
   { value: 'max', label: 'Any group up to a maximum' },
   { value: 'exact', label: 'Exact group size' },
   { value: 'range', label: 'Range of players' },
+] as const
+
+const LOCATION_OPTIONS = [
+  ...AREAS.map(({ id, name }) => ({ value: id, label: name })),
+  { value: CUSTOM_LOCATION, label: 'Other / Custom location' },
 ] as const
 
 const DEFAULT_SPORT = SPORTS[0]?.id ?? 'badminton'
@@ -51,7 +73,8 @@ interface DiscoverDraftState {
   endAt: string
   budgetMin: string
   budgetMax: string
-  locationText: string
+  location: string
+  customLocation: string
 }
 
 export interface DiscoverDraft {
@@ -66,6 +89,7 @@ export interface DiscoverDraft {
 
 type DraftAction =
   | { type: 'set'; field: keyof DiscoverDraftState; value: string }
+  | { type: 'set-location'; value: string }
   | { type: 'reset' }
 
 const initialDraft: DiscoverDraftState = {
@@ -78,11 +102,19 @@ const initialDraft: DiscoverDraftState = {
   endAt: '',
   budgetMin: '20',
   budgetMax: '40',
-  locationText: '',
+  location: '',
+  customLocation: '',
 }
 
 function draftReducer(state: DiscoverDraftState, action: DraftAction): DiscoverDraftState {
   if (action.type === 'reset') return initialDraft
+  if (action.type === 'set-location') {
+    return {
+      ...state,
+      location: action.value,
+      customLocation: action.value === CUSTOM_LOCATION ? state.customLocation : '',
+    }
+  }
   return { ...state, [action.field]: action.value }
 }
 
@@ -113,6 +145,15 @@ function getBudgetError(draft: DiscoverDraftState): string | null {
   if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max < 0) return 'Enter valid prices.'
   if (min > MAX_PRICE || max > MAX_PRICE) return `Use prices up to RM${MAX_PRICE}.`
   if (max < min) return 'Maximum price must be at least the minimum.'
+  return null
+}
+
+function getLocationError(draft: DiscoverDraftState): string | null {
+  if (!draft.location) return 'Please select a location.'
+  if (draft.location !== CUSTOM_LOCATION) return null
+  const value = draft.customLocation.trim()
+  if (!value) return 'Please enter a location.'
+  if (value.length > MAX_LOCATION_TEXT_LENGTH) return `Use ${MAX_LOCATION_TEXT_LENGTH} characters or fewer.`
   return null
 }
 
@@ -147,11 +188,7 @@ export function AddDiscoverDialog({
       ? getDateError(draft)
       : step === 3
         ? getBudgetError(draft)
-        : draft.locationText.trim().length === 0
-          ? 'Enter an area or venue.'
-          : draft.locationText.trim().length > MAX_LOCATION_TEXT_LENGTH
-            ? `Use ${MAX_LOCATION_TEXT_LENGTH} characters or fewer.`
-            : null
+        : getLocationError(draft)
 
   const setField = (field: keyof DiscoverDraftState, value: string) => {
     dispatch({ type: 'set', field, value })
@@ -160,14 +197,23 @@ export function AddDiscoverDialog({
   const createDraft = (): DiscoverDraft => {
     const min = toNumber(draft.minPlayers)
     const max = toNumber(draft.maxPlayers)
+    const selectedLocation = LOCATION_OPTIONS.find(({ value }) => value === draft.location)
+    const locationText = draft.location === CUSTOM_LOCATION
+      ? draft.customLocation.trim()
+      : selectedLocation?.label ?? ''
+
     return {
       sportId: draft.sportId,
-      participantRule: draft.groupRule === 'exact' ? { mode: 'exact', sizes: [min] } : draft.groupRule === 'range' ? { mode: 'range', min, max } : { mode: 'max', min, max },
+      participantRule: draft.groupRule === 'exact'
+        ? { mode: 'exact', sizes: [min] }
+        : draft.groupRule === 'range'
+          ? { mode: 'range', min, max }
+          : { mode: 'max', min, max },
       date: draft.date,
       startAt: draft.startAt,
       endAt: draft.endAt,
       budget: { min: toNumber(draft.budgetMin), max: toNumber(draft.budgetMax), currency: 'MYR', unit: 'per-person' },
-      locationText: draft.locationText.trim(),
+      locationText,
     }
   }
 
@@ -206,12 +252,12 @@ export function AddDiscoverDialog({
               <DialogTitle className="text-heading-2">Add new discover</DialogTitle>
               <DialogDescription>{getStepDescription(step)}</DialogDescription>
             </DialogHeader>
-            <StepIndicator step={step} />
+            <StepIndicator step={step} onStepChange={setStep} />
             <div key={step} className="min-h-0 flex-1 overflow-y-auto py-5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-200">
               {step === 1 && <ActivityStep draft={draft} setField={setField} error={stepError} />}
               {step === 2 && <DateTimeStep draft={draft} setField={setField} error={stepError} />}
               {step === 3 && <BudgetStep draft={draft} setField={setField} error={stepError} />}
-              {step === 4 && <LocationStep draft={draft} setField={setField} error={stepError} />}
+              {step === 4 && <LocationStep draft={draft} setField={setField} setLocation={(value) => dispatch({ type: 'set-location', value })} error={stepError} />}
             </div>
             <DialogFooter className="-mx-5 -mb-5 mt-0 border-t border-border bg-surface-subtle px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6">
               {step > 1 && <Button type="button" variant="ghost" onClick={() => setStep((current) => Math.max(1, current - 1))}><ChevronLeft className="size-4" />Back</Button>}
@@ -235,25 +281,50 @@ export function AddDiscoverDialog({
 function getStepDescription(step: number) {
   return [
     'Choose what you want to play and how many people can join.',
-    'Choose when you want this activity to happen.',
+    'Choose when this activity will happen.',
     'Set a comfortable price range per person.',
     'Tell people where you want to play.',
   ][step - 1]
 }
 
-function StepIndicator({ step }: { step: number }) {
+function StepIndicator({ step, onStepChange }: { step: number; onStepChange: (step: number) => void }) {
   return (
-    <div className="mt-5 flex items-center gap-2" aria-label={`Step ${step} of ${STEP_COUNT}`}>
-      <span className="text-caption text-muted-foreground sm:hidden">Step {step} of {STEP_COUNT}</span>
-      <div className="hidden w-full items-center gap-2 sm:flex">
+    <nav className="mt-5 flex w-full justify-center" aria-label={`Step ${step} of ${STEP_COUNT}`}>
+      <ol className="flex items-center gap-1.5">
         {STEPS.map((entry, index) => {
           const complete = entry.number < step
           const current = entry.number === step
-          return <div key={entry.number} className="flex min-w-0 flex-1 items-center gap-2"><div className="flex min-w-0 items-center gap-1.5"><span className={current ? 'text-caption text-primary' : complete ? 'text-caption text-foreground' : 'text-caption text-muted-foreground'}>{complete ? <Check aria-hidden className="inline size-3.5" /> : String(entry.number).padStart(2, '0')}</span><span className={current ? 'truncate text-body-small font-medium text-foreground' : 'truncate text-body-small text-muted-foreground'}>{entry.label}</span></div>{index < STEPS.length - 1 && <span className="h-px min-w-3 flex-1 bg-border" aria-hidden />}</div>
+          const canNavigate = complete
+          return (
+            <li key={entry.number} className="flex items-center gap-1.5">
+              <div className="group relative">
+                <button
+                  type="button"
+                  aria-label={`Step ${entry.number}: ${entry.label}`}
+                  aria-current={current ? 'step' : undefined}
+                  aria-disabled={!canNavigate && !current}
+                  onClick={() => canNavigate && onStepChange(entry.number)}
+                  className={`flex size-9 items-center justify-center rounded-full border text-body-small font-semibold transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
+                    current
+                      ? 'border-primary bg-primary/12 text-primary'
+                      : complete
+                        ? 'border-success/50 bg-success/10 text-success'
+                        : 'border-border bg-muted text-muted-foreground'
+                  } ${canNavigate ? 'cursor-pointer' : 'cursor-default'}`}
+                >
+                  {complete ? <Check aria-hidden className="size-4" /> : entry.number}
+                </button>
+                <div role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-48 -translate-x-1/2 rounded-xl border border-border bg-popover px-3 py-2 text-left opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                  <span className="block text-label text-popover-foreground">{entry.label}</span>
+                  <span className="mt-0.5 block text-caption text-muted-foreground">{entry.tooltip}</span>
+                </div>
+              </div>
+              {index < STEPS.length - 1 && <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />}
+            </li>
+          )
         })}
-      </div>
-      <span className="text-body-small font-medium text-foreground sm:hidden">{STEPS[step - 1]?.label}</span>
-    </div>
+      </ol>
+    </nav>
   )
 }
 
@@ -269,17 +340,8 @@ function BudgetStep({ draft, setField, error }: { draft: DiscoverDraftState; set
   return <div className="flex flex-col gap-5"><div className="grid grid-cols-2 gap-3"><FormField id="discover-budget-min" label="Minimum"><div className="relative"><span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-body-small text-muted-foreground">RM</span><Input id="discover-budget-min" className="pl-11" type="number" inputMode="decimal" min="0" max={MAX_PRICE} value={draft.budgetMin} onChange={(event) => setField('budgetMin', event.target.value)} /></div></FormField><FormField id="discover-budget-max" label="Maximum"><div className="relative"><span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-body-small text-muted-foreground">RM</span><Input id="discover-budget-max" className="pl-11" type="number" inputMode="decimal" min="0" max={MAX_PRICE} value={draft.budgetMax} onChange={(event) => setField('budgetMax', event.target.value)} /></div></FormField></div>{error && <p role="alert" className="text-body-small text-destructive">{error}</p>}<p className="text-body-small text-muted-foreground">This amount is shown as the expected cost per person. Free activities can use RM0–RM0.</p></div>
 }
 
-function LocationStep({ draft, setField, error }: { draft: DiscoverDraftState; setField: (field: keyof DiscoverDraftState, value: string) => void; error: string | null }) {
-  const { venues, status, error: searchError, search } = useVenueMapSearch({ initialLocation: draft.locationText, initialSportId: draft.sportId })
-  const [selectedVenueId, setSelectedVenueId] = useState('')
-
-  const selectVenue = (venueId: string) => {
-    const venue = venues.find(({ id }) => id === venueId)
-    setSelectedVenueId(venueId)
-    if (venue) setField('locationText', venue.name)
-  }
-
-  return <div className="flex flex-col gap-5"><FormField id="discover-location" label="Search or enter a location" hint={`${draft.locationText.length} / ${MAX_LOCATION_TEXT_LENGTH}`} error={error ?? undefined}><div className="flex flex-col gap-2 sm:flex-row"><div className="relative min-w-0 flex-1"><Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" /><Input id="discover-location" maxLength={MAX_LOCATION_TEXT_LENGTH} value={draft.locationText} onChange={(event) => { setField('locationText', event.target.value); setSelectedVenueId('') }} placeholder="e.g. Subang Jaya Sports Centre" autoComplete="street-address" className="pl-9" /></div><Button type="button" variant="outline" onClick={() => void search(draft.locationText)} disabled={!draft.locationText.trim() || status === 'loading'}>{status === 'loading' ? 'Searching…' : 'Search'}</Button></div></FormField><p className="text-body-small text-muted-foreground">Enter an area or venue, then choose a nearby result if one is available.</p>{status === 'searched' && venues.length > 0 && <AppDropdown label="Nearby venues" value={selectedVenueId} onChange={selectVenue} options={venues.map(({ id, name, address }) => ({ value: id, label: address ? `${name} · ${address}` : name }))} />}{searchError && <p role="alert" className="text-body-small text-muted-foreground">{searchError}</p>}<FinalSummary draft={draft} /></div>
+function LocationStep({ draft, setField, setLocation, error }: { draft: DiscoverDraftState; setField: (field: keyof DiscoverDraftState, value: string) => void; setLocation: (value: string) => void; error: string | null }) {
+  return <div className="flex flex-col gap-5"><AppDropdown label="Location" value={draft.location} onChange={setLocation} options={LOCATION_OPTIONS} error={draft.location ? undefined : error ?? undefined} placeholder="Select a location" />{draft.location === CUSTOM_LOCATION && <FormField id="discover-custom-location" label="Custom location" error={error ?? undefined} hint={`${draft.customLocation.length} / ${MAX_LOCATION_TEXT_LENGTH}`}><Input id="discover-custom-location" maxLength={MAX_LOCATION_TEXT_LENGTH} value={draft.customLocation} onChange={(event) => setField('customLocation', event.target.value)} placeholder="Enter venue or location..." autoComplete="street-address" /></FormField>}<p className="text-body-small text-muted-foreground">Choose an area or enter a custom venue where you&apos;d like to play.</p><FinalSummary draft={draft} /></div>
 }
 
 function SummaryLine({ draft }: { draft: DiscoverDraftState }) {
@@ -288,7 +350,8 @@ function SummaryLine({ draft }: { draft: DiscoverDraftState }) {
 }
 
 function FinalSummary({ draft }: { draft: DiscoverDraftState }) {
-  return <Card className="border-border bg-surface-subtle"><CardContent className="grid gap-2 p-4 text-body-small sm:grid-cols-2"><span className="text-title text-card-foreground sm:col-span-2">{sportName(draft.sportId)}</span><span>{draft.date ? formatPlanDate(draft.date) : 'Date not set'}</span><span>{draft.startAt && draft.endAt ? `${formatTime(draft.startAt)}–${formatTime(draft.endAt)}` : 'Time not set'}</span><span>{draft.minPlayers}–{draft.maxPlayers} players</span><span>RM{draft.budgetMin}–RM{draft.budgetMax} / person</span><span className="text-muted-foreground sm:col-span-2">{draft.locationText || 'Location not set'}</span></CardContent></Card>
+  const location = draft.location === CUSTOM_LOCATION ? draft.customLocation : LOCATION_OPTIONS.find(({ value }) => value === draft.location)?.label
+  return <Card className="border-border bg-surface-subtle"><CardContent className="grid gap-2 p-4 text-body-small sm:grid-cols-2"><span className="text-title text-card-foreground sm:col-span-2">{sportName(draft.sportId)}</span><span>{draft.date ? formatPlanDate(draft.date) : 'Date not set'}</span><span>{draft.startAt && draft.endAt ? `${formatTime(draft.startAt)}–${formatTime(draft.endAt)}` : 'Time not set'}</span><span>{draft.minPlayers}–{draft.maxPlayers} players</span><span>RM{draft.budgetMin}–RM{draft.budgetMax} / person</span><span className="text-muted-foreground sm:col-span-2">{location?.trim() || 'Location not set'}</span></CardContent></Card>
 }
 
 function CreationConfirmation({ draft, onClose }: { draft: DiscoverDraftState; onClose: () => void }) {
