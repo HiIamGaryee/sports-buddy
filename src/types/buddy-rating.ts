@@ -31,6 +31,8 @@ export interface CompletedActivity {
 
 export interface ReliabilityStats {
   totalReviewedActivities: number
+  /** Reviewed activities inside the trailing window — "how active lately". */
+  recentCount: number
   attendedCount: number
   onTimeCount: number
   lateCount: number

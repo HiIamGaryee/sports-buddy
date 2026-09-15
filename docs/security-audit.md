@@ -508,3 +508,11 @@ Payloads used as **test data only**, never executed:
 | `vitest run` | 20 files, 419 tests passing |
 | `npm run test:rules` | 97 tests passing against the emulator |
 | `npm audit --omit=dev` | 0 vulnerabilities |
+# Gender security review
+
+- Domain values are allowlisted as `male | female`.
+- Firestore mappers normalize missing or unknown legacy values to `null`.
+- Profile edits omit Gender from the mutable payload.
+- Repository and Firestore rules reject changes after the first valid write.
+- Public projection allowlists Gender without exposing private account fields.
+- No Gender value enters compatibility scoring or filtering.

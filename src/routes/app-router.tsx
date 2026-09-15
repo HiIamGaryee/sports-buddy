@@ -15,6 +15,7 @@ import { BuddyProfilePage } from '@/features/discover/pages/buddy-profile-page'
 import { DiscoverPage } from '@/features/discover/pages/discover-page'
 import { PostActivityPage } from '@/features/planning/pages/post-activity-page'
 import { EditProfilePage } from '@/features/profile/pages/edit-profile-page'
+import { CompleteGenderPage } from '@/features/profile/pages/complete-gender-page'
 import { ProfilePage } from '@/features/profile/pages/profile-page'
 import { DiscoverySettingsPage } from '@/features/settings/pages/discovery-settings-page'
 import { SettingsPage } from '@/features/settings/pages/settings-page'
@@ -76,6 +77,7 @@ export function AppRouter() {
 
             <Route path={ROUTES.profile} element={<ProfilePage />} />
             <Route path={ROUTES.profileEdit} element={<EditProfilePage />} />
+            <Route path={ROUTES.completeProfile} element={<CompleteGenderPage />} />
             <Route path={ROUTES.settings} element={<SettingsPage />} />
             <Route
               path={ROUTES.discoverySettings}

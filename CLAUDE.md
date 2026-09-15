@@ -10,6 +10,17 @@
 
 ## 1. Product summary
 
+### Immutable gender field
+
+- Gender is collected during account setup.
+- Canonical Gender values are `male | female`.
+- Gender is publicly visible in Discovery and Profile.
+- Gender is immutable after initial creation; legacy users may set it once.
+- Gender is never inferred from a name, photo or email.
+- Gender is not part of compatibility scoring and is not a Discover filter.
+- Profile updates must not include Gender as mutable data.
+- Firestore rules enforce Gender immutability.
+
 Sports Buddy is a people-first sports social app. The long-term flow is:
 find compatible sports partners → connect → chat → plan an activity →
 choose availability → agree on budget → find a venue → confirm → add to

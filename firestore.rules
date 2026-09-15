@@ -25,6 +25,11 @@ service cloud.firestore {
         || boundedString(data[key], limit);
     }
 
+    function validGender(data) {
+      return !('gender' in data) || data.gender == null
+        || data.gender in ['male', 'female'];
+    }
+
     /**
      * True when `uid` is one of the participant segments encoded in a
      * deterministic pair-based document id — `a__b` for a connection, or
@@ -114,25 +119,37 @@ service cloud.firestore {
         return ['id', 'email', 'displayName', 'photoUrl', 'bio', 'sports',
                 'intents', 'preferredIntensity', 'availability', 'area',
                 'radiusKm', 'budget', 'preferences', 'onboardingCompleted',
-                'createdAt', 'updatedAt'];
+                'createdAt', 'updatedAt', 'gender'];
       }
 
       function wellFormedUser(data) {
         return data.keys().hasOnly(userFields())
           && boundedOptionalString(data, 'displayName', maxDisplayName())
           && boundedOptionalString(data, 'bio', maxBio())
+          && validGender(data)
           && (!('sports' in data) || data.sports.size() <= maxSports());
+      }
+
+      function genderIsImmutable() {
+        return !('gender' in resource.data)
+          || resource.data.gender == null
+          ? validGender(request.resource.data)
+          : ('gender' in request.resource.data
+             && request.resource.data.gender == resource.data.gender);
       }
 
       allow get, list: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.id == userId
-        && wellFormedUser(request.resource.data);
+        && wellFormedUser(request.resource.data)
+        && 'gender' in request.resource.data
+        && validGender(request.resource.data);
       allow update: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.id == userId
-        && wellFormedUser(request.resource.data);
+        && wellFormedUser(request.resource.data)
+        && genderIsImmutable();
       allow delete: if false;
     }
 
@@ -151,21 +168,38 @@ service cloud.firestore {
       function discoveryFields() {
         return ['userId', 'displayName', 'photoUrl', 'bio', 'sports',
                 'intents', 'preferredIntensity', 'availability', 'area',
-                'budget', 'profileCompleteness', 'discoverable', 'updatedAt'];
+                'budget', 'profileCompleteness', 'discoverable', 'updatedAt',
+                'gender'];
       }
 
       function wellFormedProjection(data) {
         return data.keys().hasOnly(discoveryFields())
           && boundedString(data.displayName, maxDisplayName())
           && boundedOptionalString(data, 'bio', maxBio())
+          && validGender(data)
           && (!('sports' in data) || data.sports.size() <= maxSports());
       }
 
+      function projectionGenderIsImmutable() {
+        return !('gender' in resource.data)
+          || resource.data.gender == null
+          ? validGender(request.resource.data)
+          : ('gender' in request.resource.data
+             && request.resource.data.gender == resource.data.gender);
+      }
+
       allow get, list: if request.auth != null;
-      allow create, update: if request.auth != null
+      allow create: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.userId == userId
-        && wellFormedProjection(request.resource.data);
+        && wellFormedProjection(request.resource.data)
+        && 'gender' in request.resource.data
+        && validGender(request.resource.data);
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.userId == userId
+        && wellFormedProjection(request.resource.data)
+        && projectionGenderIsImmutable();
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 

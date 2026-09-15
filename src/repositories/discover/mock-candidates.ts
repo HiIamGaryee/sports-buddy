@@ -10,6 +10,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_aina',
     displayName: 'Aina',
+    gender: 'female',
     photoUrl: null,
     bio: 'Weekend badminton and the occasional easy run.',
     sports: [
@@ -31,6 +32,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_jason',
     displayName: 'Jason',
+    gender: 'male',
     photoUrl: null,
     bio: 'Climbing four times a week. Happy to belay beginners.',
     sports: [
@@ -53,6 +55,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_mei',
     displayName: 'Mei',
+    gender: 'female',
     photoUrl: null,
     bio: 'Just started pickleball and loving it.',
     sports: [{ sportId: 'pickleball', skillLevel: 'beginner' }],
@@ -71,6 +74,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_daniel',
     displayName: 'Daniel',
+    gender: 'male',
     photoUrl: null,
     bio: 'Futsal every Friday, always short one player.',
     sports: [
@@ -89,6 +93,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_farah',
     displayName: 'Farah',
+    gender: 'female',
     photoUrl: null,
     bio: 'Morning runner training for a half marathon.',
     sports: [
@@ -111,6 +116,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_amir',
     displayName: 'Amir',
+    gender: 'male',
     photoUrl: null,
     bio: 'Badminton doubles, weeknights mostly.',
     sports: [{ sportId: 'badminton', skillLevel: 'advanced' }],
@@ -129,6 +135,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_chloe',
     displayName: 'Chloe',
+    gender: 'female',
     photoUrl: null,
     bio: 'Bouldering and coffee afterwards, non-negotiable.',
     sports: [
@@ -150,6 +157,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_wei_jian',
     displayName: 'Wei Jian',
+    gender: 'male',
     photoUrl: null,
     bio: 'Tennis on weekends, rusty but improving.',
     sports: [
@@ -171,6 +179,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_nadia',
     displayName: 'Nadia',
+    gender: 'female',
     photoUrl: null,
     bio: 'Gym in the mornings, basketball when someone drags me out.',
     sports: [
@@ -193,6 +202,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_hafiz',
     displayName: 'Hafiz',
+    gender: 'male',
     photoUrl: null,
     bio: 'Badminton at a proper club, happy to cover the court fee.',
     sports: [
@@ -215,6 +225,7 @@ export const MOCK_CANDIDATES = [
   {
     userId: 'buddy_ryan',
     displayName: 'Ryan',
+    gender: 'male',
     photoUrl: null,
     bio: 'Basketball runs on Sunday evenings in Kepong.',
     sports: [{ sportId: 'basketball', skillLevel: 'intermediate' }],

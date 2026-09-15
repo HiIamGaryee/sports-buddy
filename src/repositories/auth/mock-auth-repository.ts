@@ -2,9 +2,12 @@ import { MOCK_STORAGE_KEYS } from '@/constants/app'
 import { clearStore, delay, readStore, writeStore } from '@/repositories/mock-store'
 import type { AuthRepository } from '@/repositories/auth/auth-repository'
 import type { AuthUser, EmailCredentials, RegisterInput } from '@/types/auth'
+import type { Gender } from '@/types/gender'
+import { isGender } from '@/types/gender'
 
 interface MockAccount extends AuthUser {
   password: string
+  gender: Gender | null
 }
 
 /** Development-only credentials — documented in CLAUDE.md, never shown in the UI. */
@@ -14,6 +17,7 @@ const DEMO_ACCOUNT: MockAccount = {
   password: 'password123',
   displayName: 'Gary',
   photoUrl: null,
+  gender: 'male',
   createdAt: '2026-01-01T00:00:00.000Z',
 }
 
@@ -28,6 +32,7 @@ const GOOGLE_ACCOUNT: MockAccount = {
   password: '',
   displayName: 'Gary (Google)',
   photoUrl: null,
+  gender: null,
   createdAt: '2026-01-01T00:00:00.000Z',
 }
 
@@ -35,14 +40,18 @@ const MIN_PASSWORD_LENGTH = 6
 
 const authError = (code: string) => Object.assign(new Error(code), { code })
 
-const toAuthUser = ({ password: _password, ...user }: MockAccount): AuthUser => user
+const toAuthUser = ({ password: _password, gender: _gender, ...user }: MockAccount): AuthUser => user
 
 function readAccounts(): MockAccount[] {
   const stored = readStore<MockAccount[]>(MOCK_STORAGE_KEYS.accounts, [])
+  const normalized = stored.map((account) => ({
+    ...account,
+    gender: isGender(account.gender) ? account.gender : null,
+  }))
   const seeded = [DEMO_ACCOUNT, GOOGLE_ACCOUNT].filter(
-    (seed) => !stored.some((account) => account.email === seed.email),
+    (seed) => !normalized.some((account) => account.email === seed.email),
   )
-  return [...seeded, ...stored]
+  return [...seeded, ...normalized]
 }
 
 function saveAccount(account: MockAccount) {
@@ -61,7 +70,7 @@ function setSession(user: AuthUser | null) {
 const readSession = () => readStore<AuthUser | null>(MOCK_STORAGE_KEYS.session, null)
 
 export const mockAuthRepository: AuthRepository = {
-  async registerWithEmail({ displayName, email, password }: RegisterInput) {
+  async registerWithEmail({ displayName, email, password, gender }: RegisterInput) {
     await delay(null)
     if (password.length < MIN_PASSWORD_LENGTH) throw authError('auth/weak-password')
     if (readAccounts().some((account) => account.email === email)) {
@@ -74,6 +83,7 @@ export const mockAuthRepository: AuthRepository = {
       password,
       displayName,
       photoUrl: null,
+      gender,
       createdAt: new Date().toISOString(),
     }
     saveAccount(account)

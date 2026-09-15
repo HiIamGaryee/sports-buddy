@@ -1,11 +1,12 @@
 import { SlidersHorizontal } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import editIcon from '@/assets/svg/magic-svgrepo-com.svg'
 import settingsIcon from '@/assets/svg/settings-svgrepo-com.svg'
 import previewIcon from '@/assets/svg/shirt-svgrepo-com.svg'
 import { AppHeader } from '@/components/layout/app-header'
+import { SectionHeader } from '@/components/common/section-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { ProfileSummary } from '@/components/profile/profile-summary'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +23,10 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AvailabilitySummary } from '@/features/profile/components/availability-summary'
 import { ProfileHero } from '@/features/profile/components/profile-hero'
+import { GenderLabel } from '@/components/profile/gender-label'
+import { MonthlyRecapBanner } from '@/features/recap/components/monthly-recap-banner'
+import { ReliabilityCard } from '@/features/ratings/components/reliability-card'
+import { DEMO_SELF_ID } from '@/features/ratings/mock-ratings'
 import { SportSkillList } from '@/features/profile/components/sport-skill-list'
 import { SettingsSection } from '@/features/settings/components/settings-section'
 import { useProfile } from '@/hooks/use-profile'
@@ -41,6 +46,7 @@ const READY_TO_PLAY_THRESHOLD = 90
 
 const PROFILE_SECTIONS = [
   { id: 'overview', label: 'Overview' },
+  { id: 'track-record', label: 'Track record' },
   { id: 'sports', label: 'Sports' },
   { id: 'availability', label: 'Availability' },
   { id: 'preferences', label: 'Preferences' },
@@ -146,6 +152,11 @@ export function ProfilePage() {
                   )}
                 </div>
                 <Separator />
+                <DetailRow
+                  label="Gender"
+                  value={profile.gender ? <GenderLabel gender={profile.gender} /> : 'Not set'}
+                />
+                <Separator />
                 <div className="flex gap-3">
                   <Button
                     size="icon-lg"
@@ -195,6 +206,17 @@ export function ProfilePage() {
                   </Dialog>
                 </div>
               </SettingsSection>
+
+              {/* Not a SettingsSection: ReliabilityCard is already a Card, and
+                  nesting one inside another draws a box in a box. */}
+              <section id="track-record" className="flex scroll-mt-6 flex-col gap-3">
+                <SectionHeader
+                  level="group"
+                  title="Track record"
+                  description="What other sports buddies see about how reliably you turn up."
+                />
+                <ReliabilityCard buddyId={DEMO_SELF_ID} isSelf />
+              </section>
 
               <SettingsSection id="sports" title="Sports & playing style">
                 <SportSkillList sports={profile.sports} />
@@ -301,6 +323,10 @@ export function ProfilePage() {
                   </Button>
                 </div>
               </SettingsSection>
+
+              {/* LAST section on the page: a recap is a reward, not profile
+                  identity, so it never pushes who you are further down. */}
+              <MonthlyRecapBanner displayName={profile.displayName} />
             </div>
           </div>
         )}
@@ -309,7 +335,7 @@ export function ProfilePage() {
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <span className="text-body text-muted-foreground">{label}</span>

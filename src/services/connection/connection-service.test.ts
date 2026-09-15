@@ -216,6 +216,7 @@ describe('compatibility is untouched by connection state', () => {
       userId,
       displayName: 'Test',
       photoUrl: null,
+      gender: 'male',
       bio: '',
       sports: [{ sportId: 'badminton', skillLevel: 'intermediate' }],
       intents: ['casual'],

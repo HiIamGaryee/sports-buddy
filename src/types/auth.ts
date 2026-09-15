@@ -1,3 +1,5 @@
+import type { Gender } from '@/types/gender'
+
 /** The only shape of "who is signed in" the application knows about. */
 export interface AuthUser {
   id: string
@@ -14,4 +16,5 @@ export interface EmailCredentials {
 
 export interface RegisterInput extends EmailCredentials {
   displayName: string
+  gender: Gender
 }

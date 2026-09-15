@@ -6,6 +6,9 @@ import type { DiscoveryProfile } from '@/types/discovery-profile'
 const asString = (value: unknown, fallback = '') =>
   typeof value === 'string' ? value : fallback
 
+const asGender = (value: unknown) =>
+  value === 'male' || value === 'female' ? value : null
+
 const toIsoString = (value: unknown): string =>
   value instanceof Timestamp
     ? value.toDate().toISOString()
@@ -21,6 +24,7 @@ export function toDiscoveryProfileDocument(
   return {
     userId: asString(data.userId, id),
     displayName: asString(data.displayName),
+    gender: asGender(data.gender),
     photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : null,
     bio: asString(data.bio),
     sports: Array.isArray(data.sports) ? data.sports : [],

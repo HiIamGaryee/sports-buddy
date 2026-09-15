@@ -4,6 +4,13 @@ import type {
   ReliabilityStats,
 } from '@/types/buddy-rating'
 
+/**
+ * The id the seeded reviews are written against for the signed-in user, so
+ * their own profile has a track record to show. DEMO ONLY — a real
+ * implementation keys every review off the actual uid.
+ */
+export const DEMO_SELF_ID = 'current-user'
+
 export const completedActivities = [
   {
     id: 'event-001',
@@ -60,18 +67,86 @@ export const MOCK_REVIEWS: readonly BuddyReview[] = [
     note: '',
     createdAt: '2026-08-29T20:00:00',
   },
+  // Reviews written ABOUT the signed-in user, so their own profile shows the
+  // same track record other people see. DEMO DATA — see DEMO_SELF_ID.
+  {
+    id: 'review-003',
+    eventId: 'event-031',
+    reviewerId: 'buddy_jason',
+    reviewedUserId: DEMO_SELF_ID,
+    attendanceStatus: 'attended',
+    punctuality: 'on_time',
+    experience: 'great',
+    note: 'Turned up early and warmed up. Easy to play with.',
+    createdAt: '2026-09-12T21:00:00',
+  },
+  {
+    id: 'review-004',
+    eventId: 'event-032',
+    reviewerId: 'buddy_mei',
+    reviewedUserId: DEMO_SELF_ID,
+    attendanceStatus: 'attended',
+    punctuality: 'on_time',
+    experience: 'good',
+    note: 'Kept a steady pace the whole run.',
+    createdAt: '2026-09-07T08:15:00',
+  },
+  {
+    id: 'review-005',
+    eventId: 'event-033',
+    reviewerId: 'buddy_daniel',
+    reviewedUserId: DEMO_SELF_ID,
+    attendanceStatus: 'attended',
+    punctuality: 'late',
+    experience: 'good',
+    note: 'Caught in traffic but messaged ahead.',
+    createdAt: '2026-09-02T20:40:00',
+  },
+  {
+    id: 'review-006',
+    eventId: 'event-034',
+    reviewerId: 'buddy_farah',
+    reviewedUserId: DEMO_SELF_ID,
+    attendanceStatus: 'no_show',
+    punctuality: null,
+    experience: null,
+    note: '',
+    createdAt: '2026-08-27T19:30:00',
+  },
+  {
+    id: 'review-007',
+    eventId: 'event-035',
+    reviewerId: 'buddy_aina',
+    reviewedUserId: DEMO_SELF_ID,
+    attendanceStatus: 'attended',
+    punctuality: 'on_time',
+    experience: 'great',
+    note: 'Good rallies, stayed for the full two hours.',
+    createdAt: '2026-08-22T22:00:00',
+  },
 ]
 
 const roundRate = (numerator: number, denominator: number) =>
   denominator === 0 ? null : Math.round((numerator / denominator) * 100)
 
+/** Trailing window for "recently active". */
+export const RECENT_WINDOW_DAYS = 30
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
 export function calculateReliability(
   reviews: readonly BuddyReview[],
   reviewedUserId: string,
+  now: Date,
 ): ReliabilityStats {
   const relevantReviews = reviews.filter(
     (review) => review.reviewedUserId === reviewedUserId,
   )
+  const windowStart = now.getTime() - RECENT_WINDOW_DAYS * DAY_MS
+  const recentCount = relevantReviews.filter((review) => {
+    const at = new Date(review.createdAt).getTime()
+    return Number.isFinite(at) && at >= windowStart && at <= now.getTime()
+  }).length
   const attendedCount = relevantReviews.filter(
     (review) => review.attendanceStatus === 'attended',
   ).length
@@ -95,6 +170,7 @@ export function calculateReliability(
 
   return {
     totalReviewedActivities,
+    recentCount,
     attendedCount,
     onTimeCount,
     lateCount,

@@ -2,6 +2,7 @@ import type { AuthUser } from '@/types/auth'
 import type { UserPreferences } from '@/types/preferences'
 import type { SaveProfileInput, SportsProfileFields } from '@/types/sports-profile'
 import type { SportsProfile } from '@/types/user'
+import type { Gender } from '@/types/gender'
 
 /**
  * `users/{uid}` — the private profile document. Backend agnostic; no Firebase
@@ -10,7 +11,8 @@ import type { SportsProfile } from '@/types/user'
 export interface ProfileRepository {
   getByUserId(userId: string): Promise<SportsProfile | null>
   /** Creates the minimal document on first sign-in; never overwrites. */
-  createIfMissing(user: AuthUser): Promise<SportsProfile>
+  createIfMissing(user: AuthUser, gender?: Gender | null): Promise<SportsProfile>
+  setGender(userId: string, gender: Gender): Promise<SportsProfile>
   /**
    * Merges profile data into the existing document and marks onboarding
    * complete. Used by onboarding completion and by profile editing.

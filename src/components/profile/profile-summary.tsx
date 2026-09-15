@@ -1,4 +1,5 @@
 import { SectionHeader } from '@/components/common/section-header'
+import { GenderLabel } from '@/components/profile/gender-label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/initials'
@@ -38,6 +39,7 @@ export function ProfileSummary({ profile }: { profile: DiscoveryProfile }) {
           <span className="text-body-small text-muted-foreground">
             {getAreaName(profile.area)}
           </span>
+          <GenderLabel gender={profile.gender} />
         </div>
       </div>
 

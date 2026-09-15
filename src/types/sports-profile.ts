@@ -1,4 +1,5 @@
 import type { UserPreferences } from '@/types/preferences'
+import type { Gender } from '@/types/gender'
 
 export type SportId =
   | 'badminton'
@@ -69,6 +70,8 @@ export interface SportsProfileFields {
 /** What onboarding and profile editing write to `users/{uid}`. */
 export interface SaveProfileInput extends SportsProfileFields {
   displayName: string
+  /** Present during onboarding; omitted by normal profile edits. */
+  gender?: Gender | null
   /** Only set when onboarding seeds the defaults; edits leave it untouched. */
   preferences?: UserPreferences
 }

@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { GenderLabel } from '@/components/profile/gender-label'
 import { ConnectAction } from '@/features/connections/components/connect-action'
 import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
 import { useConnections } from '@/hooks/use-connections'
@@ -131,6 +132,7 @@ export function BuddyCard({
           <span className="text-body-small text-muted-foreground">
             {formatBudget(candidate.budget)} / activity
           </span>
+          <GenderLabel gender={candidate.gender} />
         </div>
 
         {connectionState === 'connected' && conversationId ? (

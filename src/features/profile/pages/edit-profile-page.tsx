@@ -24,6 +24,7 @@ import {
 import { validateProfileInput } from '@/services/profile/profile-validation'
 import { ROUTES } from '@/routes/routes'
 import type { SportsProfile } from '@/types/user'
+import { formatGender } from '@/types/gender'
 
 export function EditProfilePage() {
   const { profile } = useProfile()
@@ -41,7 +42,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
   const [isSaving, setIsSaving] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
 
-  const input = toSaveInput(draft)
+  const input = toSaveInput(draft, { includeGender: false })
   const problem = validateProfileInput(input)
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initialDraft)
 
@@ -98,6 +99,11 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
           value={draft.bio}
           onChange={(value) => dispatch({ type: 'set-bio', value })}
         />
+        <div className="flex flex-col gap-1.5">
+          <span className="text-label text-foreground">Gender</span>
+          <span className="text-body text-foreground">{formatGender(profile.gender) || 'Not set'}</span>
+          <span className="text-body-small text-muted-foreground">Gender can&apos;t be changed after account creation.</span>
+        </div>
       </EditSection>
 
       <EditSection

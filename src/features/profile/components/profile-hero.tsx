@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { GenderLabel } from '@/components/profile/gender-label'
 import { getInitials } from '@/lib/initials'
 import { formatRadius, getAreaName } from '@/lib/profile-format'
 import type { SportsProfile } from '@/types/user'
@@ -31,6 +32,7 @@ export function ProfileHero({
             {getAreaName(profile.area)} · within{' '}
             {formatRadius(profile.radiusKm)}
           </span>
+          <GenderLabel gender={profile.gender} />
           {isReadyToPlay && (
             <Badge className="mt-1 w-fit">Ready to play</Badge>
           )}

@@ -31,12 +31,14 @@ export function OnboardingPage() {
 }
 
 function OnboardingFlow({ user }: { user: AuthUser }) {
-  const { completeOnboarding } = useProfile()
+  const { completeOnboarding, profile } = useProfile()
   const [draft, dispatch] = useReducer(
     profileDraftReducer,
     user,
-    ({ id, displayName }) =>
-      onboardingDraftStore.read(id) ?? createDraft(displayName),
+    ({ id, displayName }) => {
+      const stored = onboardingDraftStore.read(id)
+      return stored ? { ...stored, gender: stored.gender ?? profile?.gender ?? null } : createDraft(displayName, profile?.gender ?? null)
+    },
   )
   const [stepIndex, setStepIndex] = useState(0)
   const [saveError, setSaveError] = useState('')
@@ -97,6 +99,7 @@ function OnboardingFlow({ user }: { user: AuthUser }) {
           onDisplayNameChange={(value) =>
             dispatch({ type: 'set-display-name', value })
           }
+          onGenderChange={(gender) => dispatch({ type: 'set-gender', gender })}
         />
       )}
       {step.id === 'sports' && (

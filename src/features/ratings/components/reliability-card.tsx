@@ -1,9 +1,27 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { RECENT_WINDOW_DAYS } from '@/features/ratings/mock-ratings'
 import { useBuddyRatings } from '@/features/ratings/use-buddy-ratings'
 import { cn } from '@/lib/utils'
 
-export function ReliabilityCard({ buddyId }: { buddyId: string }) {
+/**
+ * The track record shown on a profile: how active someone has been lately and
+ * how often they actually turn up. ONE component, mounted on both the signed-in
+ * user's `/profile` and a candidate's `/discover/:userId`, so what you see about
+ * yourself is exactly what other people see about you.
+ *
+ * DEMO DATA. Attendance, punctuality and no-shows are not recorded anywhere in
+ * Firestore — there is no check-in and no post-activity confirmation. These
+ * numbers come from `mock-ratings.ts` and are labelled as sample data on screen
+ * so nobody mistakes them for a real history.
+ */
+export function ReliabilityCard({
+  buddyId,
+  isSelf = false,
+}: {
+  buddyId: string
+  isSelf?: boolean
+}) {
   const { calculateReliability } = useBuddyRatings()
   const stats = calculateReliability(buddyId)
 
@@ -13,7 +31,7 @@ export function ReliabilityCard({ buddyId }: { buddyId: string }) {
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <span className="text-caption text-muted-foreground uppercase">
-              Reliability
+              Track record
             </span>
             {stats.label && (
               <span className="text-body-small text-success">{stats.label}</span>
@@ -21,20 +39,27 @@ export function ReliabilityCard({ buddyId }: { buddyId: string }) {
           </div>
           {stats.totalReviewedActivities > 0 && (
             <span className="text-body-small text-muted-foreground">
-              {stats.totalReviewedActivities} activities reviewed
+              {stats.totalReviewedActivities} reviewed
             </span>
           )}
         </div>
 
         {stats.totalReviewedActivities === 0 ? (
           <p className="text-body-small text-muted-foreground">
-            No activity history yet. Complete activities with this Buddy to
-            build their reliability history.
+            {isSelf
+              ? 'No activity history yet. Play a few sessions and your buddies can vouch for you here.'
+              : 'No activity history yet. Complete activities with this Buddy to build their reliability history.'}
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-3">
-              <Metric label="Attendance" value={`${stats.attendanceRate}%`} tone="success" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Metric
+                label={`Last ${RECENT_WINDOW_DAYS} days`}
+                value={`${stats.recentCount}`}
+                hint={stats.recentCount === 1 ? 'activity' : 'activities'}
+                tone="primary"
+              />
+              <Metric label="Turned up" value={`${stats.attendanceRate}%`} tone="success" />
               <Metric label="On-time" value={`${stats.onTimeRate}%`} tone="primary" />
               <Metric
                 label="No-show"
@@ -44,12 +69,17 @@ export function ReliabilityCard({ buddyId }: { buddyId: string }) {
             </div>
             <Separator />
             <ReliabilityBar
-              label="Attendance"
+              label="Turned up"
               value={stats.attendanceRate ?? 0}
               tone="bg-success"
             />
             <ReliabilityBar
-              label="No-show rate"
+              label="On-time when they turned up"
+              value={stats.onTimeRate ?? 0}
+              tone="bg-primary"
+            />
+            <ReliabilityBar
+              label="Signed up but did not go"
               value={stats.noShowRate ?? 0}
               tone={stats.noShowCount > 0 ? 'bg-warning' : 'bg-success'}
             />
@@ -59,6 +89,10 @@ export function ReliabilityCard({ buddyId }: { buddyId: string }) {
             </p>
           </>
         )}
+
+        <p className="text-caption text-muted-foreground">
+          Sample data — attendance is not tracked yet.
+        </p>
       </CardContent>
     </Card>
   )
@@ -67,24 +101,31 @@ export function ReliabilityCard({ buddyId }: { buddyId: string }) {
 function Metric({
   label,
   value,
+  hint,
   tone,
 }: {
   label: string
   value: string
+  hint?: string
   tone: 'success' | 'warning' | 'primary'
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <span className="text-body-small text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          'text-heading-3',
-          tone === 'success' && 'text-success',
-          tone === 'warning' && 'text-warning',
-          tone === 'primary' && 'text-primary',
+      <span className="flex items-baseline gap-1.5">
+        <span
+          className={cn(
+            'text-heading-3',
+            tone === 'success' && 'text-success',
+            tone === 'warning' && 'text-warning',
+            tone === 'primary' && 'text-primary',
+          )}
+        >
+          {value}
+        </span>
+        {hint && (
+          <span className="text-caption text-muted-foreground">{hint}</span>
         )}
-      >
-        {value}
       </span>
     </div>
   )

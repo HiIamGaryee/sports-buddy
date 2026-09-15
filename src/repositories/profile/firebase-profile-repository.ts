@@ -17,6 +17,7 @@ import type { UserPreferences } from '@/types/preferences'
 import type { AuthUser } from '@/types/auth'
 import type { SaveProfileInput } from '@/types/sports-profile'
 import type { SportsProfile } from '@/types/user'
+import type { Gender } from '@/types/gender'
 
 const COLLECTION = 'users'
 
@@ -31,6 +32,9 @@ const toIsoString = (value: unknown): string =>
 
 const asString = (value: unknown, fallback = '') =>
   typeof value === 'string' ? value : fallback
+
+const asGender = (value: unknown): Gender | null =>
+  value === 'male' || value === 'female' ? value : null
 
 /** Tolerates documents written before a field existed (STEP 3/4 users). */
 function toSportsProfile(id: string, data: DocumentData): SportsProfile {
@@ -50,6 +54,7 @@ function toSportsProfile(id: string, data: DocumentData): SportsProfile {
     email: asString(data.email),
     displayName: asString(data.displayName),
     photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : null,
+    gender: asGender(data.gender),
     onboardingCompleted: data.onboardingCompleted === true,
     createdAt: toIsoString(data.createdAt),
     updatedAt: toIsoString(data.updatedAt),
@@ -61,6 +66,7 @@ function toSportsProfile(id: string, data: DocumentData): SportsProfile {
 const fallbackProfile = (user: AuthUser): SportsProfile => ({
   ...user,
   ...EMPTY_PROFILE_FIELDS,
+  gender: null,
   onboardingCompleted: false,
   updatedAt: user.createdAt,
   preferences: normalizeUserPreferences(undefined, EMPTY_PROFILE_FIELDS),
@@ -74,7 +80,7 @@ async function getByUserId(userId: string) {
 export const firebaseProfileRepository: ProfileRepository = {
   getByUserId,
 
-  async createIfMissing(user: AuthUser) {
+  async createIfMissing(user: AuthUser, gender: Gender | null = null) {
     const existing = await getByUserId(user.id)
     if (existing) return existing
 
@@ -84,6 +90,7 @@ export const firebaseProfileRepository: ProfileRepository = {
       email: user.email,
       displayName: user.displayName,
       photoUrl: user.photoUrl,
+      gender,
       onboardingCompleted: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -93,7 +100,22 @@ export const firebaseProfileRepository: ProfileRepository = {
     return created ?? fallbackProfile(user)
   },
 
+  async setGender(userId: string, gender: Gender) {
+    const existing = await getByUserId(userId)
+    if (!existing) throw new Error(`No profile document for ${userId}.`)
+    if (existing.gender && existing.gender !== gender) throw new Error('Gender cannot be changed after account creation.')
+    await setDoc(userDoc(userId), { gender, updatedAt: serverTimestamp() }, { merge: true })
+    const saved = await getByUserId(userId)
+    if (!saved) throw new Error('Gender was saved but could not be read back.')
+    return saved
+  },
+
   async saveProfile(userId: string, input: SaveProfileInput) {
+    const existing = await getByUserId(userId)
+    if (!existing) throw new Error(`No profile document for ${userId}.`)
+    if (existing.gender && input.gender !== undefined && input.gender !== existing.gender) {
+      throw new Error('Gender cannot be changed after account creation.')
+    }
     // merge keeps email, photoUrl and createdAt from the auth step intact.
     // Fields are listed explicitly rather than spread: the document shape is
     // decided here, so no extra property on `input` can be persisted, and the
@@ -110,6 +132,7 @@ export const firebaseProfileRepository: ProfileRepository = {
         area: input.area,
         radiusKm: input.radiusKm,
         budget: input.budget,
+        ...(input.gender !== undefined ? { gender: input.gender } : {}),
         ...(input.preferences ? { preferences: input.preferences } : {}),
         onboardingCompleted: true,
         updatedAt: serverTimestamp(),

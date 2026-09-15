@@ -13,6 +13,8 @@ import type { AuthUser } from '@/types/auth'
 import type { UserPreferences } from '@/types/preferences'
 import type { SaveProfileInput } from '@/types/sports-profile'
 import type { SportsProfile } from '@/types/user'
+import { isGender } from '@/types/gender'
+import type { Gender } from '@/types/gender'
 
 const SAVE_FAILED_MESSAGE = "We couldn't save your profile. Please try again."
 const PREFERENCES_FAILED_MESSAGE =
@@ -90,10 +92,18 @@ export const profileService = {
     userId: string,
     input: SaveProfileInput,
   ): Promise<SportsProfile> {
+    if (!isGender(input.gender)) throw new Error('Choose a valid gender.')
     return saveValidated(userId, {
       ...input,
       preferences: createDefaultUserPreferences(input),
     })
+  },
+
+  async completeGender(userId: string, gender: Gender) {
+    if (!isGender(gender)) throw new Error('Choose a valid gender.')
+    const saved = await profileRepository.setGender(userId, gender)
+    await syncPublicProfile(saved)
+    return saved
   },
 
   /**
@@ -106,8 +116,9 @@ export const profileService = {
     input: SaveProfileInput,
     preferences: UserPreferences,
   ): Promise<SportsProfile> {
+    const { gender: _gender, ...editableInput } = input
     return saveValidated(userId, {
-      ...input,
+      ...editableInput,
       preferences: reconcileDiscoveryPreferences(
         preferences,
         input.sports,

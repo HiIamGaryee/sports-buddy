@@ -6,6 +6,7 @@ import { profileService } from '@/services/profile/profile-service'
 import type { UserPreferences } from '@/types/preferences'
 import type { SaveProfileInput } from '@/types/sports-profile'
 import type { SportsProfile } from '@/types/user'
+import type { Gender } from '@/types/gender'
 
 interface ProfileState {
   userId: string | null
@@ -73,6 +74,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     [user, state.profile],
   )
 
+  const completeGender = useCallback(
+    async (gender: Gender) => {
+      if (!user) throw new Error('You need to be signed in to save your gender.')
+      const profile = await profileService.completeGender(user.id, gender)
+      setState({ userId: user.id, profile, isLoading: false })
+    },
+    [user],
+  )
+
   const updatePreferences = useCallback(
     async (preferences: UserPreferences) => {
       if (!user) throw new Error('You need to be signed in to save settings.')
@@ -90,6 +100,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       profile: state.profile,
       isLoading: state.isLoading,
       completeOnboarding,
+      completeGender,
       updateProfile,
       updatePreferences,
     }),
@@ -97,6 +108,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       state.profile,
       state.isLoading,
       completeOnboarding,
+      completeGender,
       updateProfile,
       updatePreferences,
     ],

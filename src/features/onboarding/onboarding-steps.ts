@@ -61,7 +61,7 @@ export function getStepError(
 ): string | undefined {
   switch (stepId) {
     case 'welcome':
-      return profileRules.displayName(draft.displayName)
+      return profileRules.displayName(draft.displayName) ?? profileRules.gender(draft.gender)
     case 'sports':
       return profileRules.sports(draft.sports)
     case 'skills':

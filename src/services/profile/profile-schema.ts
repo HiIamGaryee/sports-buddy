@@ -23,6 +23,7 @@ import type {
   UserSport,
   WeekDay,
 } from '@/types/sports-profile'
+import { isGender } from '@/types/gender'
 
 /**
  * PROFILE DOMAIN SCHEMA.
@@ -62,6 +63,8 @@ const PERIOD_IDS = ids(DAY_PERIODS)
 
 export const isSportId = (value: unknown): value is SportId =>
   typeof value === 'string' && SPORT_IDS.has(value)
+
+export { isGender }
 
 export const isSkillLevel = (value: unknown): value is SkillLevel =>
   typeof value === 'string' && SKILL_IDS.has(value)
@@ -200,6 +203,9 @@ export function toSafeProfileInput(input: SaveProfileInput): SaveProfileInput {
     area: isAreaId(input.area) ? input.area : null,
     radiusKm: isRadiusKm(input.radiusKm) ? input.radiusKm : null,
     budget: isValidBudget(input.budget) ? input.budget : null,
+    ...(input.gender !== undefined
+      ? { gender: isGender(input.gender) ? input.gender : null }
+      : {}),
     ...(input.preferences ? { preferences: input.preferences } : {}),
   }
 }

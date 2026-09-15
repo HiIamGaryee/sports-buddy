@@ -2,7 +2,10 @@ import { CalendarDays, MapPin, Volleyball } from 'lucide-react'
 
 import { FormField } from '@/components/common/form-field'
 import { Input } from '@/components/ui/input'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { validateDisplayName } from '@/lib/validation'
+import { GENDER_OPTIONS } from '@/types/gender'
+import { profileRules } from '@/services/profile/profile-validation'
 import type { ProfileDraft } from '@/lib/profile-draft'
 
 const WELCOME_POINTS = [
@@ -14,11 +17,15 @@ const WELCOME_POINTS = [
 export function WelcomeStep({
   draft,
   onDisplayNameChange,
+  onGenderChange,
 }: {
   draft: ProfileDraft
   onDisplayNameChange: (value: string) => void
+  onGenderChange: (gender: import('@/types/gender').Gender) => void
 }) {
   const error = validateDisplayName(draft.displayName)
+
+  const genderError = profileRules.gender(draft.gender)
 
   return (
     <div className="flex flex-col gap-6">
@@ -45,6 +52,14 @@ export function WelcomeStep({
           autoComplete="name"
           placeholder="Gary"
         />
+      </FormField>
+      <FormField id="onboarding-gender" label="Gender" error={genderError}>
+        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Gender">
+          {GENDER_OPTIONS.map(({ value, label }) => (
+            <ChoiceChip key={value} label={label} selection="single" selected={draft.gender === value} disabled={draft.gender !== null} onClick={() => onGenderChange(value)} className="w-full rounded-xl" />
+          ))}
+        </div>
+        <p className="text-body-small text-muted-foreground">Gender can&apos;t be changed after account creation.</p>
       </FormField>
     </div>
   )

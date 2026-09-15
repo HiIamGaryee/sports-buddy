@@ -41,6 +41,7 @@ const candidate = (
   userId: 'buddy_test',
   displayName: 'Test Buddy',
   photoUrl: null,
+  gender: 'male',
   bio: '',
   sports: [{ sportId: 'badminton', skillLevel: 'intermediate' }],
   intents: ['casual'],

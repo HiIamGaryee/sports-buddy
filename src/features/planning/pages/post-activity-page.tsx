@@ -19,7 +19,7 @@ import type {
 } from '@/types/buddy-rating'
 
 const postActivity = {
-  eventId: 'event-001',
+  id: 'event-001',
   is_done_event: 1,
   activity: 'Badminton',
   venue: 'TPP5 Badminton Court',
@@ -79,7 +79,7 @@ export function PostActivityPage() {
   const { reviews } = useBuddyRatings()
   const alreadyReviewed = reviews.some(
     (review) =>
-      review.eventId === postActivity.eventId &&
+      review.eventId === postActivity.id &&
       review.reviewerId === 'current-user' &&
       review.reviewedUserId === postActivity.buddy.id,
   )
@@ -143,7 +143,7 @@ export function PostActivityPage() {
     if (!attendanceStatus) return
     try {
       buddyReviewStore.submit({
-        eventId: postActivity.eventId,
+        eventId: postActivity.id,
         reviewerId: 'current-user',
         reviewedUserId: postActivity.buddy.id,
         attendanceStatus,

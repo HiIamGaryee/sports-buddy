@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { GenderLabel } from '@/components/profile/gender-label'
 import { ConnectAction } from '@/features/connections/components/connect-action'
 import { useConnections } from '@/hooks/use-connections'
 import { conversationPath } from '@/routes/routes'
@@ -20,6 +21,12 @@ export function OpportunityCard({ item, buddy }: { item: DiscoverItem; buddy?: D
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
             <span className="text-heading-3 text-card-foreground">{item.activity}</span>
+            {buddy?.profile.gender && (
+              <span className="inline-flex items-center gap-1 text-body-small text-muted-foreground">
+                Hosted by {buddy.profile.displayName} ·
+                <GenderLabel gender={buddy.profile.gender} />
+              </span>
+            )}
             <Badge variant="outline" className="w-fit">Possible fit</Badge>
           </div>
           <span className="shrink-0 text-heading-2 text-primary">{item.matchPercentage ?? '—'}%</span>

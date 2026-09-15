@@ -5,6 +5,7 @@ export const ROUTES = {
   register: '/auth/register',
   privacy: '/privacy',
   onboarding: '/onboarding',
+  completeProfile: '/complete-profile',
   home: '/home',
   map: '/map',
   discover: '/discover',

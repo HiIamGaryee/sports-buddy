@@ -20,6 +20,7 @@ import type {
   SaveProfileInput,
   SkillLevel,
 } from '@/types/sports-profile'
+import { isGender } from '@/types/gender'
 
 /**
  * Every profile rule lives here, each taking only the field it inspects, so
@@ -28,6 +29,9 @@ import type {
  */
 export const profileRules = {
   displayName: validateDisplayName,
+
+  gender: (gender: unknown) =>
+    isGender(gender) ? undefined : 'Choose a valid gender.',
 
   /**
    * Membership, not just presence — sport SELECTION only. Skill level is not
