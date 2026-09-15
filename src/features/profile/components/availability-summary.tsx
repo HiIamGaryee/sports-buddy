@@ -17,9 +17,12 @@ export function AvailabilitySummary({
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col divide-y divide-border">
       {rows.map(({ day, periods }) => (
-        <div key={day} className="flex items-baseline justify-between gap-3">
+        <div
+          key={day}
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 py-3 first:pt-0 last:pb-0"
+        >
           <span className="text-title text-foreground">{day}</span>
           <span className="text-body-small text-muted-foreground">
             {periods}

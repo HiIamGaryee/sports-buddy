@@ -6,11 +6,16 @@ import { PageContainer } from '@/components/layout/page-container'
 import { validDocumentId } from '@/lib/ids'
 import { StickyActionBar } from '@/components/layout/sticky-action-bar'
 import { ProfileSummary } from '@/components/profile/profile-summary'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConnectAction } from '@/features/connections/components/connect-action'
 import { SafetyActions } from '@/components/safety/safety-actions'
+import { RateBuddyDialog } from '@/features/ratings/components/rate-buddy-dialog'
+import { ReliabilityCard } from '@/features/ratings/components/reliability-card'
+import { getReviewableActivities } from '@/features/ratings/mock-ratings'
+import { useBuddyRatings } from '@/features/ratings/use-buddy-ratings'
 import { CompatibilityBreakdown } from '@/features/discover/components/compatibility-breakdown'
 import { CompatibilityScore } from '@/features/discover/components/compatibility-score'
 import { MatchingReasons } from '@/features/discover/components/matching-reasons'
@@ -42,6 +47,7 @@ export function BuddyProfilePage() {
   // of building a malformed document path.
   const userId = validDocumentId(rawUserId) ?? undefined
   const { profile } = useProfile()
+  const { reviews } = useBuddyRatings()
   const { getConnectionState } = useConnections()
   const navigate = useNavigate()
   const isConnected = userId !== undefined && getConnectionState(userId) === 'connected'
@@ -92,6 +98,9 @@ export function BuddyProfilePage() {
         : null,
     [candidate, profile],
   )
+  const reviewableActivities = candidate && profile
+    ? getReviewableActivities(candidate.userId, profile.id, reviews)
+    : []
 
   return (
     <>
@@ -164,9 +173,27 @@ export function BuddyProfilePage() {
             <Card className="lg:col-start-1 lg:row-start-1">
               <CardContent>
                 <ProfileSummary profile={candidate} />
-                <div className="mt-5 border-t border-border pt-4"><SafetyActions targetUserId={candidate.userId} displayName={candidate.displayName} context={{ type: 'profile' }} onBlocked={() => navigate(ROUTES.discover)} /></div>
+                <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
+                  {reviewableActivities[0] && (
+                    <RateBuddyDialog
+                      activity={reviewableActivities[0]}
+                      reviewerId={profile?.id ?? 'current-user'}
+                      trigger={<Button size="sm">Rate Buddy</Button>}
+                    />
+                  )}
+                  <SafetyActions
+                    targetUserId={candidate.userId}
+                    displayName={candidate.displayName}
+                    context={{ type: 'profile' }}
+                    onBlocked={() => navigate(ROUTES.discover)}
+                  />
+                </div>
               </CardContent>
             </Card>
+
+            <div className="lg:col-start-1 lg:row-start-2">
+              <ReliabilityCard buddyId={candidate.userId} />
+            </div>
 
             {/* Phone/tablet: sticky above the bottom navigation, which already
                 owns the bottom safe-area inset, and in flow so it never hides

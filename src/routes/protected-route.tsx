@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 import { AppSplash } from '@/components/common/app-splash'
 import { ConnectionSuccessDialog } from '@/features/connections/components/connection-success-dialog'
@@ -15,11 +15,15 @@ import { useRouteState } from '@/routes/use-route-state'
  */
 export function ProtectedRoute() {
   const state = useRouteState()
+  const location = useLocation()
 
   if (state === 'loading') return <AppSplash />
   if (state === 'guest') return <Navigate to={ROUTES.login} replace />
   if (state === 'onboarding-required') {
     return <Navigate to={ROUTES.onboarding} replace />
+  }
+  if (state === 'gender-required' && location.pathname !== ROUTES.completeProfile) {
+    return <Navigate to={ROUTES.completeProfile} replace />
   }
   return (
     <ConnectionProvider>

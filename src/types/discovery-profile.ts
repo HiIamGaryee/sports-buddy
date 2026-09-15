@@ -6,6 +6,7 @@ import type {
   SportsIntent,
   UserSport,
 } from '@/types/sports-profile'
+import type { Gender } from '@/types/gender'
 
 /**
  * DISCOVERY-SAFE projection of a profile — the document stored in
@@ -18,6 +19,7 @@ export interface DiscoveryProfile {
   userId: string
   displayName: string
   photoUrl: string | null
+  gender: Gender | null
   bio: string
   sports: UserSport[]
   intents: SportsIntent[]

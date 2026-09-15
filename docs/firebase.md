@@ -180,3 +180,12 @@ moment Firebase Hosting or another static host is added.
   in the dedicated native phase. Email/password works everywhere.
 - No Cloud Functions, Storage or Hosting are configured — Auth + Firestore
   keep the MVP on the free tier.
+# Immutable gender
+
+Email registration passes canonical Gender through `authService` into the
+private profile create. Google authentication never infers Gender; a missing
+value is normalized to `null` and collected through onboarding or the minimal
+legacy completion screen. `users/{uid}.gender` and
+`publicProfiles/{uid}.gender` are protected by Firestore rules: missing/null
+may transition once to `male` or `female`, and an existing value must remain
+unchanged.

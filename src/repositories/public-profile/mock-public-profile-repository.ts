@@ -2,9 +2,16 @@ import { MOCK_STORAGE_KEYS } from '@/constants/app'
 import { delay, readStore, writeStore } from '@/repositories/mock-store'
 import type { PublicProfileRepository } from '@/repositories/public-profile/public-profile-repository'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
+import { isGender } from '@/types/gender'
 
 export const readMockPublicProfiles = () =>
-  readStore<DiscoveryProfile[]>(MOCK_STORAGE_KEYS.publicProfiles, [])
+  readStore<unknown[]>(MOCK_STORAGE_KEYS.publicProfiles, []).flatMap((value) => {
+    if (!value || typeof value !== 'object') return []
+    const profile = value as DiscoveryProfile
+    return typeof profile.userId === 'string'
+      ? [{ ...profile, gender: isGender(profile.gender) ? profile.gender : null }]
+      : []
+  })
 
 export const mockPublicProfileRepository: PublicProfileRepository = {
   async getByUserId(userId) {

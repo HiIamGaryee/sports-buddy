@@ -12,6 +12,7 @@ import type {
   SportsIntent,
   WeekDay,
 } from '@/types/sports-profile'
+import type { Gender } from '@/types/gender'
 import type { SportsProfile } from '@/types/user'
 
 /**
@@ -27,7 +28,10 @@ export interface DraftSport {
 
 export interface ProfileDraft {
   displayName: string
+  gender: Gender | null
   bio: string
+  instagramUsername: string
+  linkedinUsername: string
   sports: DraftSport[]
   intents: SportsIntent[]
   preferredIntensity: ActivityIntensity | null
@@ -39,6 +43,7 @@ export interface ProfileDraft {
 
 export type ProfileDraftAction =
   | { type: 'set-display-name'; value: string }
+  | { type: 'set-gender'; gender: Gender }
   | { type: 'toggle-sport'; sportId: SportId }
   | { type: 'set-skill'; sportId: SportId; skillLevel: SkillLevel }
   | { type: 'toggle-intent'; intent: SportsIntent }
@@ -48,10 +53,15 @@ export type ProfileDraftAction =
   | { type: 'set-radius'; radiusKm: number }
   | { type: 'set-budget'; budget: BudgetPreference }
   | { type: 'set-bio'; value: string }
+  | { type: 'set-instagram-username'; value: string }
+  | { type: 'set-linkedin-username'; value: string }
 
-export const createDraft = (displayName: string): ProfileDraft => ({
+export const createDraft = (displayName: string, gender: Gender | null = null): ProfileDraft => ({
   displayName,
+  gender,
   bio: '',
+  instagramUsername: '',
+  linkedinUsername: '',
   sports: [],
   intents: [],
   preferredIntensity: null,
@@ -87,6 +97,8 @@ export function profileDraftReducer(
   switch (action.type) {
     case 'set-display-name':
       return { ...state, displayName: action.value }
+    case 'set-gender':
+      return state.gender === null ? { ...state, gender: action.gender } : state
     case 'toggle-sport': {
       const selected = state.sports.some(
         (sport) => sport.sportId === action.sportId,
@@ -135,14 +147,24 @@ export function profileDraftReducer(
       return { ...state, budget: action.budget }
     case 'set-bio':
       return { ...state, bio: action.value }
+    case 'set-instagram-username':
+      return { ...state, instagramUsername: action.value }
+    case 'set-linkedin-username':
+      return { ...state, linkedinUsername: action.value }
   }
 }
 
 /** Draft → persistable input. Sports without a skill are never invented. */
-export function toSaveInput(draft: ProfileDraft): SaveProfileInput {
+export function toSaveInput(
+  draft: ProfileDraft,
+  options: { includeGender?: boolean } = {},
+): SaveProfileInput {
   return {
     displayName: draft.displayName,
+    ...(options.includeGender === false ? {} : { gender: draft.gender }),
     bio: draft.bio,
+    instagramUsername: draft.instagramUsername,
+    linkedinUsername: draft.linkedinUsername,
     sports: draft.sports.flatMap((sport) =>
       sport.skillLevel
         ? [{ sportId: sport.sportId, skillLevel: sport.skillLevel }]
@@ -160,7 +182,10 @@ export function toSaveInput(draft: ProfileDraft): SaveProfileInput {
 /** Existing profile → editable draft. */
 export const profileToDraft = (profile: SportsProfile): ProfileDraft => ({
   displayName: profile.displayName,
+  gender: profile.gender,
   bio: profile.bio,
+  instagramUsername: profile.instagramUsername ?? '',
+  linkedinUsername: profile.linkedinUsername ?? '',
   sports: profile.sports.map((sport) => ({ ...sport })),
   intents: [...profile.intents],
   preferredIntensity: profile.preferredIntensity,

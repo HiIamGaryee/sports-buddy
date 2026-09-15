@@ -87,3 +87,35 @@ writes their own once.
 | --- | --- | --- |
 | Debug APK | `npm run android:apk` | `android/app/build/outputs/apk/debug/app-debug.apk` |
 | Release AAB | `npm run android:aab` | `android/app/build/outputs/bundle/release/app-release.aab` |
+
+## Store listing copy
+
+### Short description
+
+Find local sports buddies, start a chat, and plan your next game together.
+
+### Full description
+
+Sports Buddy makes it easier to find people to play with. Discover fellow
+players who enjoy the same sports, connect when the timing feels right, and
+turn a “we should play sometime” into an actual plan.
+
+Whether you are looking for a new badminton partner, a casual tennis rally, a
+running buddy, or a group for your next game, Sports Buddy helps you meet
+people who share your interests and availability.
+
+With Sports Buddy, you can:
+
+- Create a profile with the sports you play, your skill levels, availability,
+  and general area.
+- Discover compatible players and activity opportunities nearby.
+- Connect and chat with people before making plans.
+- Organise a sports session with a time, venue, and the people you want to
+  play with.
+- Manage your profile, notifications, and discovery preferences in one place.
+
+Privacy comes first. Sports Buddy uses only the approximate area you choose to
+share to help make local connections relevant. We never collect GPS or precise
+location data, and your email address is not shown to other users.
+
+Find your people. Play more often.

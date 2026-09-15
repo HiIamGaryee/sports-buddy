@@ -1,7 +1,7 @@
 import { useAuth } from '@/hooks/use-auth'
 import { useProfile } from '@/hooks/use-profile'
 
-export type RouteState = 'loading' | 'guest' | 'onboarding-required' | 'ready'
+export type RouteState = 'loading' | 'guest' | 'onboarding-required' | 'gender-required' | 'ready'
 
 /** The one place the app decides which of its three states the user is in. */
 export function useRouteState(): RouteState {
@@ -11,5 +11,6 @@ export function useRouteState(): RouteState {
   if (isAuthLoading) return 'loading'
   if (!isAuthenticated) return 'guest'
   if (isProfileLoading) return 'loading'
-  return profile?.onboardingCompleted ? 'ready' : 'onboarding-required'
+  if (!profile?.onboardingCompleted) return 'onboarding-required'
+  return profile.gender ? 'ready' : 'gender-required'
 }

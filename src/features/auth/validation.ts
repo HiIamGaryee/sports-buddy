@@ -1,4 +1,5 @@
 export { validateDisplayName } from '@/lib/validation'
+import { isGender } from '@/types/gender'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -30,3 +31,6 @@ export const validateConfirmPassword = (
   if (password !== confirmPassword) return 'Passwords do not match.'
   return undefined
 }
+
+export const validateGender = (gender: unknown): string | undefined =>
+  isGender(gender) ? undefined : 'Choose a gender.'

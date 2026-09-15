@@ -50,6 +50,9 @@ Writes and reads are separate repositories on purpose:
 
 ## 2. Privacy boundary
 
+Candidate and host Gender is displayed from the discovery-safe projection.
+Gender is not used in matching, ranking or Discover filters.
+
 `publicProfiles/{uid}` contains exactly the `DiscoveryProfile` fields —
 `userId`, `displayName`, `photoUrl`, `bio`, `sports`, `intents`,
 `preferredIntensity`, `availability`, `area`, `budget`,

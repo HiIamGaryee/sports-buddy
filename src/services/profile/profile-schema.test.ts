@@ -130,6 +130,12 @@ describe('array validation', () => {
 })
 
 describe('toSafeProfileInput write allowlist', () => {
+  it('keeps canonical gender and normalizes invalid values to legacy null', () => {
+    expect(toSafeProfileInput({ ...VALID, gender: 'male' }).gender).toBe('male')
+    expect(toSafeProfileInput({ ...VALID, gender: 'FEMALE' as never }).gender).toBeNull()
+    expect(toSafeProfileInput({ ...VALID, gender: 'admin' as never }).gender).toBeNull()
+  })
+
   it('drops any field that is not part of the profile', () => {
     const hostile = {
       ...VALID,

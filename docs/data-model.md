@@ -631,3 +631,12 @@ code that pretends it exists.
 The two composite indexes on `activities` (see `docs/activities.md`) are the
 only ones in `firestore.indexes.json`. Every other query in the app remains
 index-free by design.
+# Gender
+
+`Gender` is a strongly typed enum: `male | female`.
+
+- Private: `users/{uid}.gender`
+- Public: `publicProfiles/{uid}.gender`
+- Display labels are centralized in `src/types/gender.ts`.
+- Mutability: write once; a legacy missing value may be completed once, then
+  the value is immutable.

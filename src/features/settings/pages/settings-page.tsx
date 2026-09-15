@@ -20,6 +20,7 @@ import { useTheme } from '@/hooks/use-theme'
 import { formatRadius } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/routes/routes'
+import FAQ_LIST from '@/data/faq-list.json'
 import type { NotificationPreferences } from '@/types/preferences'
 import type { ThemePreference } from '@/types/theme'
 
@@ -68,6 +69,7 @@ const SETTINGS_SECTIONS = [
   { id: 'preferences', label: 'Preferences' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'privacy', label: 'Privacy & safety' },
+  { id: 'faq', label: 'FAQ' },
   { id: 'account', label: 'Account' },
   { id: 'about', label: 'About' },
 ] as const
@@ -270,6 +272,27 @@ export function SettingsPage() {
               <h3 className="text-title text-foreground">Managing storage</h3>
               <p>You can clear local storage from your browser or device settings. Clearing it may reset your theme, onboarding draft, and mock-mode session.</p>
             </section>
+          </PolicyDialog>
+        </SettingsSection>
+
+        <SettingsSection id="faq" title="Help">
+          <PolicyDialog
+            title="Frequently asked questions"
+            description="Quick answers about using Sports Buddy."
+          >
+            {FAQ_LIST.map(({ question, answer }) => (
+              <details
+                key={question}
+                className="rounded-xl border border-border bg-surface-subtle px-4 py-3"
+              >
+                <summary className="cursor-pointer pr-5 text-title text-foreground marker:text-muted-foreground">
+                  {question}
+                </summary>
+                <p className="pt-3 text-body-small leading-relaxed text-muted-foreground">
+                  {answer}
+                </p>
+              </details>
+            ))}
           </PolicyDialog>
         </SettingsSection>
 

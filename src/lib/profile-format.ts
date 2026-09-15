@@ -18,6 +18,9 @@ import type {
   SportId,
   SportsIntent,
 } from '@/types/sports-profile'
+import { formatGender } from '@/types/gender'
+
+export { formatGender }
 
 /** Stable ids are persisted; labels live here so they never leak into data. */
 export const getSport = (sportId: SportId) =>

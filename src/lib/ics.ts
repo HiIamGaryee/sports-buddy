@@ -1,3 +1,4 @@
+import { toFilenameSlug } from '@/lib/filename'
 import type { CalendarEventData } from '@/types/calendar'
 
 /**
@@ -147,14 +148,7 @@ export function buildIcsCalendar(
  * label slugs away to nothing.
  */
 export function buildIcsFilename(label: string, startAt: Date): string {
-  const slug = label
-    .toLowerCase()
-    // Anything outside a–z, 0–9 becomes a separator. That covers `/`, `\`,
-    // `..`, control characters, spaces and every Unicode script at once,
-    // which an explicit blocklist would not.
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
+  const slug = toFilenameSlug(label)
 
   const date = Number.isNaN(startAt.getTime())
     ? ''

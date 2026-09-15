@@ -1,5 +1,6 @@
 import type { UserPreferences } from '@/types/preferences'
 import type { SportsProfileFields } from '@/types/sports-profile'
+import type { Gender } from '@/types/gender'
 
 /** Account fields mirrored from auth when `users/{uid}` is first created. */
 export interface UserRecord {
@@ -7,6 +8,8 @@ export interface UserRecord {
   email: string
   displayName: string
   photoUrl: string | null
+  /** Public identity metadata. Null only for legacy/Google users before completion. */
+  gender: Gender | null
   onboardingCompleted: boolean
   createdAt: string
   updatedAt: string

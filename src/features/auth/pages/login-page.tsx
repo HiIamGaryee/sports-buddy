@@ -124,6 +124,14 @@ export function LoginPage() {
           Create account
         </Link>
       </p>
+
+      <p className="text-body-small text-muted-foreground">
+        By continuing, you agree to our{' '}
+        <Link to={ROUTES.privacy} className="text-label text-primary">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </div>
   )
 }

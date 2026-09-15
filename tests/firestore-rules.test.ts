@@ -67,6 +67,12 @@ async function seed(id: string, data: Record<string, unknown>) {
   })
 }
 
+async function seedDocument(path: string, data: Record<string, unknown>) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(modular(context), path), data)
+  })
+}
+
 /**
  * Contexts are cached per user: each one opens its own gRPC channel to the
  * emulator, and creating a fresh one per assertion left enough half-closed
@@ -136,6 +142,42 @@ describe('reading a connection', () => {
     })
     await assertSucceeds(getDoc(doc(asUser(GARY), connectionPath(PAIR))))
     await assertSucceeds(getDoc(doc(asUser(AINA), connectionPath(PAIR))))
+  })
+})
+
+describe('immutable gender fields', () => {
+  const userPath = (uid: string) => `users/${uid}`
+  const publicPath = (uid: string) => `publicProfiles/${uid}`
+  const userProfile = (gender: unknown) => ({ id: GARY, gender })
+  const publicProfile = (gender: unknown) => ({ userId: GARY, displayName: 'Gary', gender })
+
+  it('allows canonical gender values on private profile creation', async () => {
+    await assertSucceeds(setDoc(doc(asUser(GARY), userPath(GARY)), userProfile('male')))
+    await assertSucceeds(setDoc(doc(asUser(AINA), userPath(AINA)), { id: AINA, gender: 'female' }))
+  })
+
+  it('rejects invalid private gender values', async () => {
+    await assertFails(setDoc(doc(asUser(GARY), userPath(GARY)), userProfile('Male')))
+    await assertFails(setDoc(doc(asUser(AINA), userPath(AINA)), userProfile('other')))
+  })
+
+  it('allows one legacy missing-gender transition, then freezes it', async () => {
+    await seedDocument(userPath(GARY), { id: GARY, displayName: 'Gary' })
+    await assertSucceeds(updateDoc(doc(asUser(GARY), userPath(GARY)), { gender: 'male' }))
+    await assertSucceeds(updateDoc(doc(asUser(GARY), userPath(GARY)), { gender: 'male' }))
+    await assertFails(updateDoc(doc(asUser(GARY), userPath(GARY)), { gender: 'female' }))
+  })
+
+  it('prevents another user from changing private gender', async () => {
+    await seedDocument(userPath(GARY), userProfile('male'))
+    await assertFails(updateDoc(doc(asUser(AINA), userPath(GARY)), { gender: 'female' }))
+  })
+
+  it('allows valid public gender and keeps it immutable', async () => {
+    await assertSucceeds(setDoc(doc(asUser(GARY), publicPath(GARY)), publicProfile('female')))
+    await assertSucceeds(updateDoc(doc(asUser(GARY), publicPath(GARY)), { displayName: 'Gary Updated', gender: 'female' }))
+    await assertFails(updateDoc(doc(asUser(GARY), publicPath(GARY)), { gender: 'male' }))
+    await assertFails(setDoc(doc(asUser(AINA), publicPath(AINA)), publicProfile('Male')))
   })
 })
 

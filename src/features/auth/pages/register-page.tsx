@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { Input } from '@/components/ui/input'
 import { AuthAlert } from '@/features/auth/components/auth-alert'
 import { AuthDivider } from '@/features/auth/components/auth-divider'
@@ -13,16 +14,20 @@ import {
   validateDisplayName,
   validateEmail,
   validateNewPassword,
+  validateGender,
 } from '@/features/auth/validation'
 import { useAuth } from '@/hooks/use-auth'
 import { APP_TAGLINE_LINES } from '@/constants/app'
 import { ROUTES } from '@/routes/routes'
+import { GENDER_OPTIONS } from '@/types/gender'
+import type { Gender } from '@/types/gender'
 
 interface RegisterForm {
   displayName: string
   email: string
   password: string
   confirmPassword: string
+  gender: Gender | null
 }
 
 type FieldErrors = Partial<Record<keyof RegisterForm, string>>
@@ -33,6 +38,7 @@ const EMPTY_FORM: RegisterForm = {
   email: '',
   password: '',
   confirmPassword: '',
+  gender: null,
 }
 
 export function RegisterPage() {
@@ -70,6 +76,7 @@ export function RegisterPage() {
         form.password,
         form.confirmPassword,
       ),
+      gender: validateGender(form.gender),
     }
     setFieldErrors(errors)
     if (Object.values(errors).some(Boolean)) return
@@ -79,6 +86,7 @@ export function RegisterPage() {
         displayName: form.displayName,
         email: form.email,
         password: form.password,
+        gender: form.gender as Gender,
       }),
     )
   }
@@ -113,6 +121,22 @@ export function RegisterPage() {
             autoComplete="name"
             placeholder="Gary"
           />
+        </FormField>
+
+        <FormField id="register-gender" label="Gender" error={fieldErrors.gender}>
+          <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Gender">
+            {GENDER_OPTIONS.map(({ value, label }) => (
+              <ChoiceChip
+                key={value}
+                label={label}
+                selection="single"
+                selected={form.gender === value}
+                onClick={() => update('gender', value)}
+                className="w-full rounded-xl"
+              />
+            ))}
+          </div>
+          <p className="text-body-small text-muted-foreground">Gender can&apos;t be changed after account creation.</p>
         </FormField>
 
         <FormField id="register-email" label="Email" error={fieldErrors.email}>
@@ -173,6 +197,14 @@ export function RegisterPage() {
         <Link to={ROUTES.login} className="text-label text-primary">
           Sign in
         </Link>
+      </p>
+
+      <p className="text-body-small text-muted-foreground">
+        By creating an account, you agree to our{' '}
+        <Link to={ROUTES.privacy} className="text-label text-primary">
+          Privacy Policy
+        </Link>
+        .
       </p>
     </div>
   )

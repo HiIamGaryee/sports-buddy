@@ -24,6 +24,7 @@ import {
 import { validateProfileInput } from '@/services/profile/profile-validation'
 import { ROUTES } from '@/routes/routes'
 import type { SportsProfile } from '@/types/user'
+import { formatGender } from '@/types/gender'
 
 export function EditProfilePage() {
   const { profile } = useProfile()
@@ -41,7 +42,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
   const [isSaving, setIsSaving] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
 
-  const input = toSaveInput(draft)
+  const input = toSaveInput(draft, { includeGender: false })
   const problem = validateProfileInput(input)
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initialDraft)
 
@@ -98,6 +99,43 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
           value={draft.bio}
           onChange={(value) => dispatch({ type: 'set-bio', value })}
         />
+        <FormField
+          id="edit-instagram-username"
+          label="Instagram username"
+          optional
+          hint="Username only, without the full link"
+        >
+          <Input
+            id="edit-instagram-username"
+            value={draft.instagramUsername}
+            placeholder="yourusername"
+            autoComplete="off"
+            onChange={(event) =>
+              dispatch({ type: 'set-instagram-username', value: event.target.value })
+            }
+          />
+        </FormField>
+        <FormField
+          id="edit-linkedin-username"
+          label="LinkedIn username"
+          optional
+          hint="Username only, without the full link"
+        >
+          <Input
+            id="edit-linkedin-username"
+            value={draft.linkedinUsername}
+            placeholder="your-username"
+            autoComplete="off"
+            onChange={(event) =>
+              dispatch({ type: 'set-linkedin-username', value: event.target.value })
+            }
+          />
+        </FormField>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-label text-foreground">Gender</span>
+          <span className="text-body text-foreground">{formatGender(profile.gender) || 'Not set'}</span>
+          <span className="text-body-small text-muted-foreground">Gender can&apos;t be changed after account creation.</span>
+        </div>
       </EditSection>
 
       <EditSection

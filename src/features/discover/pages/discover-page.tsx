@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react'
+import { useMemo, useState } from 'react'
 
 import compassIllustration from '@/assets/svg/compas-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
@@ -9,15 +10,12 @@ import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ActiveFilterChips } from '@/features/discover/components/active-filter-chips'
-import { BuddyCard } from '@/features/discover/components/buddy-card'
-import { DiscoverFilterPanel } from '@/features/discover/components/discover-filter-panel'
-import { DiscoverFilterSheet } from '@/features/discover/components/discover-filter-sheet'
+import { AddDiscoverDialog } from '@/features/discover/components/add-discover-dialog'
+import { SPORTS } from '@/constants/sports'
+import { OpportunityCard } from '@/features/discover/components/opportunity-card'
 import { useDiscover } from '@/features/discover/use-discover'
-import calendarIcon from '@/assets/svg/calendar-svgrepo-com.svg'
-import { Link } from 'react-router-dom'
-import { ROUTES } from '@/routes/routes'
-import { countActiveFilters } from '@/lib/discover-filters'
+import discoverList from '@/data/discover-list.json'
+import type { DiscoverItem } from '@/types/discover-item'
 
 const SKELETON_CARDS = [0, 1, 2, 3]
 
@@ -25,19 +23,16 @@ const SKELETON_CARDS = [0, 1, 2, 3]
 const CARD_GRID = 'grid-cards'
 
 export function DiscoverPage() {
-  const {
-    incoming,
-    suggested,
-    visibleCount,
-    totalCandidates,
-    isLoading,
-    error,
-    filters,
-    setFilters,
-    resetFilters,
-    refresh,
-    dismiss,
-  } = useDiscover()
+  const { incoming, suggested, isLoading, error, refresh } = useDiscover()
+  const [location, setLocation] = useState(ALL)
+  const [place, setPlace] = useState(ALL)
+  const [activity, setActivity] = useState(ALL)
+  const [skill, setSkill] = useState(ALL)
+  const [buddyType, setBuddyType] = useState(ALL)
+  const [distance, setDistance] = useState(ALL)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [searchVersion, setSearchVersion] = useState(0)
+  const [addDiscoverOpen, setAddDiscoverOpen] = useState(false)
 
   const activeCount = countActiveFilters(filters)
 
@@ -47,20 +42,7 @@ export function DiscoverPage() {
         title="Discover"
         subtitle="See what they play. Connect to reveal the person."
         size="wide"
-        action={
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon-sm" aria-label="Post an activity" asChild><Link to={ROUTES.postActivity}><img src={calendarIcon} alt="" className="size-5" /></Link></Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Refresh sports buddies"
-              onClick={refresh}
-              disabled={isLoading}
-            >
-              <RefreshCw className="size-5" />
-            </Button>
-          </div>
-        }
+        action={<div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setAddDiscoverOpen(true)}><img src={calendarIcon} alt="" className="size-4" />Add new discover</Button><Button variant="ghost" size="icon-sm" aria-label="Refresh matches" onClick={refresh} disabled={isLoading}><RefreshCw className="size-5" /></Button></div>}
       />
       <PageContainer size="wide">
         {/* Filters live in a persistent sidebar from `lg`, and in a bottom
@@ -174,6 +156,7 @@ export function DiscoverPage() {
           </div>
         </div>
       </PageContainer>
+      <AddDiscoverDialog open={addDiscoverOpen} onOpenChange={setAddDiscoverOpen} />
     </>
   )
 }

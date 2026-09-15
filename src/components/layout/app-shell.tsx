@@ -25,6 +25,12 @@ import type { NavigationBadges } from '@/config/navigation'
  * `overflow-y-auto`), so the sidebar stays put without any page needing a
  * margin, and page-level sticky headers stick to the column.
  *
+ * The content column is `relative` so that `sr-only` labels (absolutely
+ * positioned by Tailwind) resolve against it. Without a positioned ancestor
+ * they escape to the initial containing block, are not clipped by the
+ * column's overflow, and inflate the DOCUMENT height — which showed up as a
+ * second scrollbar full of blank space on long forms such as /profile/edit.
+ *
  * The single piece of route awareness here is the mobile chat screen: a
  * conversation needs the full viewport for its own composer, so the bottom
  * bar is not rendered there (it is absent on tablet and desktop anyway).
@@ -44,7 +50,7 @@ export function AppShell() {
       <NavigationRail className="hidden md:flex lg:hidden" badges={badges} />
       <DesktopSidebar className="hidden lg:flex" badges={badges} />
 
-      <div className="flex min-w-0 flex-1 flex-col md:h-dvh md:overflow-y-auto">
+      <div className="relative flex min-w-0 flex-1 flex-col md:h-dvh md:overflow-y-auto">
         <Outlet />
       </div>
 

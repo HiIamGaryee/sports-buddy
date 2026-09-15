@@ -23,6 +23,7 @@ function build(
   return {
     userId: meta.userId,
     displayName: input.displayName,
+    gender: profileGender(input.gender),
     photoUrl: meta.photoUrl,
     bio: input.bio,
     sports: input.sports,
@@ -36,6 +37,9 @@ function build(
     updatedAt: meta.updatedAt,
   }
 }
+
+const profileGender = (gender: SaveProfileInput['gender']) =>
+  gender === 'male' || gender === 'female' ? gender : null
 
 /** Stored private profile → discovery-safe projection. */
 export function toDiscoveryProfile(profile: SportsProfile): DiscoveryProfile {

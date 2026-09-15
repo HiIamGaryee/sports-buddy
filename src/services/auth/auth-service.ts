@@ -4,6 +4,7 @@ import {
   toAuthError,
 } from '@/services/auth/auth-error'
 import type { AuthUser, EmailCredentials, RegisterInput } from '@/types/auth'
+import { isGender } from '@/types/gender'
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
@@ -13,14 +14,16 @@ const normalizeEmail = (email: string) => email.trim().toLowerCase()
  * user-safe messages. No React state lives here.
  */
 export const authService = {
-  async signUp({ displayName, email, password }: RegisterInput): Promise<AuthUser> {
+  async signUp({ displayName, email, password, gender }: RegisterInput): Promise<AuthUser> {
     try {
+      if (!isGender(gender)) throw new Error('Choose a valid gender.')
       const user = await authRepository.registerWithEmail({
         displayName: displayName.trim(),
         email: normalizeEmail(email),
         password,
+        gender,
       })
-      await profileRepository.createIfMissing(user)
+      await profileRepository.createIfMissing(user, gender)
       return user
     } catch (error) {
       throw toAuthError(error)
@@ -42,7 +45,7 @@ export const authService = {
   async signInWithGoogle(): Promise<AuthUser | null> {
     try {
       const user = await authRepository.signInWithGoogle()
-      await profileRepository.createIfMissing(user)
+      await profileRepository.createIfMissing(user, null)
       return user
     } catch (error) {
       if (isCancelledAuthError(error)) return null
