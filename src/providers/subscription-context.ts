@@ -1,5 +1,6 @@
 import { createContext } from 'react'
 
+import type { PaywallOutcome } from '@/repositories/purchases/purchases-repository'
 import type { PurchaseOutcome, SubscriptionOffering, SubscriptionState } from '@/types/subscription'
 
 export interface SubscriptionContextValue {
@@ -13,6 +14,14 @@ export interface SubscriptionContextValue {
   purchase: (packageId: string) => Promise<PurchaseOutcome>
   restore: () => Promise<void>
   refreshOffering: () => void
+  /**
+   * The RevenueCat-hosted Paywall UI (native Android only —
+   * `'not-presented'` on the web, or if no Paywall is designed yet in the
+   * dashboard). The caller falls back to `offering`'s own package list.
+   */
+  presentPaywall: () => Promise<PaywallOutcome>
+  /** The RevenueCat-hosted Customer Center (manage/cancel), native only. */
+  presentCustomerCenter: () => Promise<void>
 }
 
 export const SubscriptionContext = createContext<SubscriptionContextValue | null>(null)

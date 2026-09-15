@@ -117,6 +117,19 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const refreshOffering = useCallback(() => setOfferingReloadToken((token) => token + 1), [])
 
+  const presentPaywall = useCallback(async () => {
+    const result = await purchasesService.presentPaywallIfNeeded()
+    setState(result.state)
+    return result.outcome
+  }, [])
+
+  const presentCustomerCenter = useCallback(async () => {
+    await purchasesService.presentCustomerCenter()
+    // The Customer Center can cancel/change a plan from inside itself, with
+    // no event this provider's listener is guaranteed to have caught yet.
+    setState(await purchasesService.getState())
+  }, [])
+
   const value = useMemo(
     () => ({
       state,
@@ -127,8 +140,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       purchase,
       restore,
       refreshOffering,
+      presentPaywall,
+      presentCustomerCenter,
     }),
-    [state, offeringState, purchase, restore, refreshOffering],
+    [state, offeringState, purchase, restore, refreshOffering, presentPaywall, presentCustomerCenter],
   )
 
   return (

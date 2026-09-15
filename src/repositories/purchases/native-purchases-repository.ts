@@ -1,4 +1,5 @@
 import { LOG_LEVEL, Purchases, type PurchasesError, type PurchasesPackage } from '@revenuecat/purchases-capacitor'
+import { PAYWALL_RESULT, RevenueCatUI } from '@revenuecat/purchases-capacitor-ui'
 
 import { env } from '@/config/env'
 import {
@@ -6,9 +7,19 @@ import {
   toSubscriptionOffering,
 } from '@/repositories/purchases/purchases-mapper'
 import type {
+  PaywallOutcome,
+  PaywallPresentation,
   PurchaseResult,
   PurchasesRepository,
 } from '@/repositories/purchases/purchases-repository'
+
+const PAYWALL_OUTCOMES: Record<PAYWALL_RESULT, PaywallOutcome> = {
+  [PAYWALL_RESULT.PURCHASED]: 'purchased',
+  [PAYWALL_RESULT.RESTORED]: 'restored',
+  [PAYWALL_RESULT.CANCELLED]: 'cancelled',
+  [PAYWALL_RESULT.NOT_PRESENTED]: 'not-presented',
+  [PAYWALL_RESULT.ERROR]: 'error',
+}
 
 const isUserCancelled = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && (error as PurchasesError).userCancelled === true
@@ -72,6 +83,20 @@ export const nativePurchasesRepository: PurchasesRepository = {
   async restorePurchases() {
     const { customerInfo } = await Purchases.restorePurchases()
     return toEntitlementSnapshot(customerInfo)
+  },
+
+  async presentPaywallIfNeeded(entitlementId): Promise<PaywallPresentation> {
+    const { result } = await RevenueCatUI.presentPaywallIfNeeded({
+      requiredEntitlementIdentifier: entitlementId,
+    })
+    // The plugin does not hand back CustomerInfo here, so re-read it —
+    // cheap (cached locally) and correct for every outcome, purchased or not.
+    const { customerInfo } = await Purchases.getCustomerInfo()
+    return { ...toEntitlementSnapshot(customerInfo), outcome: PAYWALL_OUTCOMES[result] }
+  },
+
+  presentCustomerCenter() {
+    return RevenueCatUI.presentCustomerCenter()
   },
 
   subscribeToEntitlements(onChange, onError) {

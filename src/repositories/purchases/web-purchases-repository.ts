@@ -25,6 +25,15 @@ export const webPurchasesRepository: PurchasesRepository = {
   async restorePurchases() {
     throw purchasesRepositoryError(PURCHASES_ERROR_CODES.webOnly)
   },
+  async presentPaywallIfNeeded() {
+    // Not an error: there is no native Paywall UI on the web, so the caller
+    // falls back to its own package list (which itself explains that
+    // purchasing needs the Android app).
+    return { activeEntitlementIds: [], outcome: 'not-presented' }
+  },
+  async presentCustomerCenter() {
+    throw purchasesRepositoryError(PURCHASES_ERROR_CODES.webOnly)
+  },
   subscribeToEntitlements() {
     // Never changes on the web, so there is nothing to notify.
     return () => {}

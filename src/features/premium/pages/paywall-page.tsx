@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Filter, ShieldCheck, Sparkles, TrendingUp, Users } from 'lucide-react'
+import { Check, Filter, Settings2, ShieldCheck, Sparkles, TrendingUp, Users } from 'lucide-react'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
@@ -64,17 +64,57 @@ function PackageOption({
  * `/buddy-plus` — the one premium tier. Prices and periods are always
  * RevenueCat's own localized store strings; nothing here hardcodes a price.
  *
- * On the web/mock stand-in `offering` is always `null` (no store to buy
- * from), so the page explains that plainly instead of faking a purchase —
- * see `webPurchasesRepository`.
+ * The primary path is RevenueCat's own hosted Paywall UI (designed in the
+ * dashboard, shown via `presentPaywall()`) — the modern, recommended way to
+ * sell a RevenueCat entitlement. The package list below it is a FALLBACK,
+ * shown only once `presentPaywall()` reports `'not-presented'`: on the
+ * web/mock stand-in (no native Paywall exists there), or if nobody has
+ * designed a Paywall for the current offering yet. Nothing here fakes a
+ * purchase on the web — see `webPurchasesRepository`.
  */
 export function PaywallPage() {
-  const { isBuddyPlus, offering, isLoadingOffering, offeringError, purchase, restore, refreshOffering } =
-    useSubscription()
+  const {
+    isBuddyPlus,
+    offering,
+    isLoadingOffering,
+    offeringError,
+    purchase,
+    restore,
+    refreshOffering,
+    presentPaywall,
+    presentCustomerCenter,
+  } = useSubscription()
+  const [isPresentingPaywall, setIsPresentingPaywall] = useState(false)
+  const [showFallback, setShowFallback] = useState(false)
   const [busyPackageId, setBusyPackageId] = useState<string | null>(null)
   const [isRestoring, setIsRestoring] = useState(false)
+  const [isManaging, setIsManaging] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
+
+  const openPaywall = async () => {
+    setIsPresentingPaywall(true)
+    setError('')
+    setFeedback('')
+    try {
+      const outcome = await presentPaywall()
+      if (outcome === 'purchased') setFeedback("You're on Buddy+. Enjoy the full app.")
+      else if (outcome === 'restored') setFeedback('Your Buddy+ purchase was restored.')
+      else if (outcome === 'not-presented') setShowFallback(true)
+      // 'cancelled' and 'error' need no message of their own: the member
+      // just sees the paywall close, or (on error) can try the fallback.
+      if (outcome === 'error') setShowFallback(true)
+    } catch (presentError) {
+      setError(
+        presentError instanceof Error
+          ? presentError.message
+          : "We couldn't open the paywall. Please try again.",
+      )
+      setShowFallback(true)
+    } finally {
+      setIsPresentingPaywall(false)
+    }
+  }
 
   const choose = async (packageId: string) => {
     setBusyPackageId(packageId)
@@ -109,6 +149,22 @@ export function PaywallPage() {
       )
     } finally {
       setIsRestoring(false)
+    }
+  }
+
+  const openCustomerCenter = async () => {
+    setIsManaging(true)
+    setError('')
+    try {
+      await presentCustomerCenter()
+    } catch (manageError) {
+      setError(
+        manageError instanceof Error
+          ? manageError.message
+          : "We couldn't open subscription management.",
+      )
+    } finally {
+      setIsManaging(false)
     }
   }
 
@@ -151,72 +207,86 @@ export function PaywallPage() {
         </section>
 
         {isBuddyPlus ? (
-          <Card variant="subtle">
-            <CardContent>
-              <p className="text-body text-card-foreground">
-                You already have Buddy+. Manage or cancel your subscription from Google Play.
-              </p>
-            </CardContent>
-          </Card>
+          <section className="flex flex-col gap-3">
+            <Card variant="subtle">
+              <CardContent>
+                <p className="text-body text-card-foreground">
+                  You already have Buddy+. Manage, change or cancel it any time.
+                </p>
+              </CardContent>
+            </Card>
+            <Button variant="outline" disabled={isManaging} onClick={() => void openCustomerCenter()}>
+              <Settings2 className="size-4" />
+              {isManaging ? 'Opening…' : 'Manage subscription'}
+            </Button>
+          </section>
         ) : (
           <section className="flex flex-col gap-3">
-            {isLoadingOffering && (
-              <>
-                <Skeleton className="h-16 w-full rounded-2xl" />
-                <Skeleton className="h-16 w-full rounded-2xl" />
-              </>
-            )}
-
-            {!isLoadingOffering && offeringError && (
-              <Card variant="subtle">
-                <CardContent className="flex flex-col gap-3">
-                  <p className="text-body-small text-destructive">{offeringError}</p>
-                  <Button variant="outline" onClick={refreshOffering}>
-                    Try again
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {!isLoadingOffering && !offeringError && !offering && (
-              <Card variant="subtle">
-                <CardContent>
-                  <p className="text-body text-card-foreground">
-                    Buddy+ purchases are only available in the Sports Buddy Android app.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {!isLoadingOffering && offering && offering.packages.length === 0 && (
-              <Card variant="subtle">
-                <CardContent>
-                  <p className="text-body text-card-foreground">
-                    Buddy+ isn't available to purchase right now. Please check back soon.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {!isLoadingOffering &&
-              offering?.packages.map((option) => (
-                <PackageOption
-                  key={option.id}
-                  option={option}
-                  isBusy={busyPackageId === option.id}
-                  onSelect={() => void choose(option.id)}
-                />
-              ))}
+            <Button size="lg" disabled={isPresentingPaywall} onClick={() => void openPaywall()}>
+              {isPresentingPaywall ? 'Opening…' : 'Get Buddy+'}
+            </Button>
 
             {feedback && (
-              <p role="status" className="text-body-small text-muted-foreground">
+              <p role="status" className="text-center text-body-small text-muted-foreground">
                 {feedback}
               </p>
             )}
             {error && (
-              <p role="alert" className="text-body-small text-destructive">
+              <p role="alert" className="text-center text-body-small text-destructive">
                 {error}
               </p>
+            )}
+
+            {showFallback && (
+              <div className="flex flex-col gap-3 border-t border-border pt-4">
+                {isLoadingOffering && (
+                  <>
+                    <Skeleton className="h-16 w-full rounded-2xl" />
+                    <Skeleton className="h-16 w-full rounded-2xl" />
+                  </>
+                )}
+
+                {!isLoadingOffering && offeringError && (
+                  <Card variant="subtle">
+                    <CardContent className="flex flex-col gap-3">
+                      <p className="text-body-small text-destructive">{offeringError}</p>
+                      <Button variant="outline" onClick={refreshOffering}>
+                        Try again
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!isLoadingOffering && !offeringError && !offering && (
+                  <Card variant="subtle">
+                    <CardContent>
+                      <p className="text-body text-card-foreground">
+                        Buddy+ purchases are only available in the Sports Buddy Android app.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!isLoadingOffering && offering && offering.packages.length === 0 && (
+                  <Card variant="subtle">
+                    <CardContent>
+                      <p className="text-body text-card-foreground">
+                        Buddy+ isn't available to purchase right now. Please check back soon.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!isLoadingOffering &&
+                  offering?.packages.map((option) => (
+                    <PackageOption
+                      key={option.id}
+                      option={option}
+                      isBusy={busyPackageId === option.id}
+                      onSelect={() => void choose(option.id)}
+                    />
+                  ))}
+              </div>
             )}
 
             <Button variant="ghost" disabled={isRestoring} onClick={() => void doRestore()}>

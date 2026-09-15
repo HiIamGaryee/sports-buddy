@@ -95,8 +95,16 @@ Nothing in Phase 4/5 below is a blocker for the Shipaton submission itself.
 ### Can be picked up any time, no blocker (code only)
 
 - [ ] In-app account deletion (a real Play Store requirement later, but
-      buildable now with no external dependency)
-- [ ] Advanced Discover filters (Buddy+)
+      buildable now with no external dependency) — when built, it must also
+      call RevenueCat's delete-customer API for that uid, or a re-signup
+      with the same email could inherit a stranger's old entitlement
+      history. See `docs/monetization.md`.
+- [ ] Advanced Discover filters (Buddy+) — **recommended for Player B**:
+      she already built a nicer filter panel UI (`gy-person-b`) than the
+      plain dropdowns on Discover today; it just needs to be re-pointed at
+      the real activity posts/group activities/buddy data instead of the
+      demo JSON it currently reads from. Either she builds it, or ask and
+      I'll port it once she has (or already has) a design she's happy with.
 - [ ] Advanced recap/analytics — trends, month comparisons (Buddy+)
 - [ ] A Discover filter that prioritizes reliable buddies — **needs one
       decision from you first**: should a member's reliability score become
@@ -106,13 +114,40 @@ Nothing in Phase 4/5 below is a blocker for the Shipaton submission itself.
 - [ ] Sentry error tracking (optional, Phase 3)
 - [ ] Codemagic CI (optional — signed builds already work on this machine)
 
+### 2026-09-15 — RevenueCat bug fixes + Paywall/Customer Center UI
+
+Two real bugs found while debugging "can't buy Buddy+ in Settings":
+
+1. **Entitlement id mismatch.** The code checked for `buddy_plus`; your
+   actual RevenueCat dashboard entitlement is `sportbuddy_pro`. Fixed —
+   `BUDDY_PLUS_ENTITLEMENT_ID` now reads `sportbuddy_pro`. This alone was
+   enough to make a successful purchase never unlock anything in the app.
+2. **Sandbox testing access.** You had it set to "Allowed App User IDs
+   only" with nobody on the list — every test purchase silently fails to
+   grant an entitlement in that state. **You still need to fix this in the
+   dashboard**: either switch it to "Anybody", or add your Firebase uid
+   (Firebase Console → Authentication → your account → "User UID") to the
+   allowlist.
+
+Also added, per your request: the official RevenueCat-hosted **Paywall**
+(`@revenuecat/purchases-capacitor-ui`, `presentPaywall()` on the `/buddy-plus`
+page) and **Customer Center** (`presentCustomerCenter()`, "Manage
+subscription" once you're on Buddy+) — the modern, RevenueCat-recommended
+way to sell and manage the entitlement, replacing the old hand-rolled
+package list as the primary path (it's still there as an automatic fallback
+on the web build, or if no Paywall is designed in the dashboard yet).
+`android/gradlew assembleDebug` — **BUILD SUCCESSFUL** with both new
+plugins. Full detail: `docs/monetization.md`.
+
 ### Blocked on you doing something outside the code
 
-- [ ] **A real RevenueCat purchase.** Needs the one-time dashboard setup:
-      create/open the RevenueCat project → enable Test Store → create the
-      `buddy_plus` entitlement + a product → put the API key in `.env` as
-      `VITE_REVENUECAT_ANDROID_API_KEY` → rebuild. Full steps:
-      `docs/monetization.md`.
+- [ ] **A real RevenueCat purchase.** Both bugs above are now fixed in
+      code — try again once you've fixed the sandbox testing access setting
+      (#2 above). If it still doesn't unlock Buddy+, that's the next thing
+      to check.
+- [ ] **Design a Paywall in the RevenueCat dashboard** (Tools → Paywalls,
+      optional) for a nicer purchase screen than the plain fallback list —
+      not required, the fallback works either way.
 - [ ] **Confirming everything on a real/emulated Android device** — group
       activities, QR check-in with an actual camera, the paywall, the recap
       share sheet. All of this has only been checked with automated tests so
