@@ -1,6 +1,5 @@
 import { RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 
 import compassIllustration from '@/assets/svg/compas-svgrepo-com.svg'
 import calendarIcon from '@/assets/svg/calendar-svgrepo-com.svg'
@@ -11,11 +10,11 @@ import { AppDropdown } from '@/components/ui/AppDropdown'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AddDiscoverDialog } from '@/features/discover/components/add-discover-dialog'
 import { SPORTS } from '@/constants/sports'
 import { OpportunityCard } from '@/features/discover/components/opportunity-card'
 import { useDiscover } from '@/features/discover/use-discover'
 import discoverList from '@/data/discover-list.json'
-import { ROUTES } from '@/routes/routes'
 import type { DiscoverItem } from '@/types/discover-item'
 
 const items = discoverList as DiscoverItem[]
@@ -40,6 +39,7 @@ export function DiscoverPage() {
   const [distance, setDistance] = useState(ALL)
   const [moreOpen, setMoreOpen] = useState(false)
   const [searchVersion, setSearchVersion] = useState(0)
+  const [addDiscoverOpen, setAddDiscoverOpen] = useState(false)
 
   const buddies = useMemo(() => [...incoming, ...suggested], [incoming, suggested])
   const buddiesById = useMemo(() => new Map(buddies.map((buddy) => [buddy.profile.userId, buddy])), [buddies])
@@ -81,7 +81,7 @@ export function DiscoverPage() {
         title="Discover"
         subtitle="Find people and places to play near you."
         size="wide"
-        action={<div className="flex items-center gap-1"><Button variant="ghost" size="icon-sm" aria-label="Post an activity" asChild><Link to={ROUTES.postActivity}><img src={calendarIcon} alt="" className="size-5" /></Link></Button><Button variant="ghost" size="icon-sm" aria-label="Refresh matches" onClick={refresh} disabled={isLoading}><RefreshCw className="size-5" /></Button></div>}
+        action={<div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setAddDiscoverOpen(true)}><img src={calendarIcon} alt="" className="size-4" />Add new discover</Button><Button variant="ghost" size="icon-sm" aria-label="Refresh matches" onClick={refresh} disabled={isLoading}><RefreshCw className="size-5" /></Button></div>}
       />
       <PageContainer size="wide">
         <Card>
@@ -122,6 +122,7 @@ export function DiscoverPage() {
           </div>
         )}
       </PageContainer>
+      <AddDiscoverDialog open={addDiscoverOpen} onOpenChange={setAddDiscoverOpen} />
     </>
   )
 }

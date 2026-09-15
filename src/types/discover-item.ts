@@ -10,4 +10,9 @@ export interface DiscoverItem {
   priceRange?: string
   matchPercentage?: number
   connected?: boolean
+  participantRule: ParticipantRule
 }
+
+export type ParticipantRule =
+  | { mode: 'exact'; sizes: number[] }
+  | { mode: 'max'; min: number; max: number }

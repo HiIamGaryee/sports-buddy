@@ -35,6 +35,11 @@ export function OpportunityCard({ item, buddy }: { item: DiscoverItem; buddy?: D
           {item.skillLevel && <Badge variant="secondary">{item.skillLevel}</Badge>}
           {item.buddyType && <Badge variant="secondary">{item.buddyType}</Badge>}
         </div>
+        <p className="text-body-small text-muted-foreground">
+          {item.participantRule.mode === 'exact'
+            ? `${item.participantRule.sizes.join(' or ')} total players`
+            : `${item.participantRule.min}–${item.participantRule.max} total players`}
+        </p>
         {item.priceRange && <p className="text-body-small text-muted-foreground">{item.priceRange}</p>}
         <div className={`mt-auto grid items-center gap-3 ${connectionState === 'connected' && conversationId ? 'grid-cols-[minmax(0,1fr)_48px]' : 'grid-cols-1'}`}>
           <ConnectAction
