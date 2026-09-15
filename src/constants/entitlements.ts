@@ -5,7 +5,7 @@
  */
 
 /** Must match the entitlement identifier configured in the RevenueCat dashboard. */
-export const BUDDY_PLUS_ENTITLEMENT_ID = 'buddy_plus'
+export const BUDDY_PLUS_ENTITLEMENT_ID = 'sportbuddy_pro'
 
 /**
  * How many group activities a FREE member may be joined to or hosting AT

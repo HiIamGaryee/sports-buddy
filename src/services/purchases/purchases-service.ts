@@ -1,7 +1,10 @@
 import { BUDDY_PLUS_ENTITLEMENT_ID } from '@/constants/entitlements'
 import { isValidDocumentId } from '@/lib/ids'
 import { purchasesRepository } from '@/repositories/repositories'
-import type { EntitlementSnapshot } from '@/repositories/purchases/purchases-repository'
+import type {
+  EntitlementSnapshot,
+  PaywallOutcome,
+} from '@/repositories/purchases/purchases-repository'
 import {
   PURCHASES_FALLBACK_MESSAGES,
   toPurchasesError,
@@ -65,6 +68,30 @@ export const purchasesService = {
       return stateFromSnapshot(await purchasesRepository.restorePurchases())
     } catch (error) {
       throw toPurchasesError(error, PURCHASES_FALLBACK_MESSAGES.restore)
+    }
+  },
+
+  /**
+   * The RevenueCat-hosted Paywall UI. `outcome: 'not-presented'` is not a
+   * failure — the caller (the paywall page) falls back to its own package
+   * list, which is exactly right on the web stand-in and whenever nobody has
+   * designed a Paywall in the dashboard yet.
+   */
+  async presentPaywallIfNeeded(): Promise<{ outcome: PaywallOutcome; state: SubscriptionState }> {
+    try {
+      const result = await purchasesRepository.presentPaywallIfNeeded(BUDDY_PLUS_ENTITLEMENT_ID)
+      return { outcome: result.outcome, state: stateFromSnapshot(result) }
+    } catch (error) {
+      throw toPurchasesError(error, PURCHASES_FALLBACK_MESSAGES.purchase)
+    }
+  },
+
+  /** The RevenueCat-hosted Customer Center — manage/cancel, native only. */
+  async presentCustomerCenter(): Promise<void> {
+    try {
+      await purchasesRepository.presentCustomerCenter()
+    } catch (error) {
+      throw toPurchasesError(error, PURCHASES_FALLBACK_MESSAGES.load)
     }
   },
 

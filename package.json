@@ -31,6 +31,7 @@
     "@capacitor/status-bar": "^8.0.3",
     "@googlemaps/js-api-loader": "^2.1.1",
     "@revenuecat/purchases-capacitor": "^13.5.1",
+    "@revenuecat/purchases-capacitor-ui": "^13.5.1",
     "@types/leaflet": "^1.9.22",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
