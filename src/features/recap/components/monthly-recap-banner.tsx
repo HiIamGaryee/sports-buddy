@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MonthlyRecapDialog } from '@/features/recap/components/monthly-recap-dialog'
-import { useMonthlyRecap } from '@/features/recap/use-monthly-recap'
+import { useMonthlyRecapDemo } from '@/features/recap/use-monthly-recap-demo'
 import { getMonthName } from '@/lib/calendar-month'
 import { ROUTES } from '@/routes/routes'
 
@@ -17,7 +17,7 @@ const MAX_SPORTS_TEASED = 3
  * so this never becomes a second profile page.
  */
 export function MonthlyRecapBanner({ displayName }: { displayName: string | null }) {
-  const { recap, isLoading, error } = useMonthlyRecap()
+  const { recap, isLoading, error } = useMonthlyRecapDemo()
   const [isOpen, setIsOpen] = useState(false)
 
   if (isLoading) {

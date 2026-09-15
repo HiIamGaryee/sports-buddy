@@ -1,50 +1,70 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { monthlyRecapService } from '@/services/recap/monthly-recap-service'
-import type { MonthlyExerciseRecap } from '@/types/exercise'
+import { useAuth } from '@/hooks/use-auth'
+import { isFutureMonthKey, monthKeyOf, nextMonthKey, previousMonthKey } from '@/lib/recap'
+import { recapService } from '@/services/recap/recap-service'
+import type { MonthlyRecap } from '@/types/recap'
 
 interface RecapState {
-  recap: MonthlyExerciseRecap | null
+  key: string
+  recap: MonthlyRecap | null
   isLoading: boolean
   error: string
 }
 
 /**
- * The previous calendar month's recap. Loaded beside the profile rather than
- * before it, so the recap never blocks the user's own identity from rendering.
+ * One month's recap, with Prev/Next navigation. `now` is captured once per
+ * mount (a recap page is a snapshot, not a live view) so "the current month"
+ * doesn't shift under the reader while they browse.
  */
 export function useMonthlyRecap() {
-  const [state, setState] = useState<RecapState>({
-    recap: null,
-    isLoading: true,
-    error: '',
-  })
+  const { user } = useAuth()
+  const userId = user?.id ?? null
+  const [now] = useState(() => new Date())
+  const [monthKey, setMonthKey] = useState(() => monthKeyOf(now))
+  const [state, setState] = useState<RecapState>({ key: '', recap: null, isLoading: true, error: '' })
 
   useEffect(() => {
+    if (!userId) return
     let active = true
-    // Read once on mount: the recap month only changes at a month boundary,
-    // which no open session needs to react to.
-    monthlyRecapService
-      .getPreviousMonthRecap(new Date())
+    const key = `${userId}#${monthKey}`
+
+    recapService
+      .getMonthlyRecap(userId, monthKey, now)
       .then((recap) => {
-        if (active) setState({ recap, isLoading: false, error: '' })
+        if (active) setState({ key, recap, isLoading: false, error: '' })
       })
-      .catch((error: unknown) => {
+      .catch((loadError: unknown) => {
         if (!active) return
         setState({
+          key,
           recap: null,
           isLoading: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "We couldn't load your monthly recap.",
+          error: loadError instanceof Error ? loadError.message : "We couldn't load your recap.",
         })
       })
 
     return () => {
       active = false
     }
+  }, [userId, monthKey, now])
+
+  const goToPreviousMonth = useCallback(() => {
+    setState((current) => ({ ...current, isLoading: true }))
+    setMonthKey((current) => previousMonthKey(current))
   }, [])
 
-  return state
+  const goToNextMonth = useCallback(() => {
+    setMonthKey((current) => (isFutureMonthKey(nextMonthKey(current), now) ? current : nextMonthKey(current)))
+  }, [now])
+
+  return {
+    monthKey,
+    recap: state.recap,
+    isLoading: state.isLoading || state.key !== `${userId ?? ''}#${monthKey}`,
+    error: state.error,
+    canGoToNextMonth: !isFutureMonthKey(nextMonthKey(monthKey), now),
+    goToPreviousMonth,
+    goToNextMonth,
+  }
 }

@@ -11,12 +11,15 @@ export const CONNECTION_ERROR_CODES = {
   self: 'connection/self',
   notYourRequest: 'connection/not-your-request',
   alreadyConnected: 'connection/already-connected',
+  notConnected: 'connection/not-connected',
 } as const
 
 const MESSAGES: Record<string, string> = {
   [CONNECTION_ERROR_CODES.self]: "You can't connect with yourself.",
   [CONNECTION_ERROR_CODES.notYourRequest]:
     'Only the person who sent a request can cancel it.',
+  [CONNECTION_ERROR_CODES.notConnected]:
+    'You are not connected with this sports buddy.',
   [CONNECTION_ERROR_CODES.alreadyConnected]:
     "You're already connected, so there's no request to cancel.",
 }
@@ -25,6 +28,7 @@ const MESSAGES: Record<string, string> = {
 export const CONNECTION_FALLBACK_MESSAGES = {
   connect: "We couldn't send your connection request. Please try again.",
   cancel: "We couldn't cancel your request. Please try again.",
+  disconnect: "We couldn't remove this connection. Please try again.",
   load: "We couldn't load your connections.",
 } as const
 

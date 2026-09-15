@@ -1,304 +1,473 @@
-import { CheckCircle2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Textarea } from '@/components/ui/textarea'
+import { AppHeader } from '@/components/layout/app-header'
+import { PageContainer } from '@/components/layout/page-container'
+import { AreaSelector } from '@/components/profile/area-selector'
+import { BudgetSelector } from '@/components/profile/budget-selector'
 import { SelectableCard } from '@/components/profile/selectable-card'
-import { EmptyState } from '@/components/common/empty-state'
-import { OnboardingLayout } from '@/features/onboarding/components/onboarding-layout'
-import { buddyReviewStore } from '@/features/ratings/mock-ratings'
-import { useBuddyRatings } from '@/features/ratings/use-buddy-ratings'
-import { getInitials } from '@/lib/initials'
-import { ROUTES } from '@/routes/routes'
-import type {
-  AttendanceStatus,
-  CompletedActivity,
-  Experience,
-  Punctuality,
-} from '@/types/buddy-rating'
+import { ErrorState } from '@/components/common/error-state'
+import { FormField } from '@/components/common/form-field'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { AppDropdown } from '@/components/ui/AppDropdown'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  JOIN_POLICY_OPTIONS,
+  MAX_VENUE_NAME_LENGTH,
+  VISIBILITY_OPTIONS,
+} from '@/constants/activity-posts'
+import { SPORTS } from '@/constants/sports'
+import { useAuth } from '@/hooks/use-auth'
+import { useConnections } from '@/hooks/use-connections'
+import { useProfile } from '@/hooks/use-profile'
+import { useSafety } from '@/hooks/use-safety'
+import { toDraftFromPost } from '@/lib/activity-post'
+import { validDocumentId } from '@/lib/ids'
+import { describeActivityForSharing } from '@/lib/share'
+import { activityPostService } from '@/services/activity-post/activity-post-service'
+import { chatService } from '@/services/chat/chat-service'
+import { discoverService } from '@/services/discover/discover-service'
+import { shareService } from '@/services/share/share-service'
+import { activityPostPath, conversationPath, ROUTES } from '@/routes/routes'
+import type { ActivityPost, ActivityPostDraft } from '@/types/activity-post'
+import type { SportId } from '@/types/sports-profile'
 
-const postActivity = {
-  id: 'event-001',
-  is_done_event: 1,
-  activity: 'Badminton',
-  venue: 'TPP5 Badminton Court',
-  date: '12 Sep 2026',
-  time: '7:00 PM',
-  participantIds: ['current-user', 'user-002'],
-  buddy: {
-    id: 'user-002',
-    name: 'Jason Lim',
-    avatar: null,
-  },
-} as const satisfies CompletedActivity
+const STEPS = ['Sport', 'Time', 'Budget', 'Venue', 'Joining'] as const
+/** An invite has exactly one possible guest, so there is no joining step. */
+const INVITE_STEPS = ['Sport', 'Time', 'Budget', 'Venue'] as const
 
-const ATTENDANCE_OPTIONS = [
-  { title: 'Yes, they came', value: 'attended' },
-  { title: 'No, they didn’t show up', value: 'no_show' },
-] as const satisfies readonly { title: string; value: AttendanceStatus }[]
+/** `<input type="datetime-local">` wants local wall time, not an ISO instant. */
+function toLocalInputValue(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 
-const PUNCTUALITY_OPTIONS = [
-  { title: 'On time', value: 'on_time' },
-  { title: 'A little late', value: 'late' },
-  { title: 'Very late', value: 'very_late' },
-] as const satisfies readonly { title: string; value: Punctuality }[]
+type EditState =
+  | { status: 'creating' }
+  | { status: 'loading' }
+  | { status: 'unavailable' }
+  | { status: 'editing'; post: ActivityPost }
 
-const EXPERIENCE_OPTIONS = [
-  { title: 'Great', value: 'great' },
-  { title: 'Good', value: 'good' },
-  { title: 'Okay', value: 'okay' },
-  { title: 'Not great', value: 'not_great' },
-] as const satisfies readonly { title: string; value: Experience }[]
-
-type ReviewStep =
-  | 'summary'
-  | 'attendance'
-  | 'punctuality'
-  | 'experience'
-  | 'note'
-  | 'confirm'
-  | 'done'
-
-const STANDARD_STEPS: readonly ReviewStep[] = [
-  'summary',
-  'attendance',
-  'punctuality',
-  'experience',
-  'note',
-]
-
-const NO_SHOW_STEPS: readonly ReviewStep[] = [
-  'summary',
-  'attendance',
-  'confirm',
-]
-
+/**
+ * Posting, INVITING and editing an activity — one form, so a field can never
+ * be validated one way on create and another on edit.
+ *
+ *  - `/discover/post-activity` posts a public or link-only activity.
+ *  - `/discover/post-activity/invite/:userId` invites ONE connected buddy
+ *    privately (opened from chat); the invite link is sent into your chat.
+ *  - `/discover/post-activity/:postId` edits a post; only its author gets
+ *    the form.
+ */
 export function PostActivityPage() {
   const navigate = useNavigate()
-  const { reviews } = useBuddyRatings()
-  const alreadyReviewed = reviews.some(
-    (review) =>
-      review.eventId === postActivity.id &&
-      review.reviewerId === 'current-user' &&
-      review.reviewedUserId === postActivity.buddy.id,
-  )
-  const [step, setStep] = useState<ReviewStep>(() =>
-    alreadyReviewed ? 'done' : 'summary',
-  )
-  const [attendanceStatus, setAttendanceStatus] =
-    useState<AttendanceStatus | null>(null)
-  const [punctuality, setPunctuality] = useState<Punctuality | null>(null)
-  const [experience, setExperience] = useState<Experience | null>(null)
-  const [note, setNote] = useState('')
+  const { postId, userId: rawInviteeId } = useParams<{
+    postId: string
+    userId: string
+  }>()
+  const { user } = useAuth()
+  const { profile } = useProfile()
+  const { connections, getConnectionState, isLoading: isLoadingConnections } =
+    useConnections()
+  const { blockedIds } = useSafety()
+  const isEdit = postId !== undefined
+  const isInviteRoute = rawInviteeId !== undefined
+  const inviteeId = validDocumentId(rawInviteeId)
+  const [inviteeName, setInviteeName] = useState('')
 
-  const visibleSteps = attendanceStatus === 'no_show' ? NO_SHOW_STEPS : STANDARD_STEPS
-  const progress = useMemo(() => {
-    const currentStep = step === 'done' ? visibleSteps.length : visibleSteps.indexOf(step)
-    return { step: Math.max(currentStep + 1, 1), total: visibleSteps.length }
-  }, [step, visibleSteps])
+  const [step, setStep] = useState(0)
+  const [draft, setDraft] = useState<ActivityPostDraft>(() => ({
+    sportId: profile?.sports[0]?.sportId ?? SPORTS[0]?.id ?? null,
+    localDateTime: '',
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    // Most people post near home; they can change it.
+    areaId: profile?.area ?? null,
+    venueName: '',
+    budget: profile?.budget ?? null,
+    // Approval is the safer default for a 1v1: the author picks their buddy.
+    // An invite has its one guest already, so it is simply open to them.
+    joinPolicy: isInviteRoute ? 'open' : 'approval',
+    visibility: isInviteRoute ? 'invite' : 'public',
+    invitedId: isInviteRoute ? inviteeId : null,
+  }))
+  const [editState, setEditState] = useState<EditState>(() =>
+    isEdit ? { status: 'loading' } : { status: 'creating' },
+  )
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  if (postActivity.is_done_event !== 1) {
+  useEffect(() => {
+    if (!postId || !user) return
+    let active = true
+    activityPostService
+      .getById(postId)
+      .then((post) => {
+        if (!active) return
+        // Someone else's post, or a missing one, look the same.
+        if (!post || post.authorId !== user.id) {
+          setEditState({ status: 'unavailable' })
+          return
+        }
+        setDraft(toDraftFromPost(post))
+        setEditState({ status: 'editing', post })
+      })
+      .catch(() => {
+        if (active) setEditState({ status: 'unavailable' })
+      })
+    return () => {
+      active = false
+    }
+  }, [postId, user])
+
+  useEffect(() => {
+    if (!inviteeId) return
+    let active = true
+    discoverService
+      .getProfiles([inviteeId])
+      .then(([found]) => {
+        if (active && found) setInviteeName(found.displayName)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [inviteeId])
+
+  // An invite can only go to someone you are connected with and have not
+  // blocked; the rules check the connection again on create.
+  const inviteConnection =
+    isInviteRoute &&
+    inviteeId &&
+    !blockedIds.has(inviteeId) &&
+    getConnectionState(inviteeId) === 'connected'
+      ? (connections.get(inviteeId) ?? null)
+      : null
+
+  const update = (patch: Partial<ActivityPostDraft>) => {
+    setError('')
+    setDraft((current) => ({ ...current, ...patch }))
+  }
+
+  const isInviteForm = draft.visibility === 'invite'
+  const steps = isInviteForm ? INVITE_STEPS : STEPS
+  const isLastStep = step === steps.length - 1
+  const canContinue = [
+    Boolean(draft.sportId),
+    Boolean(draft.localDateTime),
+    Boolean(draft.budget),
+    Boolean(draft.areaId && draft.venueName.trim()),
+    Boolean(draft.joinPolicy),
+  ][step]
+
+  const save = async () => {
+    if (!user) return
+    setIsSaving(true)
+    setError('')
+    try {
+      if (editState.status === 'editing') {
+        await activityPostService.update(editState.post, user.id, draft, new Date())
+        navigate(-1)
+      } else if (inviteConnection) {
+        const post = await activityPostService.create(user.id, draft, new Date())
+        // The invite already exists and shows under their Invitations, so a
+        // message that fails to send must not undo it or strand the user.
+        await chatService
+          .sendFromElsewhere(
+            inviteConnection,
+            user.id,
+            `I invited you to play: ${describeActivityForSharing(post)} ${shareService.activityUrl(post.id)}`,
+          )
+          .catch(() => {})
+        navigate(conversationPath(inviteConnection.id))
+      } else {
+        const post = await activityPostService.create(user.id, draft, new Date())
+        // Straight to the post, where it can be shared — a link-only post
+        // would never appear on Discover.
+        navigate(activityPostPath(post.id), { replace: true })
+      }
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "We couldn't save your activity. Please try again.",
+      )
+      setIsSaving(false)
+    }
+  }
+
+  const header = (
+    <AppHeader
+      title={
+        isEdit
+          ? 'Edit activity'
+          : isInviteRoute
+            ? `Invite ${inviteeName || 'your buddy'}`
+            : 'Post an activity'
+      }
+      subtitle={
+        isEdit
+          ? 'Change the time, place, sport or budget.'
+          : isInviteRoute
+            ? 'A private session just for the two of you. Only they can see it.'
+            : 'Invite someone to play. Share it, or let people find it on Discover.'
+      }
+      size="wide"
+      showBack
+    />
+  )
+
+  if (isInviteRoute && isLoadingConnections) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-background px-gutter py-8">
-        <EmptyState
-          title="This activity is not ready for review."
-          description="Reviews become available after the activity is complete."
-        />
-      </div>
+      <>
+        {header}
+        <PageContainer size="narrow">
+          <Skeleton className="h-64 w-full rounded-2xl" />
+        </PageContainer>
+      </>
     )
   }
 
-  const canContinue =
-    step === 'summary' ||
-    (step === 'attendance' && attendanceStatus !== null) ||
-    (step === 'punctuality' && punctuality !== null) ||
-    step === 'experience' ||
-    step === 'note' ||
-    step === 'confirm' ||
-    step === 'done'
-
-  const continueFlow = () => {
-    if (step === 'summary') return setStep('attendance')
-    if (step === 'attendance') {
-      return setStep(attendanceStatus === 'no_show' ? 'confirm' : 'punctuality')
-    }
-    if (step === 'punctuality') return setStep('experience')
-    if (step === 'experience') return setStep('note')
-    if (step === 'note') return submitReview()
-    if (step === 'confirm') return submitReview()
-    navigate(ROUTES.discover)
-  }
-
-  const goBack = () => {
-    if (step === 'summary') return navigate(ROUTES.discover)
-    if (step === 'attendance') return setStep('summary')
-    if (step === 'punctuality') return setStep('attendance')
-    if (step === 'experience') return setStep('punctuality')
-    if (step === 'note') return setStep('experience')
-    if (step === 'confirm') return setStep('attendance')
-  }
-
-  function submitReview() {
-    if (!attendanceStatus) return
-    try {
-      buddyReviewStore.submit({
-        eventId: postActivity.id,
-        reviewerId: 'current-user',
-        reviewedUserId: postActivity.buddy.id,
-        attendanceStatus,
-        punctuality: attendanceStatus === 'attended' ? punctuality : null,
-        experience: attendanceStatus === 'attended' ? experience : null,
-        note: note.trim(),
-      })
-    } catch {
-      // A duplicate is already complete from the user's perspective.
-    }
-    setStep('done')
-  }
-
-  return (
-    <OnboardingLayout
-      step={progress.step}
-      total={progress.total}
-      title={getTitle(step)}
-      subtitle={getSubtitle(step)}
-      ctaLabel={step === 'done' ? 'Done' : step === 'confirm' ? 'Confirm review' : step === 'summary' ? 'Continue' : 'Continue'}
-      ctaDisabled={!canContinue}
-      onBack={step === 'done' ? undefined : goBack}
-      onContinue={continueFlow}
-    >
-      {step === 'summary' && <ActivitySummary activity={postActivity} />}
-      {step === 'attendance' && (
-        <OptionStep
-          options={ATTENDANCE_OPTIONS}
-          value={attendanceStatus}
-          onChange={(value) => setAttendanceStatus(value)}
-        />
-      )}
-      {step === 'punctuality' && (
-        <OptionStep
-          options={PUNCTUALITY_OPTIONS}
-          value={punctuality}
-          onChange={setPunctuality}
-        />
-      )}
-      {step === 'experience' && (
-        <OptionStep
-          options={EXPERIENCE_OPTIONS}
-          value={experience}
-          onChange={setExperience}
-        />
-      )}
-      {step === 'note' && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="post-activity-note" className="text-label text-foreground">
-            Anything else?
-          </label>
-          <p className="text-body-small text-muted-foreground">
-            Optional — keep it useful and respectful.
-          </p>
-          <Textarea
-            id="post-activity-note"
-            value={note}
-            maxLength={200}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="Keep it useful and respectful."
-            className="min-h-24"
+  if (isInviteRoute && !inviteConnection) {
+    return (
+      <>
+        {header}
+        <PageContainer size="narrow">
+          <ErrorState
+            title="You can only invite a connected buddy."
+            description="Connect with them first, then invite them from your chat."
           />
-          <span className="self-end text-caption text-muted-foreground">
-            {note.length} / 200
-          </span>
+        </PageContainer>
+      </>
+    )
+  }
+
+  if (editState.status === 'loading') {
+    return (
+      <>
+        {header}
+        <PageContainer size="narrow">
+          <Skeleton className="h-64 w-full rounded-2xl" />
+        </PageContainer>
+      </>
+    )
+  }
+
+  if (editState.status === 'unavailable') {
+    return (
+      <>
+        {header}
+        <PageContainer size="narrow">
+          <ErrorState title="This activity is unavailable." />
+        </PageContainer>
+      </>
+    )
+  }
+
+  const saveLabel = isEdit
+    ? 'Save changes'
+    : isInviteRoute
+      ? 'Send invite'
+      : 'Post activity'
+  const savingLabel = isEdit ? 'Saving…' : isInviteRoute ? 'Sending…' : 'Posting…'
+
+  return (
+    <>
+      {header}
+      <PageContainer size="narrow">
+        <div className="flex flex-col gap-6">
+          <ol
+            className={`grid gap-2 ${isInviteForm ? 'grid-cols-4' : 'grid-cols-5'}`}
+            aria-label="Steps"
+          >
+            {steps.map((label, index) => (
+              <li
+                key={label}
+                className="flex flex-col gap-2"
+                aria-current={index === step ? 'step' : undefined}
+              >
+                <button
+                  type="button"
+                  // Editing is a quick change, so any step can be reopened.
+                  disabled={!isEdit}
+                  onClick={() => setStep(index)}
+                  className="flex flex-col gap-2 text-left disabled:cursor-default"
+                >
+                  <span
+                    className={`h-1 rounded-full ${index <= step ? 'bg-primary' : 'bg-muted'}`}
+                  />
+                  <span
+                    className={`text-caption ${index === step ? 'text-primary' : 'text-muted-foreground'}`}
+                  >
+                    {label}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+
+          <Card>
+            <CardContent className="flex flex-col gap-5">
+              {step === 0 && (
+                <AppDropdown
+                  label="What sport?"
+                  value={draft.sportId ?? ''}
+                  onChange={(value) => update({ sportId: value as SportId })}
+                  options={SPORTS.map(({ id, name }) => ({ value: id, label: name }))}
+                />
+              )}
+
+              {step === 1 && (
+                <FormField id="post-when" label="When are you playing?">
+                  <Input
+                    id="post-when"
+                    type="datetime-local"
+                    min={toLocalInputValue(new Date())}
+                    value={draft.localDateTime}
+                    onChange={(event) =>
+                      update({ localDateTime: event.target.value })
+                    }
+                  />
+                </FormField>
+              )}
+
+              {step === 2 && (
+                <div className="flex flex-col gap-3">
+                  <span className="text-label text-foreground">
+                    Budget per person
+                  </span>
+                  <BudgetSelector
+                    value={draft.budget}
+                    onChange={(budget) => update({ budget })}
+                  />
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-3">
+                    <span className="text-label text-foreground">Area</span>
+                    <AreaSelector
+                      value={draft.areaId}
+                      onChange={(areaId) => update({ areaId })}
+                      inputId="post-area-search"
+                    />
+                  </div>
+                  <FormField
+                    id="post-venue"
+                    label="Venue"
+                    hint={`${draft.venueName.length}/${MAX_VENUE_NAME_LENGTH}`}
+                  >
+                    <Input
+                      id="post-venue"
+                      value={draft.venueName}
+                      onChange={(event) =>
+                        update({ venueName: event.target.value })
+                      }
+                      placeholder="e.g. KL Sports City"
+                    />
+                  </FormField>
+                </div>
+              )}
+
+              {step === 4 && !isInviteForm && (
+                <div className="flex flex-col gap-6">
+                <div
+                  role="radiogroup"
+                  aria-label="Who can join"
+                  className="flex flex-col gap-3"
+                >
+                  <span className="text-label text-foreground">
+                    Who can join?
+                  </span>
+                  {JOIN_POLICY_OPTIONS.map((option) => (
+                    <SelectableCard
+                      key={option.id}
+                      title={option.label}
+                      description={option.description}
+                      selected={draft.joinPolicy === option.id}
+                      onClick={() => update({ joinPolicy: option.id })}
+                    />
+                  ))}
+                  <span className="text-body-small text-muted-foreground">
+                    This is a 1v1 session, so it has one spot. It shows as Full
+                    once someone has it.
+                  </span>
+                </div>
+                <div
+                  role="radiogroup"
+                  aria-label="Who can see it"
+                  className="flex flex-col gap-3"
+                >
+                  <span className="text-label text-foreground">
+                    Who can see it?
+                  </span>
+                  {VISIBILITY_OPTIONS.map((option) => (
+                    <SelectableCard
+                      key={option.id}
+                      title={option.label}
+                      description={option.description}
+                      selected={draft.visibility === option.id}
+                      onClick={() => update({ visibility: option.id })}
+                    />
+                  ))}
+                  <span className="text-body-small text-muted-foreground">
+                    Either way, you can share a link once it is posted.
+                  </span>
+                </div>
+                </div>
+              )}
+
+              {error && (
+                <p role="alert" className="text-body-small text-destructive">
+                  {error}
+                </p>
+              )}
+
+              <div className="flex justify-between gap-3">
+                <Button
+                  variant="outline"
+                  disabled={isSaving}
+                  onClick={() =>
+                    step > 0
+                      ? setStep((current) => current - 1)
+                      : isEdit
+                        ? navigate(-1)
+                        : navigate(ROUTES.discover)
+                  }
+                >
+                  {step === 0 ? 'Cancel' : 'Back'}
+                </Button>
+                <div className="flex gap-3">
+                  {isEdit && !isLastStep && (
+                    <Button
+                      variant="outline"
+                      disabled={isSaving}
+                      onClick={() => void save()}
+                    >
+                      {isSaving ? savingLabel : saveLabel}
+                    </Button>
+                  )}
+                  <Button
+                    disabled={!canContinue || isSaving}
+                    onClick={() =>
+                      isLastStep
+                        ? void save()
+                        : setStep((current) => current + 1)
+                    }
+                  >
+                    {isLastStep
+                      ? isSaving
+                        ? savingLabel
+                        : saveLabel
+                      : 'Continue'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      )}
-      {step === 'confirm' && <NoShowConfirmation buddyName={postActivity.buddy.name} />}
-      {step === 'done' && <ReviewComplete buddyName={postActivity.buddy.name} />}
-    </OnboardingLayout>
-  )
-}
-
-function getTitle(step: ReviewStep) {
-  if (step === 'summary') return 'How did it go?'
-  if (step === 'attendance') return `Did ${postActivity.buddy.name} show up?`
-  if (step === 'punctuality') return 'Were they on time?'
-  if (step === 'experience') return 'How was playing together?'
-  if (step === 'note') return 'Anything else?'
-  if (step === 'confirm') return 'Confirm no-show?'
-  return 'Review submitted'
-}
-
-function getSubtitle(step: ReviewStep) {
-  if (step === 'summary') return `${postActivity.activity} with ${postActivity.buddy.name}`
-  if (step === 'attendance') return 'Help other players know what to expect.'
-  if (step === 'confirm') return 'Only choose this if they did not attend the agreed session.'
-  if (step === 'done') return 'Thanks for helping keep the community reliable.'
-  return undefined
-}
-
-function ActivitySummary({ activity }: { activity: CompletedActivity }) {
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1 text-body text-muted-foreground">
-        <span>{activity.venue}</span>
-        <span>{activity.date} · {activity.time}</span>
-      </div>
-      <div className="flex items-center gap-4">
-        <Avatar className="size-16">
-          {activity.buddy.avatar && (
-            <AvatarImage src={activity.buddy.avatar} alt={activity.buddy.name} />
-          )}
-          <AvatarFallback className="text-heading-2">
-            {getInitials(activity.buddy.name)}
-          </AvatarFallback>
-        </Avatar>
-        <span className="text-heading-2 text-foreground">{activity.buddy.name}</span>
-      </div>
-    </div>
-  )
-}
-
-function OptionStep<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: readonly { title: string; value: T }[]
-  value: T | null
-  onChange: (value: T) => void
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      {options.map((option) => (
-        <SelectableCard
-          key={option.value}
-          title={option.title}
-          selected={value === option.value}
-          onClick={() => onChange(option.value)}
-        />
-      ))}
-    </div>
-  )
-}
-
-function NoShowConfirmation({ buddyName }: { buddyName: string }) {
-  return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface-subtle p-4">
-      <p className="text-body text-foreground">
-        Only choose this if {buddyName} did not attend the agreed session.
-      </p>
-    </div>
-  )
-}
-
-function ReviewComplete({ buddyName }: { buddyName: string }) {
-  return (
-    <div className="flex flex-col items-center gap-4 py-6 text-center">
-      <span className="flex size-14 items-center justify-center rounded-full bg-primary/12 text-primary">
-        <CheckCircle2 aria-hidden className="size-8" />
-      </span>
-      <p className="text-body text-muted-foreground">
-        Your review for {buddyName} has been saved.
-      </p>
-    </div>
+      </PageContainer>
+    </>
   )
 }

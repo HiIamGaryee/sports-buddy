@@ -134,6 +134,20 @@ export function ConnectionProvider({ children }: { children: React.ReactNode }) 
     [userId],
   )
 
+  const disconnect = useCallback(
+    async (targetUserId: string) => {
+      if (!userId) throw new Error('You need to be signed in to do that.')
+      await connectionService.disconnect(userId, targetUserId)
+      setState((current) => ({
+        ...current,
+        connections: current.connections.filter(
+          (entry) => !entry.participants.includes(targetUserId),
+        ),
+      }))
+    },
+    [userId],
+  )
+
   const clearJustConnected = useCallback(
     () => setState((current) => ({ ...current, justConnectedUserId: null })),
     [],
@@ -160,6 +174,7 @@ export function ConnectionProvider({ children }: { children: React.ReactNode }) 
       ).length,
       connect,
       cancelRequest,
+      disconnect,
       justConnectedUserId: state.justConnectedUserId,
       clearJustConnected,
     }
@@ -171,6 +186,7 @@ export function ConnectionProvider({ children }: { children: React.ReactNode }) 
     userId,
     connect,
     cancelRequest,
+    disconnect,
     clearJustConnected,
   ])
 

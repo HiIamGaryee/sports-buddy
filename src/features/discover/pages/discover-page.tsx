@@ -1,10 +1,10 @@
 import { RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import compassIllustration from '@/assets/svg/compas-svgrepo-com.svg'
 import calendarIcon from '@/assets/svg/calendar-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
-import { ErrorState } from '@/components/common/error-state'
 import { SectionHeader } from '@/components/common/section-header'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
@@ -12,438 +12,388 @@ import { AppDropdown } from '@/components/ui/AppDropdown'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AREAS } from '@/constants/areas'
 import { SPORTS } from '@/constants/sports'
+import { useCoarseNow } from '@/features/activities/use-activities'
+import { ActivityPostCard } from '@/features/discover/components/activity-post-card'
 import { BuddyCard } from '@/features/discover/components/buddy-card'
+import { useActivityPosts } from '@/features/discover/use-activity-posts'
 import { useDiscover } from '@/features/discover/use-discover'
+import { GroupActivityCard } from '@/features/group-activities/components/group-activity-card'
+import { useGroupActivities } from '@/features/group-activities/use-group-activities'
+import { useConnections } from '@/hooks/use-connections'
+import { groupActivityService } from '@/services/group-activity/group-activity-service'
+import { ROUTES } from '@/routes/routes'
+import type { ActivityPost } from '@/types/activity-post'
 
 const ALL = 'all'
-const SKELETON_CARDS = [0, 1, 2, 3]
-const distanceOptions = [10, 25, 50, 200] as const
 
-const options = (values: readonly string[], allLabel: string) => [
-  { value: ALL, label: allLabel },
-  ...values.map((value) => ({
-    value,
-    label: value,
-  })),
+const AREA_OPTIONS = [
+  { value: ALL, label: 'All locations' },
+  ...AREAS.map(({ id, name }) => ({ value: id, label: name })),
 ]
 
+const SPORT_OPTIONS = [
+  { value: ALL, label: 'Any activity' },
+  ...SPORTS.map(({ id, name }) => ({ value: id, label: name })),
+]
+
+const SKELETON_CARDS = [0, 1, 2]
+
+function CardSkeletons() {
+  return (
+    <div className="grid-cards gap-6">
+      {SKELETON_CARDS.map((key) => (
+        <Card key={key}>
+          <CardContent className="flex flex-col gap-4">
+            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-8 w-1/2" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Discover shows REAL data only: open activities people have posted, then
+ * people to play with. Location and activity filters narrow both, instantly
+ * and without another read. "Wants to connect" is never filtered — a waiting
+ * request must not disappear behind a filter.
+ *
+ * No distance and no invented match percentage appear here: there are no
+ * coordinates to measure from, and a score is only shown where the matching
+ * engine actually computed one (on each buddy card).
+ */
 export function DiscoverPage() {
-  const {
-    incoming,
-    suggested,
-    isLoading,
-    error,
-    refresh,
-    dismiss,
-  } = useDiscover()
+  const people = useDiscover()
+  const activities = useActivityPosts()
+  const groupActivities = useGroupActivities()
+  const { getConnectionState } = useConnections()
+  const now = useCoarseNow()
+  const [area, setArea] = useState(ALL)
+  const [sport, setSport] = useState(ALL)
 
-  const [location, setLocation] = useState(ALL)
-  const [activity, setActivity] = useState(ALL)
-  const [skill, setSkill] = useState(ALL)
-  const [buddyType, setBuddyType] = useState(ALL)
-  const [distance, setDistance] = useState(ALL)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const [searchVersion, setSearchVersion] = useState(0)
+  const hasFilters = area !== ALL || sport !== ALL
 
-  const allBuddies = useMemo(
-    () => [...incoming, ...suggested],
-    [incoming, suggested],
-  )
-
-  const getLocation = (buddy: (typeof allBuddies)[number]) =>
-    buddy.profile.location ?? ''
-
-  const getActivity = (buddy: (typeof allBuddies)[number]) =>
-    buddy.profile.sport ??
-    buddy.profile.activity ??
-    ''
-
-  const getSkill = (buddy: (typeof allBuddies)[number]) =>
-    buddy.profile.skillLevel ?? ''
-
-  const getBuddyType = (buddy: (typeof allBuddies)[number]) =>
-    buddy.profile.buddyType ?? ''
-
-  const getDistance = (buddy: (typeof allBuddies)[number]) =>
-    buddy.profile.distanceKm ?? null
-
-  const locations = useMemo(
+  const visiblePosts = useMemo(
     () =>
-      [
-        ...new Set(
-          allBuddies
-            .map(getLocation)
-            .filter(Boolean),
-        ),
-      ].sort(),
-    [allBuddies],
+      activities.posts.filter(
+        (post) =>
+          (area === ALL || post.areaId === area) &&
+          (sport === ALL || post.sportId === sport),
+      ),
+    [activities.posts, area, sport],
   )
 
-  const skillOptions = useMemo(
+  // Your connected buddies' posts first: the people you already play with.
+  const { fromBuddies, fromOthers } = useMemo(() => {
+    const buddies: ActivityPost[] = []
+    const others: ActivityPost[] = []
+    for (const post of visiblePosts) {
+      const isBuddy =
+        post.authorId !== activities.currentUserId &&
+        getConnectionState(post.authorId) === 'connected'
+      ;(isBuddy ? buddies : others).push(post)
+    }
+    return { fromBuddies: buddies, fromOthers: others }
+  }, [visiblePosts, activities.currentUserId, getConnectionState])
+
+  const renderPosts = (posts: readonly ActivityPost[]) => (
+    <div className="grid-cards gap-6">
+      {posts.map((post) => (
+        <ActivityPostCard
+          key={post.id}
+          post={post}
+          people={activities.people}
+          now={now}
+          onChanged={activities.refresh}
+          onRemove={activities.remove}
+        />
+      ))}
+    </div>
+  )
+
+  const visibleBuddies = useMemo(
     () =>
-      [
-        ...new Set(
-          allBuddies
-            .map(getSkill)
-            .filter(Boolean),
-        ),
-      ].sort(),
-    [allBuddies],
+      people.suggested.filter(
+        ({ profile }) =>
+          (area === ALL || profile.area === area) &&
+          (sport === ALL ||
+            profile.sports.some(({ sportId }) => sportId === sport)),
+      ),
+    [people.suggested, area, sport],
   )
 
-  const buddyTypeOptions = useMemo(
+  const visibleGroupActivities = useMemo(
     () =>
-      [
-        ...new Set(
-          allBuddies
-            .map(getBuddyType)
-            .filter(Boolean),
-        ),
-      ].sort(),
-    [allBuddies],
+      groupActivities.activities.filter(
+        (activity) =>
+          (area === ALL || activity.areaId === area) &&
+          (sport === ALL || activity.sportId === sport),
+      ),
+    [groupActivities.activities, area, sport],
   )
-
-  const matchesFilters = (buddy: (typeof allBuddies)[number]) => {
-    if (location !== ALL && getLocation(buddy) !== location) {
-      return false
-    }
-
-    if (activity !== ALL && getActivity(buddy) !== activity) {
-      return false
-    }
-
-    if (skill !== ALL && getSkill(buddy) !== skill) {
-      return false
-    }
-
-    if (buddyType !== ALL && getBuddyType(buddy) !== buddyType) {
-      return false
-    }
-
-    if (distance !== ALL) {
-      const buddyDistance = getDistance(buddy)
-
-      if (
-        buddyDistance === null ||
-        buddyDistance > Number(distance)
-      ) {
-        return false
-      }
-    }
-
-    return true
-  }
-
-  const filteredIncoming = useMemo(
-    () => incoming.filter(matchesFilters),
-    [
-      incoming,
-      location,
-      activity,
-      skill,
-      buddyType,
-      distance,
-      searchVersion,
-    ],
-  )
-
-  const filteredSuggested = useMemo(
-    () => suggested.filter(matchesFilters),
-    [
-      suggested,
-      location,
-      activity,
-      skill,
-      buddyType,
-      distance,
-      searchVersion,
-    ],
-  )
-
-  const visibleCount =
-    filteredIncoming.length + filteredSuggested.length
-
-  const hasFilters = [
-    location,
-    activity,
-    skill,
-    buddyType,
-    distance,
-  ].some((value) => value !== ALL)
-
-  const summary = [
-    location === ALL ? 'All locations' : location,
-    activity !== ALL ? activity : null,
-    skill !== ALL ? skill : null,
-    buddyType !== ALL ? buddyType : null,
-    distance !== ALL ? `Within ${distance} km` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
 
   const clearFilters = () => {
-    setLocation(ALL)
-    setActivity(ALL)
-    setSkill(ALL)
-    setBuddyType(ALL)
-    setDistance(ALL)
-    setMoreOpen(false)
-    setSearchVersion((value) => value + 1)
+    setArea(ALL)
+    setSport(ALL)
+  }
+
+  const refreshAll = () => {
+    activities.refresh()
+    groupActivities.refresh()
+    people.refresh()
+  }
+
+  const removeGroupActivity = async (id: string) => {
+    await groupActivityService.remove(id)
+    groupActivities.refresh()
   }
 
   return (
     <>
       <AppHeader
         title="Discover"
-        subtitle="Find people and places to play near you."
+        subtitle="Find activities to join and people to play with."
         size="wide"
         action={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href="/discover/post-activity">
-                <img
-                  src={calendarIcon}
-                  alt=""
-                  className="size-4"
-                />
-                Add new discover
-              </a>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon-sm" aria-label="Post an activity" asChild>
+              <Link to={ROUTES.postActivity}>
+                <img src={calendarIcon} alt="" className="size-5" />
+              </Link>
             </Button>
-
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Refresh matches"
-              onClick={refresh}
-              disabled={isLoading}
+              aria-label="Refresh"
+              onClick={refreshAll}
+              disabled={activities.isLoading || groupActivities.isLoading || people.isLoading}
             >
-              <RefreshCw
-                className={`size-5 ${
-                  isLoading ? 'animate-spin' : ''
-                }`}
-              />
+              <RefreshCw className="size-5" />
             </Button>
           </div>
         }
       />
-
       <PageContainer size="wide">
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardContent className="flex flex-col gap-4">
-              <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_auto]">
-                <AppDropdown
-                  value={location}
-                  onChange={setLocation}
-                  options={options(
-                    locations,
-                    'All locations',
-                  )}
-                  ariaLabel="Location"
-                />
-
-                <AppDropdown
-                  value={activity}
-                  onChange={setActivity}
-                  options={options(
-                    SPORTS.map(({ name }) => name),
-                    'Any activity',
-                  )}
-                  ariaLabel="Activity"
-                />
-
-                <AppDropdown
-                  value={distance}
-                  onChange={setDistance}
-                  options={[
-                    {
-                      value: ALL,
-                      label: 'Any distance',
-                    },
-                    ...distanceOptions.map((value) => ({
-                      value: String(value),
-                      label: `Within ${value} km`,
-                    })),
-                  ]}
-                  ariaLabel="Distance"
-                />
-
-                <Button
-                  className="h-11"
-                  onClick={() =>
-                    setSearchVersion(
-                      (value) => value + 1,
-                    )
-                  }
-                >
-                  Search
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-body-small text-muted-foreground">
-                  {summary}
-                </p>
-
-                <div className="flex items-center gap-3">
-                  {hasFilters && (
-                    <button
-                      type="button"
-                      onClick={clearFilters}
-                      className="text-body-small text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
-                    >
-                      Clear filters
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    aria-expanded={moreOpen}
-                    onClick={() =>
-                      setMoreOpen((value) => !value)
-                    }
-                    className="text-body-small text-primary"
-                  >
-                    {moreOpen
-                      ? 'Hide filters'
-                      : 'More filters'}
-                  </button>
-                </div>
-              </div>
-
-              {moreOpen && (
-                <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
-                  <AppDropdown
-                    label="Skill"
-                    value={skill}
-                    onChange={setSkill}
-                    options={options(
-                      skillOptions,
-                      'Any skill',
-                    )}
-                  />
-
-                  <AppDropdown
-                    label="Looking for"
-                    value={buddyType}
-                    onChange={setBuddyType}
-                    options={options(
-                      buddyTypeOptions,
-                      'Any buddy type',
-                    )}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-body-small text-muted-foreground">
-              {isLoading
-                ? 'Looking for buddies…'
-                : `${visibleCount} ${
-                    visibleCount === 1
-                      ? 'buddy'
-                      : 'buddies'
-                  }`}
-            </span>
-          </div>
-
-          {isLoading && (
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {SKELETON_CARDS.map((key) => (
-                <Card key={key}>
-                  <CardContent className="flex flex-col gap-4">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="size-14 shrink-0 rounded-full" />
-
-                      <div className="flex min-w-0 flex-1 flex-col gap-2">
-                        <Skeleton className="h-4 w-28" />
-                        <Skeleton className="h-3 w-20" />
-                      </div>
-                    </div>
-
-                    <Skeleton className="h-9 w-full rounded-xl" />
-                    <Skeleton className="h-9 w-full rounded-xl" />
-                    <Skeleton className="h-6 w-40 rounded-full" />
-                  </CardContent>
-                </Card>
-              ))}
+        <Card>
+          <CardContent className="flex flex-col gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AppDropdown
+                value={area}
+                onChange={setArea}
+                options={AREA_OPTIONS}
+                ariaLabel="Location"
+              />
+              <AppDropdown
+                value={sport}
+                onChange={setSport}
+                options={SPORT_OPTIONS}
+                ariaLabel="Activity"
+              />
             </div>
-          )}
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="self-end text-body-small text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                Clear filters
+              </button>
+            )}
+          </CardContent>
+        </Card>
 
-          {!isLoading && error && (
-            <ErrorState
-              title={error}
-              onRetry={refresh}
+        <section className="flex flex-col gap-4">
+          <SectionHeader
+            title="Group activities"
+            description="Public activities anyone can join — no connection needed."
+            action={
+              <Button variant="outline" size="sm" asChild>
+                <Link to={ROUTES.createGroupActivity}>Create activity</Link>
+              </Button>
+            }
+          />
+          {groupActivities.isLoading && <CardSkeletons />}
+          {!groupActivities.isLoading && groupActivities.error && (
+            <EmptyState
+              title={groupActivities.error}
+              action={
+                <Button variant="outline" onClick={groupActivities.refresh}>
+                  Try again
+                </Button>
+              }
             />
           )}
-
-          {!isLoading &&
-            !error &&
-            visibleCount === 0 && (
+          {!groupActivities.isLoading &&
+            !groupActivities.error &&
+            visibleGroupActivities.length === 0 && (
               <EmptyState
                 illustration={compassIllustration}
-                title="No sports buddies found."
+                title={
+                  hasFilters
+                    ? 'No group activities match these filters'
+                    : 'No group activities yet'
+                }
                 description={
                   hasFilters
-                    ? "Try changing your filters or widening what you're looking for."
-                    : 'Check back soon as more Sports Buddy members join your area.'
+                    ? 'Try another location or activity.'
+                    : 'Be the first — create one and let people join.'
                 }
                 action={
                   hasFilters ? (
-                    <Button
-                      variant="outline"
-                      onClick={clearFilters}
-                    >
+                    <Button variant="outline" onClick={clearFilters}>
                       Clear filters
                     </Button>
-                  ) : undefined
+                  ) : (
+                    <Button asChild>
+                      <Link to={ROUTES.createGroupActivity}>Create activity</Link>
+                    </Button>
+                  )
                 }
               />
             )}
-
-          {!isLoading &&
-            !error &&
-            filteredIncoming.length > 0 && (
-              <section className="flex flex-col gap-4">
-                <SectionHeader title="Wants to connect" />
-
-                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                  {filteredIncoming.map((buddy) => (
-                    <BuddyCard
-                      key={buddy.profile.userId}
-                      buddy={buddy}
-                    />
-                  ))}
-                </div>
-              </section>
+          {!groupActivities.isLoading &&
+            !groupActivities.error &&
+            visibleGroupActivities.length > 0 && (
+              <div className="grid-cards gap-6">
+                {visibleGroupActivities.map((activity) => (
+                  <GroupActivityCard
+                    key={activity.id}
+                    activity={activity}
+                    people={groupActivities.people}
+                    now={now}
+                    onChanged={groupActivities.refresh}
+                    onRemove={removeGroupActivity}
+                  />
+                ))}
+              </div>
             )}
+        </section>
 
-          {!isLoading &&
-            !error &&
-            filteredSuggested.length > 0 && (
-              <section className="flex flex-col gap-4">
-                {filteredIncoming.length > 0 && (
-                  <SectionHeader title="For you" />
+        <section className="flex flex-col gap-4">
+          <SectionHeader
+            title="Open activities"
+            description="Sessions people have posted. Join to connect and chat."
+            action={
+              <Button variant="outline" size="sm" asChild>
+                <Link to={ROUTES.postActivity}>Post an activity</Link>
+              </Button>
+            }
+          />
+          {activities.isLoading && <CardSkeletons />}
+          {!activities.isLoading && activities.error && (
+            <EmptyState
+              title={activities.error}
+              action={
+                <Button variant="outline" onClick={activities.refresh}>
+                  Try again
+                </Button>
+              }
+            />
+          )}
+          {!activities.isLoading &&
+            !activities.error &&
+            visiblePosts.length === 0 && (
+              <EmptyState
+                illustration={compassIllustration}
+                title={
+                  hasFilters
+                    ? 'No activities match these filters'
+                    : 'No open activities yet'
+                }
+                description={
+                  hasFilters
+                    ? 'Try another location or activity.'
+                    : 'Be the first — post a session and let people join you.'
+                }
+                action={
+                  hasFilters ? (
+                    <Button variant="outline" onClick={clearFilters}>
+                      Clear filters
+                    </Button>
+                  ) : (
+                    <Button asChild>
+                      <Link to={ROUTES.postActivity}>Post an activity</Link>
+                    </Button>
+                  )
+                }
+              />
+            )}
+          {!activities.isLoading &&
+            !activities.error &&
+            visiblePosts.length > 0 && (
+              <div className="flex flex-col gap-6">
+                {fromBuddies.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    <SectionHeader level="group" title="From your buddies" />
+                    {renderPosts(fromBuddies)}
+                  </div>
                 )}
-
-                <div
-                  key={searchVersion}
-                  className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3"
-                >
-                  {filteredSuggested.map((buddy) => (
-                    <BuddyCard
-                      key={buddy.profile.userId}
-                      buddy={buddy}
-                      onDismiss={dismiss}
-                    />
-                  ))}
-                </div>
-              </section>
+                {fromOthers.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    {fromBuddies.length > 0 && (
+                      <SectionHeader level="group" title="More activities" />
+                    )}
+                    {renderPosts(fromOthers)}
+                  </div>
+                )}
+              </div>
             )}
-        </div>
+        </section>
+
+        {!people.isLoading && !people.error && people.incoming.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <SectionHeader title="Wants to connect" />
+            <div className="grid-cards gap-6">
+              {people.incoming.map((buddy) => (
+                <BuddyCard key={buddy.profile.userId} buddy={buddy} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="flex flex-col gap-4">
+          <SectionHeader
+            title="Sports buddies"
+            description="Ranked by how well you would play together."
+          />
+          {people.isLoading && <CardSkeletons />}
+          {!people.isLoading && people.error && (
+            <EmptyState
+              title={people.error}
+              action={
+                <Button variant="outline" onClick={people.refresh}>
+                  Try again
+                </Button>
+              }
+            />
+          )}
+          {!people.isLoading && !people.error && visibleBuddies.length === 0 && (
+            <EmptyState
+              illustration={compassIllustration}
+              title="No sports buddies found"
+              description={
+                hasFilters
+                  ? 'Try another location or activity.'
+                  : 'Check back soon, or review your discovery settings.'
+              }
+            />
+          )}
+          {!people.isLoading && !people.error && visibleBuddies.length > 0 && (
+            <div className="grid-cards gap-6">
+              {visibleBuddies.map((buddy) => (
+                <BuddyCard
+                  key={buddy.profile.userId}
+                  buddy={buddy}
+                  onDismiss={people.dismiss}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       </PageContainer>
     </>
   )

@@ -362,8 +362,14 @@ listener.
   sport/skill/area filter on. See `docs/discover.md`.
 - "Not now" is session-only in-memory state. No `dismissedProfiles`
   collection exists, and refresh brings the candidate back.
-- Deliberately absent: disconnect/unfriend, block/report, chat, notification
-  delivery, a connections list screen.
+- **Unconnect** (added later): either participant may end a CONNECTED
+  relationship — `connectionService.disconnect()` deletes the pair document in
+  a transaction, and the rules allow deleting a `connected` document for its
+  participants. Chat and planning stop immediately (both check the
+  connection); the conversation is kept, so reconnecting brings the history
+  back. `ConnectAction allowDisconnect` shows it, always behind a confirmation
+  dialog.
+- Deliberately absent: a connections list screen, notification delivery.
 - Full walkthrough: `docs/connections.md`.
 
 ### Realtime chat (STEP 9)
@@ -794,6 +800,65 @@ participant ids, the connection id and the source plan id cannot reach a file.
   plugin is installed). ICS is the universal path, including inside a
   WebView. `selectProvider()` is the one function that changes later.
 - Full walkthrough: `docs/calendar.md`.
+
+### Discover activity posts
+
+```
+Post an activity page → activityPostService → activityPostRepository → activityPosts/{postId}
+Discover page ← useActivityPosts() (one batch + ONE batched publicProfiles read for authors)
+```
+
+- **A post is a public invitation, not an `Activity`.** `ActivityPost`
+  (`src/types/activity-post.ts`) says "badminton, Sat 5pm, Subang Jaya,
+  RM10–20" and nobody has agreed to it. `Activity` stays the private, agreed
+  snapshot between two connected people.
+- **Joins ARE recorded; a post is 1v1 (`capacity` 1).** The author picks a
+  `joinPolicy`: `open` (Join takes the spot) or `approval` (Join files a
+  request the author approves or declines). Once the spot is taken the post
+  reads **Full** to everyone else. `joinedIds` / `pendingIds` live on the
+  post; every transition is ONE pure function (`applyJoin`, `applyLeave`,
+  `applyApprove`, `applyDecline` in `src/lib/activity-post.ts`) run inside a
+  transaction on the live document, and what a viewer sees is
+  `getPostViewerState()` (`author | joined | requested | full | can-join |
+  can-request | past`). Posts from before joins existed read as open, one
+  spot, empty — in the mapper and in the rules (`data.get(...)`).
+- **A connection is still the only chat permission.** `usePostActions()`
+  composes the two systems: joining (or requesting) also asks to connect with
+  the author, and approving connects back, so once someone is in the two can
+  chat. Neither service imports the other.
+- **The author can edit their post** (time, place, sport, budget), e.g. after
+  someone asks in chat. The same form (`/discover/post-activity/:postId`),
+  the same validation, a server `updatedAt`; identity fields never move.
+- **Activities page** shows your posts next to confirmed sessions: planned
+  posts under Planned and Created by me, past posts (read-only) under Past.
+  Posts you joined appear only once a session is confirmed together.
+- Pure rules in `src/lib/activity-post.ts` (`getActivityPostError`,
+  `toCreateActivityPostInput`, `isUpcomingPost`, `compareActivityPosts`),
+  `now` always injected; limits in `src/constants/activity-posts.ts`. The
+  local date/time + author's IANA zone resolve to an instant ONCE, at post
+  time, via `resolvePlannedInstant`.
+- Stores ids and the author's choices only; the author's name and photo come
+  from `publicProfiles` at render time. Posts from people you blocked are
+  hidden; your own posts show with Remove instead of Join. Past posts are
+  excluded by the query (`startAt > now`, ordered by `startAt` — no composite
+  index).
+- Rules: any signed-in member may read. The author creates (one spot, empty
+  lists), edits (same validation, join lists and capacity frozen) and
+  deletes. Everyone else may change ONLY the join lists, and only by the
+  exact legal move: add or remove THEMSELVES (open: into `joinedIds` while a
+  spot is free and the post has not started; approval: into `pendingIds`).
+  Only the author may move one waiting id into the spot (never past capacity,
+  never someone who did not ask) or remove one id.
+- **Discover** groups open activities as **From your buddies** (authors you
+  are connected with) then **More activities**. **Home** shows the soonest of:
+  a confirmed session, a post you created, a post you have a spot in.
+- Buddy cards on Discover show the buddy's name, photo and area with View
+  profile; the profile page opens for any signed-in member (it renders the
+  public `DiscoveryProfile` projection only).
+- Discover shows REAL data only: open activities, then "Wants to connect",
+  then ranked sports buddies. Location and activity filters narrow both;
+  "Wants to connect" is never filtered. The static `discover-list.json` demo
+  data, with invented distances and match percentages, was removed.
 
 ### Profile editing and settings (STEP 5)
 
@@ -1564,6 +1629,10 @@ it. Feature logic never leaks into `components/ui/`.
 - Open a second conversations subscription (e.g. for a badge); read
   `useConversationsFeed()` from `ConversationsProvider` instead.
 - Touch `CHAT_READ_STATE_KEY` outside `src/lib/chat-read-state.ts`.
+- Render static or JSON "demo" people or activities in a signed-in screen, or
+  show a distance / match percentage the matching engine did not compute.
+- Copy an author's display name or photo into an activity post, or let
+  anyone but its author edit or remove it.
 - Add a second pair-id system for conversations; the conversation id IS the
   connection id.
 - Let a pending (or absent) connection reach an activity plan — the check
@@ -2166,6 +2235,111 @@ Places/Maps (no API key), native calendar (no provider), and importing the
 generated `.ics` into Apple Calendar, Google Calendar or Outlook — so no
 compatibility claim is made for those clients.
 
+STEP 14C — RevenueCat + Buddy+ + Public Group Activities (Shipaton):
+
+- **RevenueCat Buddy+ entitlement**, via the official
+  `@revenuecat/purchases-capacitor` SDK (not a React Native library), chosen
+  by PLATFORM in `repositories.ts` (`Capacitor.isNativePlatform()`) rather
+  than `env.dataSource` — a real purchase only exists on the native Android
+  app; the browser build always gets an honest stand-in that never fakes a
+  purchase. `SubscriptionProvider` configures RevenueCat with the SIGNED-IN
+  Sports Buddy uid as its App User ID, so Buddy+ travels with the account.
+  `src/lib/capabilities.ts` is the ONE place a feature checks entitlement
+  (`isBuddyPlus`, `canJoinAnotherGroupActivity`,
+  `canHostAnotherGroupActivity`, plus three filter/analytics gates for later
+  use); every state but the resolved `buddy_plus` fails CLOSED. Paywall at
+  `/buddy-plus`, entry point from Settings; prices are always RevenueCat's
+  own localized strings. Full walkthrough, including the manual RevenueCat
+  Test Store dashboard setup: `docs/monetization.md`.
+- **Public group activities** — a NEW, separate `groupActivities/{id}`
+  collection (deliberately not a variant of `activityPosts`): title,
+  description, sport, time (+ optional end), venue, estimated price,
+  preferred skill level, `maxParticipants` (2–30), always public, always
+  open-join (no approval step, no group chat). Pure domain in
+  `src/lib/group-activity.ts`; join/leave/organizer-remove are Firestore
+  transactions on the live document, mirroring `activityPosts`'s pattern.
+  Discover gained a "Group activities" section; Activities gained hosted/
+  joined groups, planned and past. Full walkthrough: `docs/group-activities.md`.
+- **Free/Buddy+ limits**: 3 simultaneously joined, 2 simultaneously hosted
+  group activities for free accounts (`src/constants/entitlements.ts`),
+  enforced in `groupActivityService` before every create/join — an HONEST,
+  DOCUMENTED client-side-only limitation (`docs/monetization.md`), since
+  Firestore rules cannot count a member's other documents without a
+  maintained counter this project does not have.
+- **Sharing generalized**: `src/lib/share.ts` and `return-path.ts` now carry
+  a `kind: 'post' | 'group'` rather than assuming an `ActivityPost`, so a
+  group activity gets its own `/group-activity/:id` share link, its own
+  Share / Send-to-a-buddy actions, and renders as an in-app link inside a
+  chat message — all reusing the STEP-14-ish infrastructure built for posts.
+- Vitest suite grew to 494 tests; emulator rules tests to 190 (20 new, for
+  `groupActivities`). A security check on the `activityPosts` list rule was
+  fixed in the same pass: a query with no `visibility` filter could read
+  link-only and private-invite posts through Firestore's `get(...,
+  'public')` default value — the rule now reads `resource.data.visibility`
+  directly.
+- `npx cap sync android` registers the RevenueCat plugin, and
+  `android/gradlew assembleDebug` **BUILD SUCCESSFUL** with it included —
+  verified in this environment.
+
+Not verified: an actual RevenueCat Test Store purchase (no RevenueCat
+project/API key configured in this environment — see `docs/monetization.md`
+for the one-time manual dashboard setup needed before this can be
+demonstrated), the paywall and group-activity screens on a physical/emulated
+Android device (only the production web build and the Android *compile* were
+checked here).
+
+STEP 14D — QR Check-in + Verified Attendance + Reliability Profile:
+
+- **`AttendanceRecord` is a SEPARATE, additive fact from `GroupActivity` /
+  `Activity` — "past is not completed" (STEP 13) is not reversed.** No field
+  on either activity type says whether anyone attended; a record's absence
+  is never read as "did not attend" (no signal, forgot to scan — same as
+  nothing happened). `src/types/attendance.ts` states this explicitly.
+- **One photo, not a live scan.** `@capacitor/camera`'s `takePhoto()` (an
+  already-installed, previously-unused dependency) captures a single frame;
+  `jsqr` (new, zero runtime dependencies) decodes it off an offscreen
+  canvas. No new native Capacitor plugin — only one new Android manifest
+  permission (`CAMERA`, plus an optional `camera` hardware feature so the
+  app still installs on a device without one).
+- **The QR is a rotating secret, not the activity id** — the id alone is not
+  enough, since `groupActivities` is fully public-readable and every
+  participant already knows it. `groupActivities/{id}/checkIn/current` holds
+  a random `code` (`crypto.getRandomValues`), organizer-only readable; the
+  QR encodes `sportsbuddy:checkin:<activityId>:<code>` (never a real URL, so
+  a generic scanner shows plain text); "Regenerate code" invalidates a
+  leaked/screenshotted one immediately.
+- `attendanceRecords/{activityId}__{userId}`: create-only, by the named
+  attendee alone, only if they are involved (joined or the organizer), only
+  once the activity has started, and only with the current code (checked by
+  the RULES via a privileged cross-document `get()` — the attendee's own
+  read of `checkIn/current` is denied by its organizer-only rule, so the
+  comparison happens server-side, not on the client). Immutable: no update,
+  no delete.
+- **Reliability Profile**: `calculateReliability()` (pure,
+  `src/lib/attendance.ts`) returns verified sessions and a show-up rate from
+  a member's own STARTED hosted/joined activities against their own
+  check-ins — `null`, never `0%`, with nothing started yet. Shown on
+  `/profile` (`ReliabilityCard`) in evidence-based language only ("11
+  Verified Sessions", "92% Show-up Rate") — never an absolute claim.
+  Deliberately NOT wired into a Discover filter yet (would mean writing a
+  derived score into `publicProfiles`, a real privacy/architecture decision
+  left for its own pass — `canUseReliabilityFilter` exists as an unused
+  capability gate).
+- New dependencies used immediately: `jsqr` (decode), `qrcode-generator`
+  (generate, offline, no network call — the code never leaves the device
+  except inside the Firestore write it authorizes).
+- Vitest suite grew to 502 tests; emulator rules tests to 205 (15 new, for
+  `checkIn` codes and `attendanceRecords`).
+- `npx cap sync android` (registers no new plugin — only the manifest
+  permission changed) and `android/gradlew assembleDebug` — **BUILD
+  SUCCESSFUL**, verified in this environment.
+- Full walkthrough: `docs/attendance.md`.
+
+Not verified: the check-in flow on a physical/emulated Android device
+(camera capture → QR decode → Firestore write was checked by unit + rules
+tests only, not end-to-end with a real camera), and monthly recap / sharing
+polish (still not built).
+
 ## 21. Local development credentials (mock mode only)
 
 `VITE_DATA_SOURCE=mock` seeds one demo account. These are development-only
@@ -2204,7 +2378,13 @@ STEP 12 — Confirmed Activity + Activity Card
 STEP 12.5 — Design System Refactor + Theme-First Styling
 STEP 12.6 — Security Hardening + Input Validation
 STEP 13 — Calendar + Upcoming/Past Activity History
+Discover activity posts (1v1 public invitations, joins, edit, share)
+STEP 14B — Safety: Block + Report
+STEP 14C — RevenueCat + Buddy+ + Public Group Activities (Shipaton)
+STEP 14D — QR Check-in + Verified Attendance + Reliability Profile (Shipaton)
 
-**Current Step:** STEP 13 — Calendar + Activity History
+**Current Step:** STEP 14D — QR Check-in + Verified Attendance + Reliability Profile
 
-**Next Step:** STEP 14 — Notifications + RevenueCat + Safety
+**Next Step:** Monthly recap + sharing polish, then a Vercel deploy (Firebase
+Hosting already works as the web demo), then Account Deletion + Data Cleanup
+(previously tracked as STEP 15B) and push notifications.

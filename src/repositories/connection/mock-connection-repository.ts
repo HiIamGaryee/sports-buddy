@@ -189,4 +189,26 @@ export const mockConnectionRepository: ConnectionRepository = {
     })
     notify()
   },
+
+  async disconnect(currentUserId, targetUserId) {
+    await delay(null, 200)
+    const store = ensureSeeded(currentUserId)
+    const id = createConnectionId(currentUserId, targetUserId)
+    const existing = findConnection(store, id)
+    if (!existing) return
+    if (!existing.participants.includes(currentUserId)) {
+      throw connectionError(CONNECTION_ERROR_CODES.notYourRequest)
+    }
+    if (existing.status !== 'connected') {
+      throw connectionError(CONNECTION_ERROR_CODES.notConnected)
+    }
+
+    writeMockStore({
+      ...store,
+      connections: store.connections.filter(
+        (connection) => connection.id !== id,
+      ),
+    })
+    notify()
+  },
 }

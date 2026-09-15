@@ -1,11 +1,20 @@
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
+
 import { formatMessageTime } from '@/lib/chat-format'
+import { splitActivityLinks } from '@/lib/share'
 import { cn } from '@/lib/utils'
+import { activityPostPath, groupActivityDetailPath } from '@/routes/routes'
+import { shareService } from '@/services/share/share-service'
 import type { ChatMessage } from '@/types/chat'
 
 /**
- * One immutable text event. Content is rendered as a text child, so React
- * escapes it — user messages never go anywhere near `dangerouslySetInnerHTML`,
- * and there is no link or preview transformation.
+ * One immutable text event. Content is rendered as text children, so React
+ * escapes it — user messages never go anywhere near `dangerouslySetInnerHTML`.
+ *
+ * The ONE transformation: a link to an activity on our own origin becomes an
+ * in-app link to that activity (the route is built from the validated post
+ * id, never from the text). Every other URL stays plain, unclickable text.
  */
 export function MessageBubble({
   message,
@@ -15,6 +24,10 @@ export function MessageBubble({
   isOwn: boolean
 }) {
   const time = formatMessageTime(message.createdAt)
+  const parts = useMemo(
+    () => splitActivityLinks(message.content, shareService.trustedOrigins()),
+    [message.content],
+  )
 
   return (
     <div className={cn('flex', isOwn ? 'justify-end' : 'justify-start')}>
@@ -29,7 +42,23 @@ export function MessageBubble({
         )}
       >
         <p className="text-body wrap-anywhere whitespace-pre-wrap">
-          {message.content}
+          {parts.map((part, index) =>
+            part.kind === 'activity' ? (
+              <Link
+                key={index}
+                to={
+                  part.linkKind === 'group'
+                    ? groupActivityDetailPath(part.id)
+                    : activityPostPath(part.id)
+                }
+                className="font-medium underline underline-offset-4"
+              >
+                View activity
+              </Link>
+            ) : (
+              <span key={index}>{part.text}</span>
+            ),
+          )}
         </p>
         <span
           className={cn(

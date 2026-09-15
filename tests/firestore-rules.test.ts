@@ -424,8 +424,8 @@ describe('cancelling', () => {
     await assertFails(deleteDoc(doc(asUser(AINA), connectionPath(PAIR))))
   })
 
-  it('stops a connected relationship being deleted', async () => {
-    await seed(PAIR, {
+  const seedConnectedPair = () =>
+    seed(PAIR, {
       id: PAIR,
       participants: sortConnectionPair(GARY, AINA),
       requestedBy: sortConnectionPair(GARY, AINA),
@@ -434,8 +434,38 @@ describe('cancelling', () => {
       updatedAt: new Date(),
       connectedAt: new Date(),
     })
-    await assertFails(deleteDoc(doc(asUser(GARY), connectionPath(PAIR))))
-    await assertFails(deleteDoc(doc(asUser(AINA), connectionPath(PAIR))))
+
+  // "Unconnect": either participant may end a connected relationship.
+  it('lets either participant unconnect a connected relationship', async () => {
+    await seedConnectedPair()
+    await assertSucceeds(deleteDoc(doc(asUser(GARY), connectionPath(PAIR))))
+    await seedConnectedPair()
+    await assertSucceeds(deleteDoc(doc(asUser(AINA), connectionPath(PAIR))))
+  })
+
+  it("never lets an outsider unconnect somebody else's relationship", async () => {
+    await seedConnectedPair()
+    await assertFails(deleteDoc(doc(asUser(STRANGER), connectionPath(PAIR))))
+    await assertFails(deleteDoc(doc(asGuest(), connectionPath(PAIR))))
+  })
+
+  it('cuts off the conversation once unconnected', async () => {
+    await seedConnectedPair()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), `conversations/${PAIR}`), {
+        id: PAIR,
+        connectionId: PAIR,
+        participants: sortConnectionPair(GARY, AINA),
+        lastMessageText: null,
+        lastMessageSenderId: null,
+        lastMessageAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    })
+    await assertSucceeds(getDoc(doc(asUser(AINA), `conversations/${PAIR}`)))
+    await deleteDoc(doc(asUser(GARY), connectionPath(PAIR)))
+    await assertFails(getDoc(doc(asUser(AINA), `conversations/${PAIR}`)))
   })
 
   it('stops a connected relationship being edited', async () => {
@@ -1708,6 +1738,7 @@ describe('the private profile document', () => {
     onboardingCompleted: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    gender: null,
   })
 
   it('accepts a well-formed profile from its owner', async () => {
@@ -1783,6 +1814,7 @@ describe('the public profile projection', () => {
     profileCompleteness: 100,
     discoverable: true,
     updatedAt: serverTimestamp(),
+    gender: null,
   })
 
   it('accepts the discovery allowlist from its owner', async () => {
@@ -2076,5 +2108,907 @@ describe('report shape', () => {
     await assertFails(
       addDoc(collection(asUser(AINA), 'reports'), report({ type: 'profile' })),
     )
+  })
+})
+
+describe('activity posts', () => {
+  const postPath = (id = 'post_1') => `activityPosts/${id}`
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+
+  const newPost = (overrides: Record<string, unknown> = {}) => ({
+    id: 'post_1',
+    authorId: GARY,
+    sportId: 'badminton',
+    startAt: inDays(2),
+    timeZone: 'Asia/Kuala_Lumpur',
+    areaId: 'subang-jaya',
+    venueName: 'KL Sports City',
+    budget: { min: 10, max: 20 },
+    joinPolicy: 'open',
+    visibility: 'public',
+    invitedId: null,
+    capacity: 1,
+    joinedIds: [],
+    pendingIds: [],
+    createdAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  async function seedPost(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), postPath()), {
+        ...newPost(overrides),
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  it('can be created by its author', async () => {
+    await assertSucceeds(setDoc(doc(asUser(GARY), postPath()), newPost()))
+  })
+
+  it('accepts an open-ended budget', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(GARY), postPath()), newPost({ budget: { min: 60, max: null } })),
+    )
+  })
+
+  it('cannot be posted on somebody else\'s behalf', async () => {
+    await assertFails(setDoc(doc(asUser(AINA), postPath()), newPost()))
+    await assertFails(setDoc(doc(asGuest(), postPath()), newPost()))
+  })
+
+  it('rejects a session in the past or too far ahead', async () => {
+    await assertFails(setDoc(doc(asUser(GARY), postPath()), newPost({ startAt: inDays(-1) })))
+    await assertFails(setDoc(doc(asUser(GARY), postPath()), newPost({ startAt: inDays(120) })))
+  })
+
+  it('rejects malformed fields and extra keys', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), postPath()), newPost({ budget: { min: 40, max: 20 } })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), postPath()), newPost({ venueName: 'a'.repeat(81) })),
+    )
+    await assertFails(setDoc(doc(asUser(GARY), postPath()), newPost({ venueName: '' })))
+    await assertFails(
+      setDoc(doc(asUser(GARY), postPath()), newPost({ featured: true })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), postPath('other')), newPost({ id: 'post_1' })),
+    )
+  })
+
+  it('can be browsed by any signed-in member with the Discover query', async () => {
+    await seedPost()
+    const snapshot = await getDocs(
+      query(
+        collection(asUser(STRANGER), 'activityPosts'),
+        where('visibility', '==', 'public'),
+        where('startAt', '>', new Date()),
+        orderBy('startAt', 'asc'),
+        limit(30),
+      ),
+    )
+    expect(snapshot.docs.map((entry) => entry.id)).toEqual(['post_1'])
+    await assertFails(getDocs(collection(asGuest(), 'activityPosts')))
+  })
+
+  // The author can change time, place, sport or budget — the same fields
+  // the edit form sends — with a server `updatedAt`.
+  const edit = (overrides: Record<string, unknown> = {}) => ({
+    sportId: 'badminton',
+    startAt: inDays(3),
+    timeZone: 'Asia/Kuala_Lumpur',
+    areaId: 'petaling-jaya',
+    venueName: 'Somewhere else',
+    budget: { min: 20, max: 40 },
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  it('can be edited by its author', async () => {
+    await seedPost()
+    await assertSucceeds(updateDoc(doc(asUser(GARY), postPath()), edit()))
+  })
+
+  it('cannot be edited by anyone else', async () => {
+    await seedPost()
+    await assertFails(updateDoc(doc(asUser(AINA), postPath()), edit()))
+    await assertFails(updateDoc(doc(asUser(STRANGER), postPath()), edit()))
+  })
+
+  it('never lets an edit move identity or break the rules for posting', async () => {
+    await seedPost()
+    await assertFails(
+      updateDoc(doc(asUser(GARY), postPath()), edit({ authorId: AINA })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), postPath()), edit({ createdAt: new Date(0) })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), postPath()), edit({ startAt: inDays(-1) })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), postPath()), edit({ venueName: '' })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), postPath()), edit({ updatedAt: new Date(0) })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), postPath()), edit({ featured: true })),
+    )
+  })
+
+  it('can be removed only by its author', async () => {
+    await seedPost()
+    await assertFails(deleteDoc(doc(asUser(AINA), postPath())))
+    await assertSucceeds(deleteDoc(doc(asUser(GARY), postPath())))
+  })
+})
+
+describe('joining activity posts', () => {
+  const postPath = 'activityPosts/post_1'
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+
+  async function seedPost(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), postPath), {
+        id: 'post_1',
+        authorId: GARY,
+        sportId: 'badminton',
+        startAt: inDays(2),
+        timeZone: 'Asia/Kuala_Lumpur',
+        areaId: 'subang-jaya',
+        venueName: 'KL Sports City',
+        budget: { min: 10, max: 20 },
+        joinPolicy: 'open',
+        visibility: 'public',
+        invitedId: null,
+        capacity: 1,
+        joinedIds: [],
+        pendingIds: [],
+        createdAt: new Date(),
+        ...overrides,
+      })
+    })
+  }
+
+  const lists = (joinedIds: string[], pendingIds: string[] = []) => ({
+    joinedIds,
+    pendingIds,
+  })
+
+  describe('an open post', () => {
+    it('gives the spot to the first member who joins', async () => {
+      await seedPost()
+      await assertSucceeds(updateDoc(doc(asUser(AINA), postPath), lists([AINA])))
+    })
+
+    it('is full once the one spot is taken', async () => {
+      await seedPost({ joinedIds: [AINA] })
+      await assertFails(
+        updateDoc(doc(asUser(STRANGER), postPath), lists([AINA, STRANGER])),
+      )
+    })
+
+    it('never lets a member put someone else in, or join their own post', async () => {
+      await seedPost()
+      await assertFails(updateDoc(doc(asUser(AINA), postPath), lists([STRANGER])))
+      await assertFails(updateDoc(doc(asUser(GARY), postPath), lists([GARY])))
+    })
+
+    it('cannot be joined once it has started', async () => {
+      await seedPost({ startAt: inDays(-1) })
+      await assertFails(updateDoc(doc(asUser(AINA), postPath), lists([AINA])))
+    })
+
+    it('lets the joiner give up the spot', async () => {
+      await seedPost({ joinedIds: [AINA] })
+      await assertSucceeds(updateDoc(doc(asUser(AINA), postPath), lists([])))
+    })
+
+    it('never lets anyone but that person remove them, except the author', async () => {
+      await seedPost({ joinedIds: [AINA] })
+      await assertFails(updateDoc(doc(asUser(STRANGER), postPath), lists([])))
+      await assertSucceeds(updateDoc(doc(asUser(GARY), postPath), lists([])))
+    })
+  })
+
+  describe('an approval post', () => {
+    it('turns Join into a waiting request, not a spot', async () => {
+      await seedPost({ joinPolicy: 'approval' })
+      await assertFails(updateDoc(doc(asUser(AINA), postPath), lists([AINA])))
+      await assertSucceeds(updateDoc(doc(asUser(AINA), postPath), lists([], [AINA])))
+    })
+
+    it('never lets a member approve themselves', async () => {
+      await seedPost({ joinPolicy: 'approval', pendingIds: [AINA] })
+      await assertFails(updateDoc(doc(asUser(AINA), postPath), lists([AINA], [])))
+    })
+
+    it('lets the author approve one waiting request into the spot', async () => {
+      await seedPost({ joinPolicy: 'approval', pendingIds: [AINA, STRANGER] })
+      await assertSucceeds(
+        updateDoc(doc(asUser(GARY), postPath), lists([AINA], [STRANGER])),
+      )
+    })
+
+    it('never lets the author approve past the one spot', async () => {
+      await seedPost({ joinPolicy: 'approval', joinedIds: [AINA], pendingIds: [STRANGER] })
+      await assertFails(
+        updateDoc(doc(asUser(GARY), postPath), lists([AINA, STRANGER], [])),
+      )
+    })
+
+    it('never lets the author put in someone who did not ask', async () => {
+      await seedPost({ joinPolicy: 'approval', pendingIds: [AINA] })
+      await assertFails(
+        updateDoc(doc(asUser(GARY), postPath), lists([STRANGER], [AINA])),
+      )
+    })
+
+    it('lets the author decline, and the requester withdraw', async () => {
+      await seedPost({ joinPolicy: 'approval', pendingIds: [AINA, STRANGER] })
+      await assertSucceeds(updateDoc(doc(asUser(GARY), postPath), lists([], [STRANGER])))
+      await assertSucceeds(updateDoc(doc(asUser(STRANGER), postPath), lists([], [])))
+    })
+
+    it('refuses new requests once the spot is taken', async () => {
+      await seedPost({ joinPolicy: 'approval', joinedIds: [AINA] })
+      await assertFails(
+        updateDoc(doc(asUser(STRANGER), postPath), lists([AINA], [STRANGER])),
+      )
+    })
+  })
+
+  it('never lets an author edit smuggle in a joiner', async () => {
+    await seedPost()
+    await assertFails(
+      updateDoc(doc(asUser(GARY), postPath), {
+        venueName: 'Somewhere else',
+        joinedIds: [AINA],
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('never lets a join change anything but the join lists', async () => {
+    await seedPost()
+    await assertFails(
+      updateDoc(doc(asUser(AINA), postPath), {
+        joinedIds: [AINA],
+        venueName: 'My place now',
+      }),
+    )
+  })
+
+  it('lets a member list the posts they joined', async () => {
+    await seedPost({ joinedIds: [AINA] })
+    const snapshot = await getDocs(
+      query(
+        collection(asUser(AINA), 'activityPosts'),
+        where('joinedIds', 'array-contains', AINA),
+        limit(100),
+      ),
+    )
+    expect(snapshot.docs.map((entry) => entry.id)).toEqual(['post_1'])
+  })
+
+  it('still lets a post from before joins existed be joined', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), postPath), {
+        id: 'post_1',
+        authorId: GARY,
+        sportId: 'badminton',
+        startAt: inDays(2),
+        timeZone: 'Asia/Kuala_Lumpur',
+        areaId: 'subang-jaya',
+        venueName: 'KL Sports City',
+        budget: { min: 10, max: 20 },
+        createdAt: new Date(),
+      })
+    })
+    await assertSucceeds(updateDoc(doc(asUser(AINA), postPath), { joinedIds: [AINA] }))
+  })
+})
+
+describe('who can see an activity post', () => {
+  const postPath = 'activityPosts/post_1'
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+
+  const post = (overrides: Record<string, unknown> = {}) => ({
+    id: 'post_1',
+    authorId: GARY,
+    sportId: 'badminton',
+    startAt: inDays(2),
+    timeZone: 'Asia/Kuala_Lumpur',
+    areaId: 'subang-jaya',
+    venueName: 'KL Sports City',
+    budget: { min: 10, max: 20 },
+    joinPolicy: 'open',
+    visibility: 'public',
+    invitedId: null,
+    capacity: 1,
+    joinedIds: [],
+    pendingIds: [],
+    createdAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  async function seedPost(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), postPath), {
+        ...post(overrides),
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  async function seedConnected() {
+    await seed(PAIR, {
+      id: PAIR,
+      participants: sortConnectionPair(GARY, AINA),
+      requestedBy: sortConnectionPair(GARY, AINA),
+      status: 'connected',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      connectedAt: new Date(),
+    })
+  }
+
+  const discoverQuery = (db: Firestore) =>
+    query(
+      collection(db, 'activityPosts'),
+      where('visibility', '==', 'public'),
+      where('startAt', '>', new Date()),
+      orderBy('startAt', 'asc'),
+      limit(30),
+    )
+
+  describe('link-only', () => {
+    it('opens by its link (id) for any signed-in member', async () => {
+      await seedPost({ visibility: 'link' })
+      await assertSucceeds(getDoc(doc(asUser(STRANGER), postPath)))
+      await assertFails(getDoc(doc(asGuest(), postPath)))
+    })
+
+    it('never appears on Discover', async () => {
+      await seedPost({ visibility: 'link' })
+      const snapshot = await getDocs(discoverQuery(asUser(STRANGER)))
+      expect(snapshot.docs).toEqual([])
+    })
+
+    it('cannot be scraped by listing the collection without a filter', async () => {
+      await seedPost({ visibility: 'link' })
+      await assertFails(
+        getDocs(query(collection(asUser(STRANGER), 'activityPosts'), limit(30))),
+      )
+    })
+
+    it('can be joined by someone who has the link', async () => {
+      await seedPost({ visibility: 'link' })
+      await assertSucceeds(
+        updateDoc(doc(asUser(STRANGER), postPath), { joinedIds: [STRANGER] }),
+      )
+    })
+  })
+
+  describe('a private invite from chat', () => {
+    it('can be created for a connected buddy', async () => {
+      await seedConnected()
+      await assertSucceeds(
+        setDoc(doc(asUser(GARY), postPath), post({ visibility: 'invite', invitedId: AINA })),
+      )
+    })
+
+    it('cannot be created for someone you are not connected with', async () => {
+      await assertFails(
+        setDoc(doc(asUser(GARY), postPath), post({ visibility: 'invite', invitedId: STRANGER })),
+      )
+      await assertFails(
+        setDoc(doc(asUser(GARY), postPath), post({ visibility: 'invite', invitedId: GARY })),
+      )
+    })
+
+    it('rejects an invitee on a post that is not an invite', async () => {
+      await assertFails(
+        setDoc(doc(asUser(GARY), postPath), post({ visibility: 'public', invitedId: AINA })),
+      )
+    })
+
+    it('is visible only to the two people it is between', async () => {
+      await seedPost({ visibility: 'invite', invitedId: AINA })
+      await assertSucceeds(getDoc(doc(asUser(GARY), postPath)))
+      await assertSucceeds(getDoc(doc(asUser(AINA), postPath)))
+      await assertFails(getDoc(doc(asUser(STRANGER), postPath)))
+      const snapshot = await getDocs(discoverQuery(asUser(STRANGER)))
+      expect(snapshot.docs).toEqual([])
+    })
+
+    it("shows up in the invitee's own invites query", async () => {
+      await seedPost({ visibility: 'invite', invitedId: AINA })
+      const snapshot = await getDocs(
+        query(
+          collection(asUser(AINA), 'activityPosts'),
+          where('invitedId', '==', AINA),
+          limit(100),
+        ),
+      )
+      expect(snapshot.docs.map((entry) => entry.id)).toEqual(['post_1'])
+      await assertFails(
+        getDocs(
+          query(
+            collection(asUser(STRANGER), 'activityPosts'),
+            where('invitedId', '==', AINA),
+            limit(100),
+          ),
+        ),
+      )
+    })
+
+    it('can be accepted only by the invited buddy', async () => {
+      await seedPost({ visibility: 'invite', invitedId: AINA })
+      await assertFails(
+        updateDoc(doc(asUser(STRANGER), postPath), { joinedIds: [STRANGER] }),
+      )
+      await assertSucceeds(updateDoc(doc(asUser(AINA), postPath), { joinedIds: [AINA] }))
+    })
+
+    it('never lets the author re-target or publish it', async () => {
+      await seedPost({ visibility: 'invite', invitedId: AINA })
+      const edit = {
+        venueName: 'Elsewhere',
+        startAt: inDays(3),
+        updatedAt: serverTimestamp(),
+      }
+      await assertSucceeds(updateDoc(doc(asUser(GARY), postPath), edit))
+      await assertFails(
+        updateDoc(doc(asUser(GARY), postPath), { ...edit, invitedId: STRANGER }),
+      )
+      await assertFails(
+        updateDoc(doc(asUser(GARY), postPath), { ...edit, visibility: 'public' }),
+      )
+    })
+  })
+})
+
+describe('group activities', () => {
+  const activityPath = (id = 'activity_1') => `groupActivities/${id}`
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+
+  const newActivity = (overrides: Record<string, unknown> = {}) => ({
+    id: 'activity_1',
+    organizerId: GARY,
+    sportId: 'badminton',
+    title: 'Saturday Badminton Meetup',
+    description: 'Casual doubles, all welcome.',
+    startAt: inDays(2),
+    endAt: null,
+    timeZone: 'Asia/Kuala_Lumpur',
+    areaId: 'subang-jaya',
+    venueName: 'KL Sports City',
+    budget: { min: 10, max: 20 },
+    preferredSkillLevel: 'any',
+    maxParticipants: 8,
+    participantIds: [],
+    createdAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  async function seedActivity(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), activityPath()), {
+        ...newActivity(overrides),
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  it('can be created by its organizer', async () => {
+    await assertSucceeds(setDoc(doc(asUser(GARY), activityPath()), newActivity()))
+  })
+
+  it('accepts an open-ended budget and no end time', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ budget: { min: 60, max: null } })),
+    )
+  })
+
+  it("cannot be created on somebody else's behalf", async () => {
+    await assertFails(setDoc(doc(asUser(AINA), activityPath()), newActivity()))
+    await assertFails(setDoc(doc(asGuest(), activityPath()), newActivity()))
+  })
+
+  it('rejects a session in the past or too far ahead', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ startAt: inDays(-1) })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ startAt: inDays(120) })),
+    )
+  })
+
+  it('rejects an end time before the start', async () => {
+    await assertFails(
+      setDoc(
+        doc(asUser(GARY), activityPath()),
+        newActivity({ startAt: inDays(2), endAt: inDays(1) }),
+      ),
+    )
+  })
+
+  it('rejects a participant cap outside 2..30', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ maxParticipants: 1 })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ maxParticipants: 31 })),
+    )
+  })
+
+  it('rejects malformed fields and extra keys', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ title: '' })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ venueName: '' })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath()), newActivity({ featured: true })),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), activityPath('other')), newActivity({ id: 'activity_1' })),
+    )
+  })
+
+  it('can be browsed by any signed-in member, never a guest', async () => {
+    await seedActivity()
+    const snapshot = await getDocs(
+      query(
+        collection(asUser(STRANGER), 'groupActivities'),
+        where('startAt', '>', new Date()),
+        orderBy('startAt', 'asc'),
+        limit(30),
+      ),
+    )
+    expect(snapshot.docs.map((entry) => entry.id)).toEqual(['activity_1'])
+    await assertFails(getDocs(collection(asGuest(), 'groupActivities')))
+  })
+
+  const edit = (overrides: Record<string, unknown> = {}) => ({
+    sportId: 'badminton',
+    title: 'Saturday Badminton Meetup (moved)',
+    description: 'Casual doubles, all welcome.',
+    startAt: inDays(3),
+    endAt: null,
+    timeZone: 'Asia/Kuala_Lumpur',
+    areaId: 'petaling-jaya',
+    venueName: 'Somewhere else',
+    budget: { min: 20, max: 40 },
+    preferredSkillLevel: 'any',
+    maxParticipants: 8,
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  it('can be edited by its organizer', async () => {
+    await seedActivity()
+    await assertSucceeds(updateDoc(doc(asUser(GARY), activityPath()), edit()))
+  })
+
+  it('cannot be edited by anyone else', async () => {
+    await seedActivity()
+    await assertFails(updateDoc(doc(asUser(AINA), activityPath()), edit()))
+    await assertFails(updateDoc(doc(asUser(STRANGER), activityPath()), edit()))
+  })
+
+  it('never lets an edit move identity, participants or break the create rules', async () => {
+    await seedActivity()
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ organizerId: AINA })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ createdAt: new Date(0) })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ startAt: inDays(-1) })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ participantIds: [AINA] })),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath()), edit({ updatedAt: new Date(0) })),
+    )
+  })
+
+  it('can be removed only by its organizer', async () => {
+    await seedActivity()
+    await assertFails(deleteDoc(doc(asUser(AINA), activityPath())))
+    await assertSucceeds(deleteDoc(doc(asUser(GARY), activityPath())))
+  })
+})
+
+describe('joining group activities', () => {
+  const activityPath = 'groupActivities/activity_1'
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+
+  async function seedActivity(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), activityPath), {
+        id: 'activity_1',
+        organizerId: GARY,
+        sportId: 'badminton',
+        title: 'Saturday Badminton Meetup',
+        description: 'Casual doubles, all welcome.',
+        startAt: inDays(2),
+        endAt: null,
+        timeZone: 'Asia/Kuala_Lumpur',
+        areaId: 'subang-jaya',
+        venueName: 'KL Sports City',
+        budget: { min: 10, max: 20 },
+        preferredSkillLevel: 'any',
+        maxParticipants: 2,
+        participantIds: [],
+        createdAt: new Date(),
+        ...overrides,
+      })
+    })
+  }
+
+  it('lets a member take a free spot', async () => {
+    await seedActivity()
+    await assertSucceeds(
+      updateDoc(doc(asUser(AINA), activityPath), { participantIds: [AINA] }),
+    )
+  })
+
+  it('is full once every spot is taken', async () => {
+    await seedActivity({ participantIds: [AINA], maxParticipants: 1 })
+    await assertFails(
+      updateDoc(doc(asUser(STRANGER), activityPath), { participantIds: [AINA, STRANGER] }),
+    )
+  })
+
+  it('never lets a member add someone else, or join their own activity', async () => {
+    await seedActivity()
+    await assertFails(
+      updateDoc(doc(asUser(AINA), activityPath), { participantIds: [STRANGER] }),
+    )
+    await assertFails(
+      updateDoc(doc(asUser(GARY), activityPath), { participantIds: [GARY] }),
+    )
+  })
+
+  it('cannot be joined once it has started', async () => {
+    await seedActivity({ startAt: inDays(-1) })
+    await assertFails(
+      updateDoc(doc(asUser(AINA), activityPath), { participantIds: [AINA] }),
+    )
+  })
+
+  it('lets a participant give up their own spot, even once started', async () => {
+    await seedActivity({ participantIds: [AINA], startAt: inDays(-1) })
+    await assertSucceeds(
+      updateDoc(doc(asUser(AINA), activityPath), { participantIds: [] }),
+    )
+  })
+
+  it('never lets anyone but that person remove them, except the organizer', async () => {
+    await seedActivity({ participantIds: [AINA] })
+    await assertFails(
+      updateDoc(doc(asUser(STRANGER), activityPath), { participantIds: [] }),
+    )
+    await assertSucceeds(
+      updateDoc(doc(asUser(GARY), activityPath), { participantIds: [] }),
+    )
+  })
+
+  it('can be found by organizer or participant queries', async () => {
+    await seedActivity({ participantIds: [AINA] })
+    const organizerSnapshot = await getDocs(
+      query(collection(asUser(GARY), 'groupActivities'), where('organizerId', '==', GARY)),
+    )
+    expect(organizerSnapshot.docs.map((entry) => entry.id)).toEqual(['activity_1'])
+
+    const participantSnapshot = await getDocs(
+      query(
+        collection(asUser(AINA), 'groupActivities'),
+        where('participantIds', 'array-contains', AINA),
+      ),
+    )
+    expect(participantSnapshot.docs.map((entry) => entry.id)).toEqual(['activity_1'])
+  })
+})
+
+describe('QR check-in codes', () => {
+  const activityPath = 'groupActivities/activity_1'
+  const codePath = `${activityPath}/checkIn/current`
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+
+  async function seedActivity(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), activityPath), {
+        id: 'activity_1',
+        organizerId: GARY,
+        sportId: 'badminton',
+        title: 'Saturday Badminton Meetup',
+        description: '',
+        startAt: inDays(-1),
+        endAt: null,
+        timeZone: 'Asia/Kuala_Lumpur',
+        areaId: 'subang-jaya',
+        venueName: 'KL Sports City',
+        budget: { min: 10, max: 20 },
+        preferredSkillLevel: 'any',
+        maxParticipants: 8,
+        participantIds: [AINA],
+        createdAt: new Date(),
+        ...overrides,
+      })
+    })
+  }
+
+  const code = (overrides: Record<string, unknown> = {}) => ({
+    organizerId: GARY,
+    code: 'ABCDEFGHJKLMNPQRSTUVWXYZ',
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  it('can be created and read only by the organizer', async () => {
+    await seedActivity()
+    await assertSucceeds(setDoc(doc(asUser(GARY), codePath), code()))
+    await assertSucceeds(getDoc(doc(asUser(GARY), codePath)))
+    await assertFails(getDoc(doc(asUser(AINA), codePath)))
+    await assertFails(getDoc(doc(asUser(STRANGER), codePath)))
+  })
+
+  it('cannot be created by anyone but the organizer', async () => {
+    await seedActivity()
+    await assertFails(setDoc(doc(asUser(AINA), codePath), code({ organizerId: AINA })))
+  })
+
+  it('can be regenerated by the organizer, invalidating the old code', async () => {
+    await seedActivity()
+    await assertSucceeds(setDoc(doc(asUser(GARY), codePath), code()))
+    await assertSucceeds(
+      updateDoc(doc(asUser(GARY), codePath), code({ code: 'DIFFERENTCODE12345678' })),
+    )
+  })
+
+  it('rejects malformed fields and extra keys', async () => {
+    await seedActivity()
+    await assertFails(setDoc(doc(asUser(GARY), codePath), code({ code: '' })))
+    await assertFails(setDoc(doc(asUser(GARY), codePath), code({ extra: true })))
+  })
+
+  it('can never be listed', async () => {
+    await seedActivity()
+    await assertFails(getDocs(collection(asUser(GARY), `${activityPath}/checkIn`)))
+  })
+})
+
+describe('attendance records', () => {
+  const activityPath = 'groupActivities/activity_1'
+  const codePath = `${activityPath}/checkIn/current`
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+  const CODE = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const recordPath = (userId: string) => `attendanceRecords/activity_1__${userId}`
+
+  async function seedActivity(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), activityPath), {
+        id: 'activity_1',
+        organizerId: GARY,
+        sportId: 'badminton',
+        title: 'Saturday Badminton Meetup',
+        description: '',
+        startAt: inDays(-1),
+        endAt: null,
+        timeZone: 'Asia/Kuala_Lumpur',
+        areaId: 'subang-jaya',
+        venueName: 'KL Sports City',
+        budget: { min: 10, max: 20 },
+        preferredSkillLevel: 'any',
+        maxParticipants: 8,
+        participantIds: [AINA],
+        createdAt: new Date(),
+        ...overrides,
+      })
+      await setDoc(doc(modular(context), codePath), {
+        organizerId: GARY,
+        code: CODE,
+        updatedAt: new Date(),
+      })
+    })
+  }
+
+  const record = (userId: string, overrides: Record<string, unknown> = {}) => ({
+    id: `activity_1__${userId}`,
+    activityId: 'activity_1',
+    userId,
+    code: CODE,
+    checkedInAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  it('lets a participant check in with the current code', async () => {
+    await seedActivity()
+    await assertSucceeds(setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA)))
+  })
+
+  it('lets the organizer check themselves in too', async () => {
+    await seedActivity()
+    await assertSucceeds(setDoc(doc(asUser(GARY), recordPath(GARY)), record(GARY)))
+  })
+
+  it('refuses a stranger who was never joined', async () => {
+    await seedActivity()
+    await assertFails(setDoc(doc(asUser(STRANGER), recordPath(STRANGER)), record(STRANGER)))
+  })
+
+  it('refuses the wrong code', async () => {
+    await seedActivity()
+    await assertFails(
+      setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA, { code: 'WRONGCODE' })),
+    )
+  })
+
+  it('refuses checking in before the activity has started', async () => {
+    await seedActivity({ startAt: inDays(1) })
+    await assertFails(setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA)))
+  })
+
+  it('never lets a member record someone else\'s check-in', async () => {
+    await seedActivity()
+    await assertFails(setDoc(doc(asUser(AINA), recordPath(GARY)), record(GARY, { userId: AINA })))
+  })
+
+  it('is immutable once created', async () => {
+    await seedActivity()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), recordPath(AINA)), record(AINA))
+    })
+    await assertFails(
+      updateDoc(doc(asUser(AINA), recordPath(AINA)), { checkedInAt: serverTimestamp() }),
+    )
+    await assertFails(deleteDoc(doc(asUser(AINA), recordPath(AINA))))
+    await assertFails(deleteDoc(doc(asUser(GARY), recordPath(AINA))))
+  })
+
+  it('can be read by the attendee or the organizer, never a stranger', async () => {
+    await seedActivity()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), recordPath(AINA)), record(AINA))
+    })
+    await assertSucceeds(getDoc(doc(asUser(AINA), recordPath(AINA))))
+    await assertSucceeds(getDoc(doc(asUser(GARY), recordPath(AINA))))
+    await assertFails(getDoc(doc(asUser(STRANGER), recordPath(AINA))))
+  })
+
+  it('can be queried by the owner for their Reliability Profile', async () => {
+    await seedActivity()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), recordPath(AINA)), record(AINA))
+    })
+    const snapshot = await getDocs(
+      query(collection(asUser(AINA), 'attendanceRecords'), where('userId', '==', AINA)),
+    )
+    expect(snapshot.docs.map((entry) => entry.id)).toEqual(['activity_1__aina'])
+    await assertFails(
+      getDocs(query(collection(asUser(STRANGER), 'attendanceRecords'), where('userId', '==', AINA))),
+    )
+  })
+
+  it('can be queried by the organizer for the activity attendee list', async () => {
+    await seedActivity()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), recordPath(AINA)), record(AINA))
+    })
+    const snapshot = await getDocs(
+      query(collection(asUser(GARY), 'attendanceRecords'), where('activityId', '==', 'activity_1')),
+    )
+    expect(snapshot.docs.map((entry) => entry.id)).toEqual(['activity_1__aina'])
   })
 })
