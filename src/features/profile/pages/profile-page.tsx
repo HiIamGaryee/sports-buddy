@@ -9,6 +9,7 @@ import { AppHeader } from '@/components/layout/app-header'
 import { SectionHeader } from '@/components/common/section-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { ProfileSummary } from '@/components/profile/profile-summary'
+import { SocialLinks } from '@/components/profile/social-links'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -156,6 +157,15 @@ export function ProfilePage() {
                   label="Gender"
                   value={profile.gender ? <GenderLabel gender={profile.gender} /> : 'Not set'}
                 />
+                {(profile.instagramUsername || profile.linkedinUsername) && (
+                  <>
+                    <Separator />
+                    <SocialLinks
+                      instagramUsername={profile.instagramUsername}
+                      linkedinUsername={profile.linkedinUsername}
+                    />
+                  </>
+                )}
                 <Separator />
                 <div className="flex gap-3">
                   <Button

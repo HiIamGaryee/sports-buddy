@@ -30,6 +30,8 @@ export interface ProfileDraft {
   displayName: string
   gender: Gender | null
   bio: string
+  instagramUsername: string
+  linkedinUsername: string
   sports: DraftSport[]
   intents: SportsIntent[]
   preferredIntensity: ActivityIntensity | null
@@ -51,11 +53,15 @@ export type ProfileDraftAction =
   | { type: 'set-radius'; radiusKm: number }
   | { type: 'set-budget'; budget: BudgetPreference }
   | { type: 'set-bio'; value: string }
+  | { type: 'set-instagram-username'; value: string }
+  | { type: 'set-linkedin-username'; value: string }
 
 export const createDraft = (displayName: string, gender: Gender | null = null): ProfileDraft => ({
   displayName,
   gender,
   bio: '',
+  instagramUsername: '',
+  linkedinUsername: '',
   sports: [],
   intents: [],
   preferredIntensity: null,
@@ -141,6 +147,10 @@ export function profileDraftReducer(
       return { ...state, budget: action.budget }
     case 'set-bio':
       return { ...state, bio: action.value }
+    case 'set-instagram-username':
+      return { ...state, instagramUsername: action.value }
+    case 'set-linkedin-username':
+      return { ...state, linkedinUsername: action.value }
   }
 }
 
@@ -153,6 +163,8 @@ export function toSaveInput(
     displayName: draft.displayName,
     ...(options.includeGender === false ? {} : { gender: draft.gender }),
     bio: draft.bio,
+    instagramUsername: draft.instagramUsername,
+    linkedinUsername: draft.linkedinUsername,
     sports: draft.sports.flatMap((sport) =>
       sport.skillLevel
         ? [{ sportId: sport.sportId, skillLevel: sport.skillLevel }]
@@ -172,6 +184,8 @@ export const profileToDraft = (profile: SportsProfile): ProfileDraft => ({
   displayName: profile.displayName,
   gender: profile.gender,
   bio: profile.bio,
+  instagramUsername: profile.instagramUsername ?? '',
+  linkedinUsername: profile.linkedinUsername ?? '',
   sports: profile.sports.map((sport) => ({ ...sport })),
   intents: [...profile.intents],
   preferredIntensity: profile.preferredIntensity,

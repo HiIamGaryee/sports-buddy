@@ -99,6 +99,38 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
           value={draft.bio}
           onChange={(value) => dispatch({ type: 'set-bio', value })}
         />
+        <FormField
+          id="edit-instagram-username"
+          label="Instagram username"
+          optional
+          hint="Username only, without the full link"
+        >
+          <Input
+            id="edit-instagram-username"
+            value={draft.instagramUsername}
+            placeholder="yourusername"
+            autoComplete="off"
+            onChange={(event) =>
+              dispatch({ type: 'set-instagram-username', value: event.target.value })
+            }
+          />
+        </FormField>
+        <FormField
+          id="edit-linkedin-username"
+          label="LinkedIn username"
+          optional
+          hint="Username only, without the full link"
+        >
+          <Input
+            id="edit-linkedin-username"
+            value={draft.linkedinUsername}
+            placeholder="your-username"
+            autoComplete="off"
+            onChange={(event) =>
+              dispatch({ type: 'set-linkedin-username', value: event.target.value })
+            }
+          />
+        </FormField>
         <div className="flex flex-col gap-1.5">
           <span className="text-label text-foreground">Gender</span>
           <span className="text-body text-foreground">{formatGender(profile.gender) || 'Not set'}</span>

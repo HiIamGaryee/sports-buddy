@@ -140,11 +140,13 @@
   --share-card-surface: #15171a;
   --share-card-foreground: #f7f8fa;
   --share-card-muted: #9aa0a6;
+  --share-card-dark-foreground: #111318;
+  --share-card-dark-muted: #626b78;
   --share-card-accent: #c4ff3d;
   --share-card-accent-end: #a9ea2f;
   /* Scrim drawn over a user photo so the text stays readable on any image. */
-  --share-card-photo-scrim-start: rgba(11, 12, 16, 0.15);
-  --share-card-photo-scrim-end: rgba(11, 12, 16, 0.92);
+  --share-card-background-scrim-start: rgba(11, 12, 16, 0.15);
+  --share-card-background-scrim-end: rgba(11, 12, 16, 0.92);
 }
 
 /* ---------------------------------------------------------------- DARK (primary identity) */

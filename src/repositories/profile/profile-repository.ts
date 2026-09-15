@@ -27,6 +27,8 @@ export interface ProfileRepository {
 
 export const EMPTY_PROFILE_FIELDS: SportsProfileFields = {
   bio: '',
+  instagramUsername: '',
+  linkedinUsername: '',
   sports: [],
   intents: [],
   preferredIntensity: null,

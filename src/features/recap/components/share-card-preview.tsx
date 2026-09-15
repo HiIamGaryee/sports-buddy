@@ -1,6 +1,7 @@
-import { Download, ImagePlus, Loader2, Share2, X } from 'lucide-react'
+import { Download, Loader2, Share2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import recapBackground from '@/assets/cta-v1.jpeg'
 import { Button } from '@/components/ui/button'
 import { SegmentedToggle } from '@/components/ui/segmented-toggle'
 import { buildRecapFilename } from '@/lib/filename'
@@ -8,25 +9,17 @@ import {
   canvasToPngBlob,
   drawRecapShareCard,
   SHARE_CARD_HEIGHT,
+  SHARE_CARD_BACKGROUNDS,
+  SHARE_CARD_TEXT_COLORS,
   SHARE_CARD_STYLES,
   SHARE_CARD_WIDTH,
-  type PhotoPosition,
+  type ShareCardBackground,
   type ShareCardStyle,
+  type ShareCardTextColor,
 } from '@/lib/recap-share-card'
-import {
-  getPhotoErrorMessage,
-  getPhotoRejection,
-  PHOTO_ACCEPT_ATTRIBUTE,
-} from '@/lib/share-photo'
 import type { MonthlyExerciseRecap } from '@/types/exercise'
 
 const EXPORT_FAILED = "We couldn't create your recap image. Please try again."
-
-const POSITION_OPTIONS = [
-  { label: 'Top', value: 'top' },
-  { label: 'Centre', value: 'center' },
-  { label: 'Bottom', value: 'bottom' },
-] as const satisfies readonly { label: string; value: PhotoPosition }[]
 
 /**
  * Preview and export of the recap share card.
@@ -43,31 +36,20 @@ export function ShareCardPreview({
   displayName: string | null
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [style, setStyle] = useState<ShareCardStyle>('classic')
-  const [photo, setPhoto] = useState<HTMLImageElement | null>(null)
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
-  const [photoPosition, setPhotoPosition] = useState<PhotoPosition>('center')
+  const [background, setBackground] = useState<ShareCardBackground>('default')
+  const [textColor, setTextColor] = useState<ShareCardTextColor>('light')
+  const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [error, setError] = useState('')
-  // Derived once at mount rather than in an effect: `navigator.share` exists
-  // on desktops that cannot actually share a file, so the file itself is probed.
-  const [canShareFiles] = useState(() => {
-    if (typeof navigator === 'undefined' || typeof navigator.canShare !== 'function') {
-      return false
-    }
-    const probe = new File([new Blob()], 'probe.png', { type: 'image/png' })
-    return navigator.canShare({ files: [probe] })
-  })
+  const [shareMessage, setShareMessage] = useState('')
 
-  // The object URL is the only trace the photo leaves. Revoked whenever it is
-  // replaced and on unmount, so nothing is retained after the dialog closes.
-  useEffect(
-    () => () => {
-      if (photoUrl) URL.revokeObjectURL(photoUrl)
-    },
-    [photoUrl],
-  )
+  useEffect(() => {
+    const image = new Image()
+    image.onload = () => setBackgroundImage(image)
+    image.onerror = () => setError(EXPORT_FAILED)
+    image.src = recapBackground
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -76,49 +58,15 @@ export function ShareCardPreview({
       drawRecapShareCard(canvas, {
         recap,
         style,
+        background,
+        textColor,
         displayName,
-        photo,
-        photoPosition,
+        backgroundImage,
       })
     } catch {
       setError(EXPORT_FAILED)
     }
-  }, [recap, style, displayName, photo, photoPosition])
-
-  const choosePhoto = useCallback((file: File | null) => {
-    const rejection = getPhotoRejection(file)
-    if (rejection || !file) {
-      setError(getPhotoErrorMessage(rejection ?? 'empty'))
-      return
-    }
-
-    const url = URL.createObjectURL(file)
-    const image = new Image()
-    image.onload = () => {
-      setError('')
-      setPhotoUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous)
-        return url
-      })
-      setPhoto(image)
-      setStyle('photo')
-    }
-    image.onerror = () => {
-      URL.revokeObjectURL(url)
-      setError(getPhotoErrorMessage('empty'))
-    }
-    image.src = url
-  }, [])
-
-  const clearPhoto = useCallback(() => {
-    setPhoto(null)
-    setStyle('classic')
-    setPhotoUrl((previous) => {
-      if (previous) URL.revokeObjectURL(previous)
-      return null
-    })
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }, [])
+  }, [recap, style, background, textColor, displayName, backgroundImage])
 
   const withExport = useCallback(
     async (handle: (blob: Blob, filename: string) => Promise<void> | void) => {
@@ -126,6 +74,7 @@ export function ShareCardPreview({
       if (!canvas || isExporting) return
       setIsExporting(true)
       setError('')
+      setShareMessage('')
       try {
         const blob = await canvasToPngBlob(canvas)
         await handle(blob, buildRecapFilename(recap.label))
@@ -138,26 +87,42 @@ export function ShareCardPreview({
     [isExporting, recap.label],
   )
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const download = () =>
     void withExport((blob, filename) => {
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      link.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, filename)
     })
 
   const share = () =>
     void withExport(async (blob, filename) => {
       const file = new File([blob], filename, { type: 'image/png' })
-      if (!navigator.canShare?.({ files: [file] })) return
+      if (!navigator.share || !navigator.canShare?.({ files: [file] })) {
+        downloadBlob(blob, filename)
+        setShareMessage('Image downloaded — share it to Instagram Stories from your Photos.')
+        return
+      }
       try {
-        await navigator.share({ files: [file], title: `${recap.label} recap` })
-      } catch {
-        // A cancelled share sheet is a choice, not a failure.
+        await navigator.share({
+          files: [file],
+          title: `My Sports Buddy ${recap.label} Recap`,
+          text: `My ${recap.label} recap on Sports Buddy`,
+        })
+      } catch (shareError) {
+        if (shareError instanceof DOMException && shareError.name === 'AbortError') return
+        downloadBlob(blob, filename)
+        setShareMessage('Image downloaded — share it to Instagram Stories from your Photos.')
       }
     })
+
+  const isCanvasReady = background === 'transparent' || backgroundImage !== null
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
@@ -183,59 +148,38 @@ export function ShareCardPreview({
               label,
             }))}
             value={style}
-            onChange={(next) => {
-              if (next === 'photo' && !photo) {
-                fileInputRef.current?.click()
-                return
-              }
-              setStyle(next)
-            }}
+            onChange={setStyle}
           />
         </div>
 
-        {photo && (
+        <div className="flex flex-col gap-2">
+          <span className="text-caption text-muted-foreground uppercase">Background</span>
+          <SegmentedToggle
+            options={SHARE_CARD_BACKGROUNDS.map(({ id, label }) => ({
+              value: id,
+              label,
+            }))}
+            value={background}
+            onChange={setBackground}
+          />
+        </div>
+
+        {background === 'transparent' && (
           <div className="flex flex-col gap-2">
-            <span className="text-caption text-muted-foreground uppercase">
-              Photo position
-            </span>
+            <span className="text-caption text-muted-foreground uppercase">Text color</span>
             <SegmentedToggle
-              options={POSITION_OPTIONS}
-              value={photoPosition}
-              onChange={setPhotoPosition}
+              options={SHARE_CARD_TEXT_COLORS.map(({ id, label }) => ({
+                value: id,
+                label,
+              }))}
+              value={textColor}
+              onChange={setTextColor}
             />
           </div>
         )}
 
         <div className="flex flex-col gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={PHOTO_ACCEPT_ATTRIBUTE}
-            className="sr-only"
-            aria-label="Choose a background photo"
-            onChange={(event) => choosePhoto(event.target.files?.[0] ?? null)}
-          />
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full"
-          >
-            <ImagePlus className="size-4" />
-            {photo ? 'Change photo' : 'Choose photo'}
-          </Button>
-          {photo && (
-            <Button variant="ghost" onClick={clearPhoto} className="w-full">
-              <X className="size-4" />
-              Remove photo
-            </Button>
-          )}
-          <p className="text-caption text-muted-foreground">
-            Your photo stays on this device. It is never uploaded.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Button size="lg" onClick={download} disabled={isExporting} className="w-full">
+          <Button size="lg" onClick={download} disabled={isExporting || !isCanvasReady} className="w-full">
             {isExporting ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
@@ -243,23 +187,24 @@ export function ShareCardPreview({
             )}
             {isExporting ? 'Preparing image…' : 'Download image'}
           </Button>
-          {canShareFiles && (
-            <Button
-              variant="outline"
-              onClick={share}
-              disabled={isExporting}
-              className="w-full"
-            >
-              <Share2 className="size-4" />
-              Share
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            onClick={share}
+            disabled={isExporting || !isCanvasReady}
+            className="w-full"
+          >
+            <Share2 className="size-4" />
+            Share
+          </Button>
         </div>
 
         {error && (
           <p role="alert" className="text-body-small text-destructive">
             {error}
           </p>
+        )}
+        {shareMessage && !error && (
+          <p className="text-caption text-muted-foreground">{shareMessage}</p>
         )}
       </div>
     </div>

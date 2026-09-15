@@ -8,6 +8,7 @@ import {
   isRadiusKm,
   isValidAvailability,
   isValidBudget,
+  isValidSocialUsername,
   isValidIntents,
   isValidSports,
   isValidSportSelection,
@@ -102,6 +103,12 @@ export const profileRules = {
       ? 'Your bio contains characters we can\u2019t save.'
       : undefined
   },
+
+  instagramUsername: (username: string | undefined) =>
+    isValidSocialUsername(username ?? '') ? undefined : 'Enter a valid Instagram username.',
+
+  linkedinUsername: (username: string | undefined) =>
+    isValidSocialUsername(username ?? '') ? undefined : 'Enter a valid LinkedIn username.',
 } as const
 
 /** First blocking problem, or `undefined` when the profile is complete. */
@@ -116,6 +123,8 @@ export function validateProfileInput(input: SaveProfileInput) {
     profileRules.area(input.area) ??
     profileRules.radius(input.radiusKm) ??
     profileRules.budget(input.budget) ??
+    profileRules.instagramUsername(input.instagramUsername) ??
+    profileRules.linkedinUsername(input.linkedinUsername) ??
     profileRules.bio(input.bio)
   )
 }

@@ -22,7 +22,7 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
 
   if (isLoading) {
     return (
-      <Card variant="subtle">
+      <Card className="sm:[--card-spacing:--spacing(6)] lg:[--card-spacing:--spacing(8)]">
         <CardContent className="flex flex-col gap-4">
           <Skeleton className="h-3 w-32" />
           <Skeleton className="h-10 w-48" />
@@ -41,9 +41,10 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
 
   if (recap.totalSessions === 0) {
     return (
-      <Card variant="subtle">
+      <Card className="relative overflow-hidden sm:[--card-spacing:--spacing(6)] lg:[--card-spacing:--spacing(8)]">
+        <div aria-hidden="true" className="absolute left-0 top-0 h-1 w-24 bg-primary-gradient" />
         <CardContent className="flex flex-col gap-3">
-          <span className="text-caption text-muted-foreground uppercase">
+          <span className="text-caption tracking-wide text-primary uppercase">
             {month} recap
           </span>
           <span className="text-heading-2 text-card-foreground">
@@ -62,13 +63,14 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
 
   return (
     <>
-      <Card variant="subtle" className="overflow-hidden">
-        <CardContent className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-          <div className="flex min-w-0 flex-col gap-3">
-            <span className="text-caption text-primary uppercase">
+      <Card className="relative overflow-hidden sm:[--card-spacing:--spacing(6)] lg:[--card-spacing:--spacing(8)]">
+        <div aria-hidden="true" className="absolute left-0 top-0 h-1 w-24 bg-primary-gradient" />
+        <CardContent className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between md:gap-8">
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            <span className="text-caption tracking-wide text-primary uppercase">
               {month} recap
             </span>
-            <span className="text-display text-card-foreground">
+            <span className="text-heading-1 leading-none text-card-foreground sm:text-display md:text-[2.5rem]">
               {recap.totalSessions} {recap.totalSessions === 1 ? 'session' : 'sessions'}.
             </span>
             {recap.topSport && (
@@ -76,11 +78,11 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
                 Your most active sport was {recap.topSport.label}.
               </p>
             )}
-            <ul className="flex flex-wrap gap-x-4 gap-y-1">
+            <ul className="flex flex-wrap gap-x-5 gap-y-1">
               {recap.sports.slice(0, MAX_SPORTS_TEASED).map((sport) => (
-                <li key={sport.label} className="text-body-small text-muted-foreground">
-                  {sport.label}{' '}
-                  <span className="text-card-foreground">{sport.sessions}</span>
+                <li key={sport.label} className="inline-flex items-baseline gap-1.5 text-body-small text-muted-foreground">
+                  <span>{sport.label}</span>
+                  <span className="font-semibold text-card-foreground">{sport.sessions}</span>
                 </li>
               ))}
             </ul>
@@ -89,7 +91,7 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
           <Button
             size="lg"
             onClick={() => setIsOpen(true)}
-            className="w-full shrink-0 sm:w-auto"
+            className="w-full shrink-0 rounded-[1.25rem] px-8 font-semibold shadow-sm md:w-auto"
           >
             View &amp; share
           </Button>

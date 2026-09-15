@@ -40,12 +40,12 @@ export function MonthlyRecapDialog({
         onOpenChange(next)
       }}
     >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl lg:max-w-4xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl lg:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{recap.label} Recap</DialogTitle>
           <DialogDescription>
             {isSharing
-              ? 'Pick a style, add a photo if you like, then download your card.'
+              ? 'Pick a style and background, then download your card.'
               : 'Everything you did last month, from your activity history.'}
           </DialogDescription>
         </DialogHeader>

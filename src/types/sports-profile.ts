@@ -58,6 +58,8 @@ export interface BudgetPreference {
 /** The sports half of `users/{uid}` — everything onboarding collects. */
 export interface SportsProfileFields {
   bio: string
+  instagramUsername?: string
+  linkedinUsername?: string
   sports: UserSport[]
   intents: SportsIntent[]
   preferredIntensity: ActivityIntensity | null

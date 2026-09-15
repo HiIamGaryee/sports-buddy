@@ -42,6 +42,7 @@ import { isGender } from '@/types/gender'
 /** The longest a display name may be. Shared by the UI, the service and the rules. */
 export const MAX_DISPLAY_NAME_LENGTH = 40
 export const MIN_DISPLAY_NAME_LENGTH = 2
+export const MAX_SOCIAL_USERNAME_LENGTH = 64
 
 /** Caps that bound a single profile document's size. */
 export const MAX_INTENTS = SPORTS_INTENTS.length
@@ -60,6 +61,17 @@ const INTENSITY_IDS = ids(ACTIVITY_INTENSITIES)
 const AREA_IDS = ids(AREAS)
 const DAY_IDS = ids(WEEK_DAYS)
 const PERIOD_IDS = ids(DAY_PERIODS)
+
+const SOCIAL_USERNAME_PATTERN = /^[A-Za-z0-9._-]{1,64}$/
+
+export const normalizeSocialUsername = (value: unknown): string =>
+  normalizeSingleLine(typeof value === 'string' ? value : '').replace(/^@/, '')
+
+export const isValidSocialUsername = (value: unknown): value is string =>
+  value === '' ||
+  (typeof value === 'string' &&
+    value.length <= MAX_SOCIAL_USERNAME_LENGTH &&
+    SOCIAL_USERNAME_PATTERN.test(value))
 
 export const isSportId = (value: unknown): value is SportId =>
   typeof value === 'string' && SPORT_IDS.has(value)
@@ -189,6 +201,8 @@ export function toSafeProfileInput(input: SaveProfileInput): SaveProfileInput {
     // user is told rather than quietly having their text cut.
     displayName: normalizeSingleLine(input.displayName ?? ''),
     bio: normalizeMultiLine(input.bio ?? ''),
+    instagramUsername: normalizeSocialUsername(input.instagramUsername),
+    linkedinUsername: normalizeSocialUsername(input.linkedinUsername),
     sports: (input.sports ?? []).filter(
       (sport) => isSportId(sport.sportId) && sport.skillLevel !== undefined,
     ),

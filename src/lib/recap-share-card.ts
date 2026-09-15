@@ -19,19 +19,31 @@ export const SHARE_CARD_HEIGHT = 1350
 export const SHARE_CARD_STYLES = [
   { id: 'classic', label: 'Classic' },
   { id: 'minimal', label: 'Minimal' },
-  { id: 'photo', label: 'Photo' },
 ] as const
 
 export type ShareCardStyle = (typeof SHARE_CARD_STYLES)[number]['id']
 
-export type PhotoPosition = 'top' | 'center' | 'bottom'
+export const SHARE_CARD_BACKGROUNDS = [
+  { id: 'default', label: 'Default' },
+  { id: 'transparent', label: 'Transparent' },
+] as const
+
+export type ShareCardBackground = (typeof SHARE_CARD_BACKGROUNDS)[number]['id']
+
+export const SHARE_CARD_TEXT_COLORS = [
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+] as const
+
+export type ShareCardTextColor = (typeof SHARE_CARD_TEXT_COLORS)[number]['id']
 
 export interface ShareCardInput {
   recap: MonthlyExerciseRecap
   style: ShareCardStyle
+  background: ShareCardBackground
+  textColor: ShareCardTextColor
   displayName: string | null
-  photo: HTMLImageElement | null
-  photoPosition: PhotoPosition
+  backgroundImage: HTMLImageElement | null
 }
 
 /** The fixed export palette. Read once per draw from the document's tokens. */
@@ -41,6 +53,8 @@ function readPalette() {
     surface: '#15171a',
     foreground: '#f7f8fa',
     muted: '#9aa0a6',
+    darkForeground: '#111318',
+    darkMuted: '#626b78',
     accent: '#c4ff3d',
     accentEnd: '#a9ea2f',
     scrimStart: 'rgba(11, 12, 16, 0.15)',
@@ -57,10 +71,12 @@ function readPalette() {
     surface: token('--share-card-surface', fallback.surface),
     foreground: token('--share-card-foreground', fallback.foreground),
     muted: token('--share-card-muted', fallback.muted),
+    darkForeground: token('--share-card-dark-foreground', '#111318'),
+    darkMuted: token('--share-card-dark-muted', '#626b78'),
     accent: token('--share-card-accent', fallback.accent),
     accentEnd: token('--share-card-accent-end', fallback.accentEnd),
-    scrimStart: token('--share-card-photo-scrim-start', fallback.scrimStart),
-    scrimEnd: token('--share-card-photo-scrim-end', fallback.scrimEnd),
+    scrimStart: token('--share-card-background-scrim-start', fallback.scrimStart),
+    scrimEnd: token('--share-card-background-scrim-end', fallback.scrimEnd),
   }
 }
 
@@ -84,26 +100,23 @@ function setType(
 }
 
 /**
- * `object-fit: cover` for canvas: fills the card without distorting the photo,
- * anchored top / centre / bottom so a face is not always cropped out.
+ * `object-fit: cover` for canvas: fills the card without distorting the
+ * selected background artwork, anchored at the centre.
  */
-function drawCoverPhoto(
+function drawCoverImage(
   context: CanvasRenderingContext2D,
-  photo: HTMLImageElement,
-  position: PhotoPosition,
+  image: HTMLImageElement,
 ) {
   const scale = Math.max(
-    SHARE_CARD_WIDTH / photo.naturalWidth,
-    SHARE_CARD_HEIGHT / photo.naturalHeight,
+    SHARE_CARD_WIDTH / image.naturalWidth,
+    SHARE_CARD_HEIGHT / image.naturalHeight,
   )
-  const width = photo.naturalWidth * scale
-  const height = photo.naturalHeight * scale
+  const width = image.naturalWidth * scale
+  const height = image.naturalHeight * scale
   const offsetX = (SHARE_CARD_WIDTH - width) / 2
-  const overflowY = SHARE_CARD_HEIGHT - height
-  const offsetY =
-    position === 'top' ? 0 : position === 'bottom' ? overflowY : overflowY / 2
+  const offsetY = (SHARE_CARD_HEIGHT - height) / 2
 
-  context.drawImage(photo, offsetX, offsetY, width, height)
+  context.drawImage(image, offsetX, offsetY, width, height)
 }
 
 function drawBackground(
@@ -111,24 +124,25 @@ function drawBackground(
   input: ShareCardInput,
   palette: ReturnType<typeof readPalette>,
 ) {
+  if (input.background === 'transparent') return
+
   context.fillStyle = palette.background
   context.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT)
 
-  if (input.style === 'photo' && input.photo) {
-    drawCoverPhoto(context, input.photo, input.photoPosition)
-    // Scrim, so the type stays legible over a bright or busy photo.
+  if (input.backgroundImage) {
+    drawCoverImage(context, input.backgroundImage)
+    // Scrim, so the type stays legible over the supplied background artwork.
     const scrim = context.createLinearGradient(0, 0, 0, SHARE_CARD_HEIGHT)
     scrim.addColorStop(0, palette.scrimStart)
     scrim.addColorStop(1, palette.scrimEnd)
     context.fillStyle = scrim
     context.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT)
-    return
   }
 
   if (input.style === 'minimal') return
 
-  // Classic: one soft accent wash in the lower third, the brand gradient used
-  // as an accent rather than wallpaper.
+  // Classic keeps its lower-third treatment, but it must remain translucent
+  // when artwork is present so it cannot visually cut the card in half.
   const wash = context.createLinearGradient(
     0,
     SHARE_CARD_HEIGHT * 0.45,
@@ -137,6 +151,7 @@ function drawBackground(
   )
   wash.addColorStop(0, palette.surface)
   wash.addColorStop(1, palette.background)
+  context.globalAlpha = input.backgroundImage ? 0.18 : 1
   context.fillStyle = wash
   context.fillRect(
     0,
@@ -144,6 +159,7 @@ function drawBackground(
     SHARE_CARD_WIDTH,
     SHARE_CARD_HEIGHT * 0.55,
   )
+  context.globalAlpha = 1
 }
 
 export function drawRecapShareCard(
@@ -157,6 +173,10 @@ export function drawRecapShareCard(
   canvas.height = SHARE_CARD_HEIGHT
 
   const palette = readPalette()
+  const textPalette =
+    input.background === 'transparent' && input.textColor === 'dark'
+      ? { ...palette, foreground: palette.darkForeground, muted: palette.darkMuted }
+      : palette
   const { recap } = input
   const margin = 96
 
@@ -172,7 +192,7 @@ export function drawRecapShareCard(
   context.fillText('SPORTS BUDDY', margin, margin + 34)
 
   setType(context, font(600, 44))
-  context.fillStyle = palette.foreground
+  context.fillStyle = textPalette.foreground
   const heading = input.displayName
     ? `${input.displayName}'s ${recap.label}`
     : recap.label
@@ -188,7 +208,7 @@ export function drawRecapShareCard(
   context.fillText(`${recap.totalSessions}`, margin, centreY)
 
   setType(context, font(700, 34, 8))
-  context.fillStyle = palette.foreground
+  context.fillStyle = textPalette.foreground
   context.fillText(
     recap.totalSessions === 1 ? 'SESSION' : 'SESSIONS',
     margin,
@@ -201,7 +221,7 @@ export function drawRecapShareCard(
 
   for (const sport of rows) {
     setType(context, font(500, 40))
-    context.fillStyle = palette.foreground
+    context.fillStyle = textPalette.foreground
     context.textAlign = 'left'
     context.fillText(truncate(context, sport.label, 620), margin, y)
 
@@ -214,7 +234,7 @@ export function drawRecapShareCard(
 
   context.textAlign = 'left'
   setType(context, font(500, 30, 3))
-  context.fillStyle = palette.muted
+  context.fillStyle = textPalette.muted
   context.fillText(buildFooter(recap), margin, SHARE_CARD_HEIGHT - margin)
 
   context.restore()

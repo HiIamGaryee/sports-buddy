@@ -30,6 +30,13 @@ service cloud.firestore {
         || data.gender in ['male', 'female'];
     }
 
+    function validSocialUsername(data, key) {
+      return !(key in data) || data[key] == null || data[key] == ''
+        || (data[key] is string
+          && data[key].size() <= 64
+          && data[key].matches('^[A-Za-z0-9._-]+$'));
+    }
+
     /**
      * True when `uid` is one of the participant segments encoded in a
      * deterministic pair-based document id — `a__b` for a connection, or
@@ -119,13 +126,16 @@ service cloud.firestore {
         return ['id', 'email', 'displayName', 'photoUrl', 'bio', 'sports',
                 'intents', 'preferredIntensity', 'availability', 'area',
                 'radiusKm', 'budget', 'preferences', 'onboardingCompleted',
-                'createdAt', 'updatedAt', 'gender'];
+                'createdAt', 'updatedAt', 'gender', 'instagramUsername',
+                'linkedinUsername'];
       }
 
       function wellFormedUser(data) {
         return data.keys().hasOnly(userFields())
           && boundedOptionalString(data, 'displayName', maxDisplayName())
           && boundedOptionalString(data, 'bio', maxBio())
+          && validSocialUsername(data, 'instagramUsername')
+          && validSocialUsername(data, 'linkedinUsername')
           && validGender(data)
           && (!('sports' in data) || data.sports.size() <= maxSports());
       }

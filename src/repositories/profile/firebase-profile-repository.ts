@@ -33,6 +33,9 @@ const toIsoString = (value: unknown): string =>
 const asString = (value: unknown, fallback = '') =>
   typeof value === 'string' ? value : fallback
 
+const asSocialUsername = (value: unknown) =>
+  typeof value === 'string' ? value : ''
+
 const asGender = (value: unknown): Gender | null =>
   value === 'male' || value === 'female' ? value : null
 
@@ -40,6 +43,8 @@ const asGender = (value: unknown): Gender | null =>
 function toSportsProfile(id: string, data: DocumentData): SportsProfile {
   const fields = {
     bio: asString(data.bio),
+    instagramUsername: asSocialUsername(data.instagramUsername),
+    linkedinUsername: asSocialUsername(data.linkedinUsername),
     sports: Array.isArray(data.sports) ? data.sports : [],
     intents: Array.isArray(data.intents) ? data.intents : [],
     preferredIntensity: data.preferredIntensity ?? null,
@@ -125,6 +130,8 @@ export const firebaseProfileRepository: ProfileRepository = {
       {
         displayName: input.displayName,
         bio: input.bio,
+        instagramUsername: input.instagramUsername ?? '',
+        linkedinUsername: input.linkedinUsername ?? '',
         sports: input.sports,
         intents: input.intents,
         preferredIntensity: input.preferredIntensity,
