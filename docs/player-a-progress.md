@@ -61,16 +61,16 @@ Nothing in Phase 4/5 below is a blocker for the Shipaton submission itself.
 
 ### QR check-in + Reliability Profile (new feature)
 
-- [x] Organizer shows a QR at the venue; each player scans it once (one
+- [x no try yet] Organizer shows a QR at the venue; each player scans it once (one
       photo, via the camera you already had installed — no new native plugin)
-- [x] Rotating secret code, regenerable any time a screenshot leaks
-- [x] Reliability card on Profile: "N Verified Sessions", "M% Show-up Rate"
+- [x no try yet] Rotating secret code, regenerable any time a screenshot leaks
+- [x no try] Reliability card on Profile: "N Verified Sessions", "M% Show-up Rate"
 
 ### Monthly recap (new feature)
 
-- [x] "Your September: Badminton ×3, Climbing ×2 — N verified sessions, M%
+- [x need test after qr] "Your September: Badminton ×3, Climbing ×2 — N verified sessions, M%
       show-up rate", computed live, free for everyone
-- [x] Shareable as an actual branded image card (Sports Buddy name on it),
+- [x need design the share card] Shareable as an actual branded image card (Sports Buddy name on it),
       not just a text link
 - [x] Month-by-month navigation from your Profile page
 
@@ -80,7 +80,7 @@ Nothing in Phase 4/5 below is a blocker for the Shipaton submission itself.
       the web build never fakes a purchase)
 - [x] Buddy+ entitlement read live from RevenueCat, never a database flag
 - [x] Paywall screen (`/buddy-plus`), linked from Settings
-- [x] Free/Buddy+ limits actually enforced in the app
+- [x need test in app] Free/Buddy+ limits actually enforced in the app
 
 ### Web hosting + sharing
 
