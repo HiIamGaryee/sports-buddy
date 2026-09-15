@@ -15,4 +15,5 @@ export interface DiscoverItem {
 
 export type ParticipantRule =
   | { mode: 'exact'; sizes: number[] }
+  | { mode: 'range'; min: number; max: number }
   | { mode: 'max'; min: number; max: number }

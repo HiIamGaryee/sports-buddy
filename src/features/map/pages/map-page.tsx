@@ -1,5 +1,5 @@
 import { MapPin, Navigation } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 
 import compassIllustration from '@/assets/svg/compas-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
@@ -12,12 +12,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SPORTS } from '@/constants/sports'
 import { VenueMap } from '@/features/map/components/venue-map'
-import {
-  resolveLocation,
-  searchSportsVenues,
-} from '@/services/openstreetmap/openstreetmap-service'
+import { useVenueMapSearch } from '@/features/map/use-venue-map-search'
 import type { SportId } from '@/types/sports-profile'
-import type { SportsVenue } from '@/types/sports-venue'
 
 const RADIUS_OPTIONS = [10, 50, 200] as const
 
@@ -28,15 +24,22 @@ function formatDistance(distanceKm: number) {
 }
 
 export function MapPage() {
-  const [location, setLocation] = useState('Puchong')
-  const [sportId, setSportId] = useState<SportId>('badminton')
-  const [radius, setRadius] = useState(10)
-  const [searchLocation, setSearchLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [venues, setVenues] = useState<SportsVenue[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [searchId, setSearchId] = useState(0)
-  const [status, setStatus] = useState<'idle' | 'loading' | 'searched' | 'error'>('idle')
-  const [error, setError] = useState('')
+  const {
+    location,
+    setLocation,
+    sportId,
+    setSportId,
+    radius,
+    setRadius,
+    searchLocation,
+    venues,
+    selectedId,
+    setSelectedId,
+    searchId,
+    status,
+    error,
+    search,
+  } = useVenueMapSearch()
   const resultRefs = useRef(new Map<string, HTMLButtonElement>())
 
   const selectVenue = (venueId: string) => {
@@ -44,34 +47,6 @@ export function MapPage() {
     resultRefs.current.get(venueId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }
 
-  const search = async () => {
-    setStatus('loading')
-    setError('')
-
-    try {
-      const resolvedLocation = await resolveLocation(location)
-      if (!resolvedLocation) {
-        setStatus('error')
-        setError('Location not found. Try a more specific area name.')
-        return
-      }
-
-      const foundVenues = await searchSportsVenues({
-        sportId,
-        locationQuery: location,
-        location: resolvedLocation,
-        radiusMeters: radius * 1_000,
-      })
-      setSearchLocation(resolvedLocation)
-      setVenues(foundVenues)
-      setSelectedId(null)
-      setSearchId((value) => value + 1)
-      setStatus('searched')
-    } catch {
-      setStatus('error')
-      setError('Could not load nearby venues. Please try again.')
-    }
-  }
 
   return (
     <>
