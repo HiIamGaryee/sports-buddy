@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useReducer, useState } from 'react'
 
 import { FormField } from '@/components/common/form-field'
@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { AREAS } from '@/constants/areas'
 import { SPORTS } from '@/constants/sports'
+import { useVenueMapSearch } from '@/features/map/use-venue-map-search'
 import { formatPlanDate } from '@/lib/plan-format'
 import type { ParticipantRule } from '@/types/discover-item'
 import type { SportId } from '@/types/sports-profile'
@@ -198,9 +199,7 @@ export function AddDiscoverDialog({
     const min = toNumber(draft.minPlayers)
     const max = toNumber(draft.maxPlayers)
     const selectedLocation = LOCATION_OPTIONS.find(({ value }) => value === draft.location)
-    const locationText = draft.location === CUSTOM_LOCATION
-      ? draft.customLocation.trim()
-      : selectedLocation?.label ?? ''
+    const locationText = draft.customLocation.trim() || (selectedLocation?.label ?? '')
 
     return {
       sportId: draft.sportId,
@@ -341,7 +340,85 @@ function BudgetStep({ draft, setField, error }: { draft: DiscoverDraftState; set
 }
 
 function LocationStep({ draft, setField, setLocation, error }: { draft: DiscoverDraftState; setField: (field: keyof DiscoverDraftState, value: string) => void; setLocation: (value: string) => void; error: string | null }) {
-  return <div className="flex flex-col gap-5"><AppDropdown label="Location" value={draft.location} onChange={setLocation} options={LOCATION_OPTIONS} error={draft.location ? undefined : error ?? undefined} placeholder="Select a location" />{draft.location === CUSTOM_LOCATION && <FormField id="discover-custom-location" label="Custom location" error={error ?? undefined} hint={`${draft.customLocation.length} / ${MAX_LOCATION_TEXT_LENGTH}`}><Input id="discover-custom-location" maxLength={MAX_LOCATION_TEXT_LENGTH} value={draft.customLocation} onChange={(event) => setField('customLocation', event.target.value)} placeholder="Enter venue or location..." autoComplete="street-address" /></FormField>}<p className="text-body-small text-muted-foreground">Choose an area or enter a custom venue where you&apos;d like to play.</p><FinalSummary draft={draft} /></div>
+  const { venues, status, error: searchError, search } = useVenueMapSearch({
+    initialLocation: draft.customLocation || 'Puchong',
+    initialSportId: draft.sportId,
+  })
+  const [selectedVenueId, setSelectedVenueId] = useState('')
+  const selectedArea = LOCATION_OPTIONS.find(({ value }) => value === draft.location)
+  const searchQuery = draft.customLocation.trim() || selectedArea?.label || ''
+
+  const selectVenue = (venueId: string) => {
+    const venue = venues.find(({ id }) => id === venueId)
+    setSelectedVenueId(venueId)
+    if (venue) setField('customLocation', venue.name)
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <AppDropdown
+        label="Location"
+        value={draft.location}
+        onChange={(value) => {
+          setLocation(value)
+          setSelectedVenueId('')
+        }}
+        options={LOCATION_OPTIONS}
+        error={draft.location ? undefined : error ?? undefined}
+        placeholder="Select a location"
+      />
+      {draft.location === CUSTOM_LOCATION && (
+        <FormField
+          id="discover-custom-location"
+          label="Custom location"
+          error={error ?? undefined}
+          hint={`${draft.customLocation.length} / ${MAX_LOCATION_TEXT_LENGTH}`}
+        >
+          <Input
+            id="discover-custom-location"
+            maxLength={MAX_LOCATION_TEXT_LENGTH}
+            value={draft.customLocation}
+            onChange={(event) => {
+              setField('customLocation', event.target.value)
+              setSelectedVenueId('')
+            }}
+            placeholder="Enter venue or location..."
+            autoComplete="street-address"
+          />
+        </FormField>
+      )}
+      {draft.location && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Search aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+            <span className="text-body-small text-muted-foreground">Search nearby venues on the map</span>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void search(searchQuery)}
+            disabled={!searchQuery || status === 'loading'}
+          >
+            {status === 'loading' ? 'Searching…' : 'Search nearby venues'}
+          </Button>
+        </div>
+      )}
+      {status === 'searched' && venues.length > 0 && (
+        <AppDropdown
+          label="Nearby venues"
+          value={selectedVenueId}
+          onChange={selectVenue}
+          options={venues.map(({ id, name, address }) => ({
+            value: id,
+            label: address ? `${name} · ${address}` : name,
+          }))}
+        />
+      )}
+      {searchError && <p role="alert" className="text-body-small text-muted-foreground">{searchError}</p>}
+      <p className="text-body-small text-muted-foreground">Choose an area, search nearby venues, or enter a custom location.</p>
+      <FinalSummary draft={draft} />
+    </div>
+  )
 }
 
 function SummaryLine({ draft }: { draft: DiscoverDraftState }) {
@@ -350,7 +427,7 @@ function SummaryLine({ draft }: { draft: DiscoverDraftState }) {
 }
 
 function FinalSummary({ draft }: { draft: DiscoverDraftState }) {
-  const location = draft.location === CUSTOM_LOCATION ? draft.customLocation : LOCATION_OPTIONS.find(({ value }) => value === draft.location)?.label
+  const location = draft.customLocation.trim() || LOCATION_OPTIONS.find(({ value }) => value === draft.location)?.label
   return <Card className="border-border bg-surface-subtle"><CardContent className="grid gap-2 p-4 text-body-small sm:grid-cols-2"><span className="text-title text-card-foreground sm:col-span-2">{sportName(draft.sportId)}</span><span>{draft.date ? formatPlanDate(draft.date) : 'Date not set'}</span><span>{draft.startAt && draft.endAt ? `${formatTime(draft.startAt)}–${formatTime(draft.endAt)}` : 'Time not set'}</span><span>{draft.minPlayers}–{draft.maxPlayers} players</span><span>RM{draft.budgetMin}–RM{draft.budgetMax} / person</span><span className="text-muted-foreground sm:col-span-2">{location?.trim() || 'Location not set'}</span></CardContent></Card>
 }
 
