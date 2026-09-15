@@ -37,11 +37,6 @@ export function AddDiscoverDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const [activity, setActivity] = useState(SPORTS[0]?.name ?? '')
-  const [location, setLocation] = useState('')
-  const [venue, setVenue] = useState('')
-  const [budget, setBudget] = useState('')
-  const [skillLevel, setSkillLevel] = useState('')
-  const [buddyType, setBuddyType] = useState('')
   const [mode, setMode] = useState<ParticipantRule['mode']>('exact')
   const [sizes, setSizes] = useState<number[]>([2])
   const [min, setMin] = useState('2')
@@ -97,13 +92,6 @@ export function AddDiscoverDialog({
               onChange={selectActivity}
               options={SPORTS.map(({ name }) => ({ value: name, label: name }))}
             />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1.5 text-body-small text-foreground">Location<Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="e.g. Puchong" /></label>
-              <label className="flex flex-col gap-1.5 text-body-small text-foreground">Venue or place<Input value={venue} onChange={(event) => setVenue(event.target.value)} placeholder="e.g. TPP5 Badminton Court" /></label>
-              <label className="flex flex-col gap-1.5 text-body-small text-foreground">Budget<Input value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="e.g. RM20–40 / activity" /></label>
-              <label className="flex flex-col gap-1.5 text-body-small text-foreground">Skill level<Input value={skillLevel} onChange={(event) => setSkillLevel(event.target.value)} placeholder="e.g. Casual" /></label>
-              <label className="flex flex-col gap-1.5 text-body-small text-foreground sm:col-span-2">Looking for<Input value={buddyType} onChange={(event) => setBuddyType(event.target.value)} placeholder="e.g. Casual sports buddy" /></label>
-            </div>
             <AppDropdown
               label="Group size rule"
               value={mode}
@@ -133,7 +121,7 @@ export function AddDiscoverDialog({
         )}
 
         <DialogFooter>
-          {saved ? <Button onClick={() => close(false)}>Done</Button> : <Button onClick={save} disabled={!location.trim() || !venue.trim() || (mode === 'exact' ? sizes.length === 0 : Number(min) < 1 || Number(max) < Number(min))}>Create discover</Button>}
+          {saved ? <Button onClick={() => close(false)}>Done</Button> : <Button onClick={save} disabled={mode === 'exact' ? sizes.length === 0 : Number(min) < 1 || Number(max) < Number(min)}>Create discover</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
