@@ -39,18 +39,20 @@
   .opportunity-card {
     overflow: hidden;
     min-height: 18rem;
-    border: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
+    border: 1px solid var(--opportunity-border);
     border-radius: 1.875rem;
-    background:
-      radial-gradient(circle at 8% 100%, color-mix(in oklch, var(--opportunity-gradient-glow) 44%, transparent), transparent 52%),
-      linear-gradient(112deg, color-mix(in oklch, var(--opportunity-gradient-start) 58%, var(--card)), color-mix(in oklch, var(--opportunity-gradient-mid) 48%, var(--card)) 48%, color-mix(in oklch, var(--opportunity-gradient-end) 54%, var(--card)));
+    background: var(--opportunity-surface);
     color: var(--opportunity-foreground);
+    /* Rebound for descendants, so `text-muted-foreground` and `text-primary`
+       stay legible on the pastel gradient without any component opting in. */
+    --muted-foreground: var(--opportunity-muted);
+    --primary: var(--opportunity-accent);
     box-shadow: var(--elevation-sm);
     transition: border-color var(--motion-base) var(--motion-ease), box-shadow var(--motion-base) var(--motion-ease), transform var(--motion-base) var(--motion-ease);
   }
 
   .opportunity-card:hover {
-    border-color: color-mix(in oklch, var(--primary) 45%, var(--border));
+    border-color: color-mix(in oklch, var(--primary) 45%, var(--opportunity-border));
     box-shadow: var(--elevation-hover);
     transform: translateY(-2px);
   }

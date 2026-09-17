@@ -72,11 +72,45 @@
   --destructive: #cc2a2e;
   --destructive-foreground: #ffffff;
 
-  --opportunity-gradient-start: #8d79b6;
-  --opportunity-gradient-mid: #8b8d79;
-  --opportunity-gradient-end: #b9dc5e;
-  --opportunity-gradient-glow: #cf9564;
-  --opportunity-foreground: #ffffff;
+  /*
+   * Disabled controls. Explicit surface/text/border instead of an opacity on
+   * the whole control: fading a button also fades whatever it inherited, which
+   * is how white-on-white disabled buttons happened on the pastel card. An
+   * inactive control should look inactive, not disappear.
+   */
+  --disabled: #e4e7ec;
+  --disabled-foreground: #5a6472;
+  --disabled-border: #d0d5dd;
+
+  /*
+   * The pastel Discover/activity card surface, as ONE token per theme.
+   *
+   * It used to be a single shared `color-mix(<stop>, var(--card))` expression
+   * in `index.css`. Against the dark `--card` that reads as the intended
+   * lavender → beige → lime; against the WHITE light-mode `--card` the same
+   * expression washed every stop out to near-white, and the foreground below
+   * was `#ffffff` in BOTH themes — so light mode rendered white text and
+   * white-surfaced buttons on an almost-white card. The stops are final
+   * values here, mixed with nothing.
+   */
+  --opportunity-surface: linear-gradient(
+    115deg,
+    #b9b5ce 0%,
+    #c2bdc0 32%,
+    #c8c5b6 58%,
+    #d5e0b8 100%
+  );
+  --opportunity-border: #c9b982;
+  --opportunity-foreground: #171717;
+  /*
+   * Secondary text and the leading icons, tuned for THIS surface. The page
+   * values (`--muted-foreground` #5b6270, `--primary` #8a5d00) only reach
+   * 3.1:1 and 2.9:1 against the lavender end of the gradient; these clear
+   * 4.5:1 at both ends. `.opportunity-card` rebinds the two semantic tokens,
+   * so no component has to know it is on a pastel card.
+   */
+  --opportunity-muted: #414753;
+  --opportunity-accent: #5e3f00;
   --message-button-bg: #e5bd58;
   --message-button-foreground: #15171a;
 
@@ -200,11 +234,28 @@
   --destructive: #ff5a5f;
   --destructive-foreground: #17191f;
 
-  --opportunity-gradient-start: #7663a0;
-  --opportunity-gradient-mid: #777b69;
-  --opportunity-gradient-end: #a8ca4e;
-  --opportunity-gradient-glow: #bd8056;
+  --disabled: #272b34;
+  --disabled-foreground: #8d96a6;
+  --disabled-border: #363b47;
+
+  /* Unchanged in dark: these are the values the old expression resolved to. */
+  --opportunity-surface:
+    radial-gradient(
+      circle at 8% 100%,
+      color-mix(in oklch, #bd8056 44%, transparent),
+      transparent 52%
+    ),
+    linear-gradient(
+      112deg,
+      color-mix(in oklch, #7663a0 58%, var(--card)),
+      color-mix(in oklch, #777b69 48%, var(--card)) 48%,
+      color-mix(in oklch, #a8ca4e 54%, var(--card))
+    );
+  --opportunity-border: color-mix(in oklch, var(--border) 75%, transparent);
   --opportunity-foreground: #ffffff;
+  /* Dark keeps the page values — they already clear 4.5:1 on the dark card. */
+  --opportunity-muted: #9ba1ae;
+  --opportunity-accent: #c4ff3d;
   --message-button-bg: #c4ff3d;
   --message-button-foreground: #0b0c10;
 
@@ -254,6 +305,9 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-disabled: var(--disabled);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-disabled-border: var(--disabled-border);
 
   --radius-xs: 0.375rem;
   --radius-sm: 0.625rem;
