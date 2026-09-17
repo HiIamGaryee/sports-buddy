@@ -22,10 +22,18 @@ import type { ActivityWithBuddy } from '@/types/activity'
 export function ActivityCard({
   item,
   now,
+  surface = 'card',
 }: {
   item: ActivityWithBuddy
   /** Injected so the card never reads the clock itself. */
   now: Date
+  /**
+   * `pastel` puts the card on the shared `.opportunity-card` gradient, so the
+   * one activity Home features reads as the same object as an activity post.
+   * The activities list keeps `card`, where the plain surface is what
+   * separates an upcoming session from a past one.
+   */
+  surface?: 'card' | 'pastel'
 }) {
   const { activity, buddyName } = item
   const { month, day } = formatDateBlock(activity.startAt)
@@ -37,10 +45,18 @@ export function ActivityCard({
       to={activityPath(activity.id)}
       aria-label={`${getSportName(activity.sportId)} with ${buddyName}, ${month} ${day}`}
       className={cn(
-        'flex gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition-ui hover:border-border-strong hover:shadow-hover focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-        // History is calmer, never disabled-looking: a past session is still
-        // a readable record you can open, not a dead row.
-        state === 'past' && 'bg-surface-subtle shadow-none',
+        'flex gap-4 transition-ui focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+        surface === 'pastel'
+          ? // `.opportunity-card`'s own 18rem floor is sized for Discover's
+            // much taller result cards; here it would leave half the card
+            // empty beside the recommendation it sits next to.
+            'opportunity-card min-h-52 p-6'
+          : [
+              'rounded-2xl border border-border bg-card p-4 shadow-sm hover:border-border-strong hover:shadow-hover',
+              // History is calmer, never disabled-looking: a past session is
+              // still a readable record you can open, not a dead row.
+              state === 'past' && 'bg-surface-subtle shadow-none',
+            ],
       )}
     >
       <div

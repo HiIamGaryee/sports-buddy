@@ -43,19 +43,26 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        'sticky top-0 z-30 px-gutter pt-safe-top',
+        'sticky top-0 z-30 pt-safe-top',
         transparent
           ? 'bg-transparent'
           : 'border-b border-border bg-surface-overlay backdrop-blur-xl',
       )}
     >
+      {/*
+       * The gutter belongs on the SAME box that carries the max width, exactly
+       * as `PageContainer` does it. With the padding on the outer `<header>`
+       * instead, the centred max-width box started 18px further left than the
+       * page body at any width where `max-w-wide` caps — so every page heading
+       * sat slightly left of its own content.
+       */}
       <div
         className={cn(
-          'mx-auto flex w-full items-start gap-3',
+          'mx-auto flex w-full items-start gap-3 px-gutter',
           SIZES[size],
         )}
       >
-        <div className="flex min-h-14 flex-1 items-center gap-2 py-3 md:min-h-16 md:py-5">
+        <div className="flex min-h-14 flex-1 items-center gap-2 py-3 md:min-h-16 md:py-6">
           {showBack && (
             <Button
               variant="ghost"
@@ -80,7 +87,7 @@ export function AppHeader({
           </div>
         </div>
         {action && (
-          <div className="flex items-center py-3 md:py-5">{action}</div>
+          <div className="flex items-center py-3 md:py-6">{action}</div>
         )}
       </div>
     </header>

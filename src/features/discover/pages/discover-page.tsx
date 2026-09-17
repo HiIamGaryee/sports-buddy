@@ -305,6 +305,7 @@ export function DiscoverPage() {
 
         {isEmpty && view === 'people' && (
           <EmptyState
+            size="compact"
             illustration={compassIllustration}
             title="No sports buddies found"
             description={
@@ -324,6 +325,7 @@ export function DiscoverPage() {
 
         {isEmpty && view === 'activities' && (
           <EmptyState
+            size="compact"
             illustration={compassIllustration}
             title={
               hasFilters
@@ -351,6 +353,7 @@ export function DiscoverPage() {
 
         {isEmpty && view === 'groups' && (
           <EmptyState
+            size="compact"
             illustration={compassIllustration}
             title={
               hasFilters

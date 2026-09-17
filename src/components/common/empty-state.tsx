@@ -14,6 +14,7 @@ export function EmptyState({
   description,
   action,
   role,
+  size = 'default',
   className,
 }: {
   icon?: LucideIcon
@@ -24,18 +25,30 @@ export function EmptyState({
   action?: React.ReactNode
   /** `"alert"` when the state reports a failure, so it is announced. */
   role?: 'alert'
+  /**
+   * `compact` for a SECONDARY empty state — one of several feeds on a page,
+   * rather than the whole screen being empty. Same content, roughly half the
+   * height, so an empty side feed cannot push the real results off-screen.
+   */
+  size?: 'default' | 'compact'
   className?: string
 }) {
   return (
     <div
       role={role}
       className={cn(
-        'flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-surface px-gutter py-10 text-center md:py-14',
+        'flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-surface px-gutter text-center',
+        size === 'compact' ? 'py-6' : 'py-10 md:py-14',
         className,
       )}
     >
       {illustration ? (
-        <span className="mb-1 grid size-20 place-items-center overflow-hidden rounded-2xl bg-surface-subtle p-3 md:size-24">
+        <span
+          className={cn(
+            'mb-1 grid place-items-center overflow-hidden rounded-2xl bg-surface-subtle p-3',
+            size === 'compact' ? 'size-12' : 'size-20 md:size-24',
+          )}
+        >
           <img src={illustration} alt="" aria-hidden className="size-full" />
         </span>
       ) : (
@@ -51,7 +64,7 @@ export function EmptyState({
           {description}
         </p>
       )}
-      {action && <div className="mt-3">{action}</div>}
+      {action && <div className={size === 'compact' ? 'mt-2' : 'mt-3'}>{action}</div>}
     </div>
   )
 }
