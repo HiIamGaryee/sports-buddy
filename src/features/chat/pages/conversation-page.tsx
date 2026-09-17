@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowDown } from 'lucide-react'
+import { ArrowDown, CalendarPlus } from 'lucide-react'
 
 import { ErrorState } from '@/components/common/error-state'
 import { isValidPairId } from '@/lib/ids'
@@ -14,7 +14,7 @@ import { useConversation } from '@/features/chat/use-conversation'
 import { SafetyActions } from '@/components/safety/safety-actions'
 import { useNavigate } from 'react-router-dom'
 import { formatDateSeparator, isSameDay } from '@/lib/chat-format'
-import { ROUTES } from '@/routes/routes'
+import { inviteActivityPath, ROUTES } from '@/routes/routes'
 
 const SKELETON_BUBBLES = [
   { key: 0, own: false, width: 'w-40' },
@@ -101,12 +101,24 @@ export function ConversationPage() {
       photoUrl={buddyPhotoUrl}
       action={
         conversation.buddyId && conversationId ? (
-          <SafetyActions
-            targetUserId={conversation.buddyId}
-            displayName={buddyName}
-            context={{ type: 'conversation', conversationId }}
-            onBlocked={() => navigate(ROUTES.messages)}
-          />
+          <div className="flex items-center gap-2">
+            {/* Decided to play after chatting? Set it up right here. */}
+            <Button size="sm" asChild>
+              <Link
+                to={inviteActivityPath(conversation.buddyId)}
+                aria-label={`Invite ${buddyName} to play`}
+              >
+                <CalendarPlus className="size-4" />
+                Invite
+              </Link>
+            </Button>
+            <SafetyActions
+              targetUserId={conversation.buddyId}
+              displayName={buddyName}
+              context={{ type: 'conversation', conversationId }}
+              onBlocked={() => navigate(ROUTES.messages)}
+            />
+          </div>
         ) : undefined
       }
       scrollRef={scrollRef}

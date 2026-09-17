@@ -1,7 +1,5 @@
 import { SectionHeader } from '@/components/common/section-header'
 import { ActivityCard } from '@/features/activities/components/activity-card'
-import { CompletedActivityCard } from '@/features/ratings/components/completed-activity-card'
-import { completedActivities } from '@/features/ratings/mock-ratings'
 import { groupActivitiesByMonth } from '@/lib/activity'
 import type { ActivityWithBuddy } from '@/types/activity'
 
@@ -20,11 +18,9 @@ import type { ActivityWithBuddy } from '@/types/activity'
 export function ActivityHistory({
   items,
   now,
-  reviewerId,
 }: {
   items: readonly ActivityWithBuddy[]
   now: Date
-  reviewerId: string
 }) {
   // Grouped by the underlying activity, then mapped back to the rows that
   // carry buddy details, so the pure helper never learns about profiles.
@@ -33,18 +29,6 @@ export function ActivityHistory({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-3">
-        <SectionHeader level="group" as="h3" title="Completed activities" />
-        <div className="grid-cards">
-          {completedActivities.map((activity) => (
-            <CompletedActivityCard
-              key={activity.id}
-              activity={activity}
-              reviewerId={reviewerId}
-            />
-          ))}
-        </div>
-      </section>
       {groups.map((group) => (
         <section key={group.key} className="flex flex-col gap-3">
           <SectionHeader level="group" as="h3" title={group.label} />

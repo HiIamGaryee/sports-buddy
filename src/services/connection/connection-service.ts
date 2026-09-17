@@ -52,8 +52,8 @@ export const connectionService = {
 
   /**
    * Only a pending request the caller sent can be cancelled. An incoming
-   * request is the other person's intent, and a connected relationship needs
-   * a deliberate disconnect flow that does not exist yet.
+   * request is the other person's intent, and a connected relationship ends
+   * through `disconnect`.
    */
   async cancelRequest(currentUserId: string, targetUserId: string) {
     if (currentUserId === targetUserId) {
@@ -67,6 +67,26 @@ export const connectionService = {
       await connectionRepository.cancelPending(currentUserId, targetUserId)
     } catch (error) {
       throw toConnectionError(error, CONNECTION_FALLBACK_MESSAGES.cancel)
+    }
+  },
+
+  /**
+   * Ends a connected relationship. Messaging and planning stop until both
+   * people connect again; the conversation history is kept, so reconnecting
+   * the same pair brings it back.
+   */
+  async disconnect(currentUserId: string, targetUserId: string) {
+    if (currentUserId === targetUserId) {
+      throw toConnectionError(
+        connectionError(CONNECTION_ERROR_CODES.self),
+        CONNECTION_FALLBACK_MESSAGES.disconnect,
+      )
+    }
+
+    try {
+      await connectionRepository.disconnect(currentUserId, targetUserId)
+    } catch (error) {
+      throw toConnectionError(error, CONNECTION_FALLBACK_MESSAGES.disconnect)
     }
   },
 }

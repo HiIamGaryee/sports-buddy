@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom'
 
 import { AppSplash } from '@/components/common/app-splash'
+import { peekReturnPath } from '@/routes/return-path'
 import { ROUTES } from '@/routes/routes'
 import { useRouteState } from '@/routes/use-route-state'
 
@@ -10,7 +11,10 @@ export function OnboardingRoute() {
 
   if (state === 'loading') return <AppSplash />
   if (state === 'guest') return <Navigate to={ROUTES.login} replace />
-  if (state === 'ready') return <Navigate to={ROUTES.home} replace />
   if (state === 'gender-required') return <Navigate to={ROUTES.completeProfile} replace />
+  // Finishing onboarding resumes a share link, if one brought them here.
+  if (state === 'ready') {
+    return <Navigate to={peekReturnPath() ?? ROUTES.home} replace />
+  }
   return <Outlet />
 }

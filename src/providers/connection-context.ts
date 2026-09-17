@@ -13,6 +13,8 @@ export interface ConnectionContextValue {
   connectedCount: number
   connect: (userId: string) => Promise<Connection>
   cancelRequest: (userId: string) => Promise<void>
+  /** Ends a connected relationship. Callers confirm with the user first. */
+  disconnect: (userId: string) => Promise<void>
   /**
    * Set only when a relationship became mutual while the app was open — an
    * event, not a state, so the success UI never reappears on refresh.

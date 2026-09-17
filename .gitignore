@@ -31,3 +31,6 @@ dist-ssr
 # capacitor native platforms
 # android/ is committed (see README) and has its own .gitignore
 /ios
+
+# Firebase CLI hosting deploy cache
+.firebase/

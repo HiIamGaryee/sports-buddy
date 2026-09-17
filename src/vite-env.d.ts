@@ -4,6 +4,8 @@ interface ImportMetaEnv {
   readonly VITE_DATA_SOURCE?: 'firebase' | 'mock'
   readonly VITE_VENUE_SOURCE?: 'google' | 'mock'
   readonly VITE_GOOGLE_MAPS_API_KEY?: string
+  readonly VITE_PUBLIC_APP_URL?: string
+  readonly VITE_REVENUECAT_ANDROID_API_KEY?: string
   readonly VITE_FIREBASE_API_KEY: string
   readonly VITE_FIREBASE_AUTH_DOMAIN: string
   readonly VITE_FIREBASE_PROJECT_ID: string

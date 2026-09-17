@@ -133,4 +133,18 @@ export const chatService = {
       throw toChatError(error, CHAT_FALLBACK_MESSAGES.send)
     }
   },
+
+  /**
+   * Send from OUTSIDE the chat screen (sharing an activity, sending an
+   * invite). The pair may never have opened their chat, and a message needs
+   * its conversation to exist, so it is ensured first — idempotently.
+   */
+  async sendFromElsewhere(
+    connection: Connection | null | undefined,
+    currentUserId: string,
+    rawContent: string,
+  ): Promise<ChatMessage> {
+    await chatService.openConversation(connection, currentUserId)
+    return chatService.sendMessage(connection, currentUserId, rawContent)
+  },
 }

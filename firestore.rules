@@ -112,6 +112,499 @@ service cloud.firestore {
       allow get, list, update, delete: if false;
     }
 
+    // DISCOVER — public activity posts ("badminton, Sat 5pm, Subang Jaya,
+    // RM10–20"). Any signed-in member can browse them. The author creates,
+    // edits and removes their own post; other members may only take or give
+    // up a spot, or ask for / withdraw from one. It stores ids and choices
+    // only — names and photos are resolved from `publicProfiles` at render
+    // time. Limits mirror src/constants/activity-posts.ts.
+    match /activityPosts/{postId} {
+      /** Everything a post may contain. `updatedAt` appears after an edit. */
+      function postFields() {
+        return ['id', 'authorId', 'sportId', 'startAt', 'timeZone', 'areaId',
+                'venueName', 'budget', 'joinPolicy', 'visibility', 'invitedId',
+                'capacity', 'joinedIds', 'pendingIds', 'createdAt', 'updatedAt'];
+      }
+
+      /** What a NEW post must contain. */
+      function createFields() {
+        return ['id', 'authorId', 'sportId', 'startAt', 'timeZone', 'areaId',
+                'venueName', 'budget', 'joinPolicy', 'visibility', 'invitedId',
+                'capacity', 'joinedIds', 'pendingIds', 'createdAt'];
+      }
+
+      /** What every post must still contain (posts from before joins existed). */
+      function legacyFields() {
+        return ['id', 'authorId', 'sportId', 'startAt', 'timeZone', 'areaId',
+                'venueName', 'budget', 'createdAt'];
+      }
+
+      // A post written before joins existed reads as open, one spot, empty —
+      // the same defaults the client mapper uses.
+      function joinedOf(data) { return data.get('joinedIds', []); }
+      function pendingOf(data) { return data.get('pendingIds', []); }
+      function policyOf(data) { return data.get('joinPolicy', 'open'); }
+      function capacityOf(data) { return data.get('capacity', 1); }
+      function visibilityOf(data) { return data.get('visibility', 'public'); }
+      function invitedOf(data) { return data.get('invitedId', null); }
+
+      function pairKey(a, b) { return a < b ? a + '__' + b : b + '__' + a; }
+
+      /** An invite may only ever be created between two CONNECTED buddies. */
+      function areConnected(a, b) {
+        return exists(/databases/$(database)/documents/connections/$(pairKey(a, b)))
+          && get(/databases/$(database)/documents/connections/$(pairKey(a, b))).data.status == 'connected'
+          && pairIsUnblocked([a, b]);
+      }
+
+      /** Who a new post may be shown to, and the invite that goes with it. */
+      function validAudience(data) {
+        return (data.visibility == 'invite'
+            && data.invitedId is string
+            && data.invitedId != request.auth.uid
+            && areConnected(request.auth.uid, data.invitedId))
+          || (data.visibility in ['public', 'link'] && data.invitedId == null);
+      }
+
+      /** The author's choices: the fields posting and editing both validate. */
+      function validChoices(data) {
+        return boundedString(data.sportId, 64)
+          && boundedString(data.areaId, 64)
+          && boundedString(data.timeZone, 64)
+          && data.venueName is string
+          && data.venueName.size() > 0
+          && data.venueName.size() <= 80
+          // A real upcoming session: not in the past, not absurdly far ahead.
+          && data.startAt is timestamp
+          && data.startAt > request.time
+          && data.startAt < request.time + duration.value(90, 'd')
+          && validBudget(data.budget)
+          && policyOf(data) in ['open', 'approval'];
+      }
+
+      function validBudget(budget) {
+        return budget is map
+          && budget.keys().hasOnly(['min', 'max'])
+          && budget.keys().hasAll(['min', 'max'])
+          && budget.min is number
+          && budget.min >= 0
+          && budget.min <= 10000
+          && (budget.max == null
+              || (budget.max is number
+                  && budget.max >= budget.min
+                  && budget.max <= 10000));
+      }
+
+      // ---- join-list arithmetic -------------------------------------------
+      // The same "exactly this one id changed" pattern as `requestedBy` on
+      // connections: nobody can add or remove anyone but the id named here.
+
+      function sameList(before, after) {
+        return before.removeAll(after).size() == 0
+          && after.removeAll(before).size() == 0
+          && after.size() == before.size();
+      }
+
+      function addsOnly(before, after, id) {
+        return !(id in before)
+          && after.removeAll(before) == [id]
+          && before.removeAll(after).size() == 0
+          && after.size() == before.size() + 1;
+      }
+
+      function removesOnly(before, after, id) {
+        return id in before
+          && before.removeAll(after) == [id]
+          && after.removeAll(before).size() == 0
+          && after.size() == before.size() - 1;
+      }
+
+      /** Exactly one id left the list, and nothing joined it. */
+      function removesOne(before, after) {
+        return before.removeAll(after).size() == 1
+          && after.removeAll(before).size() == 0
+          && after.size() == before.size() - 1;
+      }
+
+      function onlyJoinListsChanged() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['joinedIds', 'pendingIds']);
+      }
+
+      /** A member takes the spot on an OPEN post that is not full or started. */
+      function isJoiningOpenPost() {
+        return request.auth.uid != resource.data.authorId
+          && visibilityOf(resource.data) != 'invite'
+          && policyOf(resource.data) == 'open'
+          && resource.data.startAt > request.time
+          && !(request.auth.uid in pendingOf(resource.data))
+          && addsOnly(joinedOf(resource.data), joinedOf(request.resource.data), request.auth.uid)
+          && sameList(pendingOf(resource.data), pendingOf(request.resource.data))
+          && joinedOf(request.resource.data).size() <= capacityOf(resource.data);
+      }
+
+      /** A member asks for the spot on an APPROVAL post that still has one. */
+      function isRequestingToJoin() {
+        return request.auth.uid != resource.data.authorId
+          && visibilityOf(resource.data) != 'invite'
+          && policyOf(resource.data) == 'approval'
+          && resource.data.startAt > request.time
+          && joinedOf(resource.data).size() < capacityOf(resource.data)
+          && !(request.auth.uid in joinedOf(resource.data))
+          && addsOnly(pendingOf(resource.data), pendingOf(request.resource.data), request.auth.uid)
+          && sameList(joinedOf(resource.data), joinedOf(request.resource.data))
+          && pendingOf(request.resource.data).size() <= 20;
+      }
+
+      /** The invited buddy accepts a private invite and takes the spot. */
+      function isAcceptingInvite() {
+        return visibilityOf(resource.data) == 'invite'
+          && request.auth.uid == invitedOf(resource.data)
+          && resource.data.startAt > request.time
+          && addsOnly(joinedOf(resource.data), joinedOf(request.resource.data), request.auth.uid)
+          && sameList(pendingOf(resource.data), pendingOf(request.resource.data))
+          && joinedOf(request.resource.data).size() <= capacityOf(resource.data);
+      }
+
+      /** A member gives up their own spot, or withdraws their own request. */
+      function isLeaving() {
+        return request.auth.uid != resource.data.authorId
+          && ((removesOnly(joinedOf(resource.data), joinedOf(request.resource.data), request.auth.uid)
+                && sameList(pendingOf(resource.data), pendingOf(request.resource.data)))
+              || (removesOnly(pendingOf(resource.data), pendingOf(request.resource.data), request.auth.uid)
+                && sameList(joinedOf(resource.data), joinedOf(request.resource.data))));
+      }
+
+      /** The author moves ONE waiting request into a free spot. */
+      function isApproving() {
+        return request.auth.uid == resource.data.authorId
+          && removesOne(pendingOf(resource.data), pendingOf(request.resource.data))
+          && joinedOf(request.resource.data).removeAll(joinedOf(resource.data))
+               == pendingOf(resource.data).removeAll(pendingOf(request.resource.data))
+          && joinedOf(resource.data).removeAll(joinedOf(request.resource.data)).size() == 0
+          && joinedOf(request.resource.data).size() == joinedOf(resource.data).size() + 1
+          && joinedOf(request.resource.data).size() <= capacityOf(resource.data);
+      }
+
+      /** The author turns down ONE request, or takes ONE person out of the spot. */
+      function isDecliningOrRemoving() {
+        return request.auth.uid == resource.data.authorId
+          && ((removesOne(pendingOf(resource.data), pendingOf(request.resource.data))
+                && sameList(joinedOf(resource.data), joinedOf(request.resource.data)))
+              || (removesOne(joinedOf(resource.data), joinedOf(request.resource.data))
+                && sameList(pendingOf(resource.data), pendingOf(request.resource.data))));
+      }
+
+      /** The author edits time, place, sport, budget or join policy. */
+      function isAuthorEdit() {
+        return resource.data.authorId == request.auth.uid
+          && request.resource.data.keys().hasOnly(postFields())
+          && request.resource.data.keys().hasAll(legacyFields())
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.authorId == resource.data.authorId
+          && request.resource.data.createdAt == resource.data.createdAt
+          // Who is in, who is waiting and how many fit are not edits.
+          && sameList(joinedOf(resource.data), joinedOf(request.resource.data))
+          && sameList(pendingOf(resource.data), pendingOf(request.resource.data))
+          && capacityOf(request.resource.data) == capacityOf(resource.data)
+          // The invited buddy never changes. An invite stays an invite; a
+          // shared post may switch between public and link-only.
+          && invitedOf(request.resource.data) == invitedOf(resource.data)
+          && (visibilityOf(resource.data) == 'invite'
+              ? visibilityOf(request.resource.data) == 'invite'
+              : visibilityOf(request.resource.data) in ['public', 'link'])
+          && validChoices(request.resource.data)
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      /** Somebody this post is actually about. */
+      function isInvolved(data) {
+        return data.authorId == request.auth.uid
+          || request.auth.uid in joinedOf(data)
+          || request.auth.uid in pendingOf(data)
+          || invitedOf(data) == request.auth.uid;
+      }
+
+      // A single post by id — which is exactly what a share link is. Public
+      // and link-only posts open for any signed-in member; a private invite
+      // only for the two people it is between.
+      allow get: if request.auth != null
+        && (visibilityOf(resource.data) != 'invite' || isInvolved(resource.data));
+
+      // Every query must prove itself (rules are not filters): Discover pins
+      // `visibility == 'public'`; Activities pins `authorId ==`,
+      // `joinedIds array-contains`, `pendingIds array-contains` or
+      // `invitedId ==`. A query without one of those is refused, so link-only
+      // and invite posts can never be scraped by listing the collection.
+      // `resource.data.visibility` is read DIRECTLY here, never through
+      // `visibilityOf()`: against a query that does not pin the field, the
+      // `get(..., 'public')` default is assumed and the query is allowed —
+      // which leaked link-only and invite posts to an unfiltered list.
+      allow list: if request.auth != null
+        && (resource.data.visibility == 'public' || isInvolved(resource.data));
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(createFields())
+        && request.resource.data.keys().hasAll(createFields())
+        && request.resource.data.id == postId
+        // Nobody can post on somebody else's behalf.
+        && request.resource.data.authorId == request.auth.uid
+        && validChoices(request.resource.data)
+        && validAudience(request.resource.data)
+        // A new 1v1 post: one spot, nobody in it or waiting yet.
+        && request.resource.data.capacity == 1
+        && request.resource.data.joinedIds == []
+        && request.resource.data.pendingIds == []
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if request.auth != null
+        && (isAuthorEdit()
+            || (onlyJoinListsChanged()
+                && (isJoiningOpenPost()
+                    || isRequestingToJoin()
+                    || isAcceptingInvite()
+                    || isLeaving()
+                    || isApproving()
+                    || isDecliningOrRemoving())));
+
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.authorId;
+    }
+
+    // DISCOVER — PUBLIC GROUP activities ("Saturday Badminton Meetup, 8
+    // players, RM10–20"). Deliberately simpler than `activityPosts`: no
+    // visibility tiers (always public — the whole point is that strangers
+    // can find it), no approval policy (Join adds you straight away if there
+    // is a free spot). The organizer creates, edits and removes their own
+    // activity; any other member may only add or remove THEIR OWN id in
+    // `participantIds`. Limits mirror src/constants/group-activities.ts.
+    //
+    // Free/Buddy+ host and join limits are NOT enforced here — a `create` or
+    // `participantIds` update rule cannot count a member's OTHER live
+    // documents without a maintained counter this project does not have.
+    // `groupActivityService` enforces both before writing; see
+    // `docs/monetization.md` for this documented, honest limitation.
+    match /groupActivities/{activityId} {
+      function groupActivityFields() {
+        return ['id', 'organizerId', 'sportId', 'title', 'description',
+                'startAt', 'endAt', 'timeZone', 'areaId', 'venueName',
+                'budget', 'preferredSkillLevel', 'maxParticipants',
+                'participantIds', 'createdAt', 'updatedAt'];
+      }
+
+      function groupActivityCreateFields() {
+        return ['id', 'organizerId', 'sportId', 'title', 'description',
+                'startAt', 'endAt', 'timeZone', 'areaId', 'venueName',
+                'budget', 'preferredSkillLevel', 'maxParticipants',
+                'participantIds', 'createdAt'];
+      }
+
+      function participantsOf(data) { return data.get('participantIds', []); }
+
+      function validGroupBudget(budget) {
+        return budget is map
+          && budget.keys().hasOnly(['min', 'max'])
+          && budget.keys().hasAll(['min', 'max'])
+          && budget.min is number
+          && budget.min >= 0
+          && budget.min <= 10000
+          && (budget.max == null
+              || (budget.max is number
+                  && budget.max >= budget.min
+                  && budget.max <= 10000));
+      }
+
+      /** The organizer's choices: the fields creating and editing both validate. */
+      function validGroupActivityChoices(data) {
+        return boundedString(data.sportId, 64)
+          && boundedString(data.areaId, 64)
+          && boundedString(data.timeZone, 64)
+          && data.title is string
+          && data.title.size() > 0
+          && data.title.size() <= 60
+          && boundedOptionalString(data, 'description', 500)
+          && data.venueName is string
+          && data.venueName.size() > 0
+          && data.venueName.size() <= 80
+          // A real upcoming session: not in the past, not absurdly far ahead.
+          && data.startAt is timestamp
+          && data.startAt > request.time
+          && data.startAt < request.time + duration.value(90, 'd')
+          && (data.endAt == null || (data.endAt is timestamp && data.endAt > data.startAt))
+          && validGroupBudget(data.budget)
+          && data.preferredSkillLevel in ['any', 'beginner', 'casual', 'intermediate', 'advanced']
+          && data.maxParticipants is int
+          && data.maxParticipants >= 2
+          && data.maxParticipants <= 30;
+      }
+
+      // ---- participant-list arithmetic (same shape as activityPosts) ------
+
+      function sameList(before, after) {
+        return before.removeAll(after).size() == 0
+          && after.removeAll(before).size() == 0
+          && after.size() == before.size();
+      }
+
+      function addsOnly(before, after, id) {
+        return !(id in before)
+          && after.removeAll(before) == [id]
+          && before.removeAll(after).size() == 0
+          && after.size() == before.size() + 1;
+      }
+
+      function removesOnly(before, after, id) {
+        return id in before
+          && before.removeAll(after) == [id]
+          && after.removeAll(before).size() == 0
+          && after.size() == before.size() - 1;
+      }
+
+      function onlyParticipantsChanged() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['participantIds']);
+      }
+
+      /** A member takes a free spot on an activity that has not started. */
+      function isJoiningGroupActivity() {
+        return request.auth.uid != resource.data.organizerId
+          && resource.data.startAt > request.time
+          && addsOnly(participantsOf(resource.data), participantsOf(request.resource.data), request.auth.uid)
+          && participantsOf(request.resource.data).size() <= resource.data.maxParticipants;
+      }
+
+      /** A member gives up their own spot. Always allowed, even once started. */
+      function isLeavingGroupActivity() {
+        return request.auth.uid != resource.data.organizerId
+          && removesOnly(participantsOf(resource.data), participantsOf(request.resource.data), request.auth.uid);
+      }
+
+      /** The organizer removes ONE participant (a no-show, a change of plan). */
+      function isOrganizerRemoving() {
+        return request.auth.uid == resource.data.organizerId
+          && participantsOf(resource.data).removeAll(participantsOf(request.resource.data)).size() == 1
+          && participantsOf(request.resource.data).removeAll(participantsOf(resource.data)).size() == 0
+          && participantsOf(request.resource.data).size() == participantsOf(resource.data).size() - 1;
+      }
+
+      /** The organizer edits everything except identity and who has joined. */
+      function isOrganizerEdit() {
+        return resource.data.organizerId == request.auth.uid
+          && request.resource.data.keys().hasOnly(groupActivityFields())
+          && request.resource.data.keys().hasAll(groupActivityCreateFields())
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.organizerId == resource.data.organizerId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && sameList(participantsOf(resource.data), participantsOf(request.resource.data))
+          && validGroupActivityChoices(request.resource.data)
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      // Always public — a single activity by id is exactly what a share link
+      // is, and there is no private tier here (see `activityPosts` for that).
+      allow get: if request.auth != null;
+
+      // Every query must prove itself (rules are not filters), but nothing
+      // here is ever hidden, so an equality on any ONE indexed field is
+      // enough: Discover pins `startAt >`, Activities pins `organizerId ==`
+      // or `participantIds array-contains`.
+      allow list: if request.auth != null;
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(groupActivityCreateFields())
+        && request.resource.data.keys().hasAll(groupActivityCreateFields())
+        && request.resource.data.id == activityId
+        // Nobody can host on somebody else's behalf.
+        && request.resource.data.organizerId == request.auth.uid
+        && validGroupActivityChoices(request.resource.data)
+        && request.resource.data.participantIds == []
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if request.auth != null
+        && (isOrganizerEdit()
+            || (onlyParticipantsChanged()
+                && (isJoiningGroupActivity()
+                    || isLeavingGroupActivity()
+                    || isOrganizerRemoving())));
+
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.organizerId;
+
+      // QR CHECK-IN CODE — one document, at `checkIn/current`. Readable and
+      // writable only by the activity's organizer; `attendanceRecords`
+      // below reads it via `get()` (a privileged cross-document read, not
+      // subject to this collection's OWN `allow get`) to verify a scan.
+      match /checkIn/{checkInId} {
+        function isOrganizer() {
+          return request.auth.uid
+            == get(/databases/$(database)/documents/groupActivities/$(activityId)).data.organizerId;
+        }
+
+        allow get: if request.auth != null && isOrganizer();
+        allow list: if false;
+        allow create, update: if request.auth != null
+          && isOrganizer()
+          && request.resource.data.keys().hasOnly(['organizerId', 'code', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['organizerId', 'code', 'updatedAt'])
+          && request.resource.data.organizerId == request.auth.uid
+          && request.resource.data.code is string
+          && request.resource.data.code.size() > 0
+          && request.resource.data.code.size() <= 64
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
+    }
+
+    // QR CHECK-IN — immutable verified-attendance records. "Past is not
+    // completed" (STEP 13) still holds for `groupActivities`: a record here
+    // is a SEPARATE, additive fact ("this device scanned this activity's
+    // code"), never a status on the activity, and its absence is never read
+    // as "did not attend". See `src/types/attendance.ts`.
+    match /attendanceRecords/{recordId} {
+      function checkedInActivity(id) {
+        return get(/databases/$(database)/documents/groupActivities/$(id));
+      }
+
+      function currentCheckInCode(id) {
+        return get(/databases/$(database)/documents/groupActivities/$(id)/checkIn/current).data.code;
+      }
+
+      /** Involved: a joined participant, or the organizer checking themselves in. */
+      function isInvolvedInActivity(id) {
+        return request.auth.uid in checkedInActivity(id).data.participantIds
+          || request.auth.uid == checkedInActivity(id).data.organizerId;
+      }
+
+      // The attendee themselves, or the activity's organizer (to see who came).
+      allow get: if request.auth != null
+        && (request.auth.uid == resource.data.userId
+            || request.auth.uid == checkedInActivity(resource.data.activityId).data.organizerId);
+
+      // Every query must prove itself: a member's own Reliability Profile
+      // pins `userId ==`; the organizer's attendee list pins `activityId ==`.
+      allow list: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || request.auth.uid == checkedInActivity(resource.data.activityId).data.organizerId);
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['id', 'activityId', 'userId', 'code', 'checkedInAt'])
+        && request.resource.data.keys().hasAll(['id', 'activityId', 'userId', 'code', 'checkedInAt'])
+        && request.resource.data.id == recordId
+        && recordId == request.resource.data.activityId + '__' + request.resource.data.userId
+        // Only the attendee may record their OWN check-in — never someone else's.
+        && request.resource.data.userId == request.auth.uid
+        && isInvolvedInActivity(request.resource.data.activityId)
+        // The activity has actually started.
+        && checkedInActivity(request.resource.data.activityId).data.startAt <= request.time
+        // The scanned code matches the organizer's CURRENT code — a stale
+        // screenshot stops working the moment the organizer regenerates it.
+        && request.resource.data.code == currentCheckInCode(request.resource.data.activityId)
+        && request.resource.data.checkedInAt == request.time;
+
+      // Immutable: a check-in is a fact about the past, never edited or removed.
+      allow update, delete: if false;
+    }
+
     // PRIVATE. `users/{uid}` holds account fields, the sports profile and the
     // user's preferences (discovery filters, privacy, notifications). It is
     // never readable by anyone else — Discover reads publicProfiles instead.
@@ -311,11 +804,15 @@ service cloud.firestore {
         && current().requestedBy.removeAll(incoming().requestedBy).size() == 0
         && statusMatchesRequests(incoming());
 
-      // Cancelling your own outgoing request. Never someone else's, and
-      // never a connected relationship.
+      // Two ways a relationship document may go:
+      //  * cancelling your own outgoing request — never someone else's, and
+      //  * "Unconnect": either participant may end a CONNECTED relationship.
+      // Deleting it removes the permission that chat and planning check, so
+      // both stop at once; connecting again starts from a fresh request.
       allow delete: if isParticipant(current())
-        && current().status == 'pending'
-        && current().requestedBy == [request.auth.uid];
+        && ((current().status == 'pending'
+              && current().requestedBy == [request.auth.uid])
+            || current().status == 'connected');
     }
 
     // CONVERSATIONS live at the connection's own id, so every access check is

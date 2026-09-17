@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Monitor, Moon, Sun } from 'lucide-react'
+import { ChevronRight, Download, Monitor, Moon, Sparkles, Sun } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -15,6 +15,7 @@ import { SettingsSection } from '@/features/settings/components/settings-section
 import { PolicyDialog } from '@/features/settings/components/policy-dialog'
 import { usePreferenceUpdate } from '@/features/settings/use-preference-update'
 import { useAuth } from '@/hooks/use-auth'
+import { useSubscription } from '@/hooks/use-subscription'
 import { useProfile } from '@/hooks/use-profile'
 import { useTheme } from '@/hooks/use-theme'
 import { formatRadius } from '@/lib/profile-format'
@@ -66,6 +67,7 @@ const NOTIFICATION_OPTIONS = [
  * its anchor id — one source, so a new section cannot be missed.
  */
 const SETTINGS_SECTIONS = [
+  { id: 'buddy-plus', label: 'Buddy+' },
   { id: 'preferences', label: 'Preferences' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'privacy', label: 'Privacy & safety' },
@@ -78,6 +80,7 @@ export function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const { user, signOut } = useAuth()
   const { profile } = useProfile()
+  const { isBuddyPlus } = useSubscription()
   const { save, isSaving, error } = usePreferenceUpdate()
   const [isSigningOut, setIsSigningOut] = useState(false)
 
@@ -124,6 +127,32 @@ export function SettingsPage() {
           </nav>
 
           <div className="flex flex-col gap-6 md:gap-8">
+        <SettingsSection id="buddy-plus" title="Buddy+">
+          <Link
+            to={ROUTES.paywall}
+            className="-m-2 flex items-center gap-3 rounded-xl p-2 transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-gradient text-primary-foreground">
+              <Sparkles aria-hidden className="size-4.5" />
+            </span>
+            <SettingsRow
+              label={isBuddyPlus ? 'Buddy+ active' : 'Get Buddy+'}
+              description={
+                isBuddyPlus
+                  ? 'Unlimited activities, advanced filters and analytics.'
+                  : 'Advanced filters, unlimited activities, deeper insights.'
+              }
+              trailing={
+                <ChevronRight
+                  aria-hidden
+                  className="mt-1 size-4 shrink-0 text-muted-foreground"
+                />
+              }
+              className="flex-1"
+            />
+          </Link>
+        </SettingsSection>
+
         <SettingsSection id="preferences" title="Preferences">
           <Link
             to={ROUTES.discoverySettings}
