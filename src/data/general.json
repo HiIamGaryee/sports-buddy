@@ -1,0 +1,72 @@
+{
+  "profile": {
+    "sports": {
+      "freeLimit": 5,
+      "buddyPlusLimit": 15
+    }
+  },
+  "discover": {
+    "premiumFilters": {
+      "enabled": true,
+      "title": "Advanced buddy filters",
+      "description": "Unlock date, popularity and four more ways to narrow your search.",
+      "upgradeLabel": "Unlock with Buddy+",
+      "items": [
+        {
+          "id": "date",
+          "label": "Search by date",
+          "description": "Find sessions happening on a specific date."
+        },
+        {
+          "id": "popularity",
+          "label": "Most joined first",
+          "description": "Sort activities by how many people joined."
+        },
+        {
+          "id": "venue",
+          "label": "Preferred venues",
+          "description": "Prioritise places you already like."
+        },
+        {
+          "id": "time",
+          "label": "Time of day",
+          "description": "Focus on morning, afternoon or evening."
+        },
+        {
+          "id": "group-size",
+          "label": "Group size",
+          "description": "Find intimate games or bigger meetups."
+        },
+        {
+          "id": "budget",
+          "label": "Budget range",
+          "description": "Stay within your preferred spend."
+        }
+      ]
+    }
+  },
+  "planning": {
+    "premiumPlans": {
+      "freeLimit": 1,
+      "buddyPlusLabel": "Multiple active plans per Buddy",
+      "title": "Keep more plans with the same Buddy",
+      "description": "Buddy+ is designed for multiple plans."
+    }
+  },
+  "notifications": {
+    "activityReminders": {
+      "label": "Activity reminders",
+      "description": "Get a reminder before a planned session.",
+      "upgradeDescription": "Buddy+ helps you remember planned sessions.",
+      "upgradeLabel": "Unlock with Buddy+"
+    }
+  },
+  "premium": {
+    "sidebarCta": {
+      "eyebrow": "Buddy+",
+      "title": "Play more, together.",
+      "description": "Unlock advanced tools for finding and planning sessions.",
+      "actionLabel": "Explore Buddy+"
+    }
+  }
+}

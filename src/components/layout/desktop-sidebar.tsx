@@ -1,6 +1,7 @@
 import logo from '@/assets/logo.png'
 import settingsIcon from '@/assets/svg/settings-svgrepo-com.svg'
 import { NavItem } from '@/components/layout/nav-item'
+import { PremiumSidebarCard } from '@/components/layout/premium-sidebar-card'
 import { mainNavigation } from '@/config/navigation'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/routes/routes'
@@ -53,12 +54,15 @@ export function DesktopSidebar({
         ))}
       </ul>
 
-      <NavItem
-        shape="sidebar"
-        to={ROUTES.settings}
-        label="Settings"
-        icon={settingsIcon}
-      />
+      <div className="flex flex-col gap-3">
+        <PremiumSidebarCard />
+        <NavItem
+          shape="sidebar"
+          to={ROUTES.settings}
+          label="Settings"
+          icon={settingsIcon}
+        />
+      </div>
     </nav>
   )
 }

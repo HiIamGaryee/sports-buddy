@@ -60,7 +60,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   )
 
   const updateProfile = useCallback(
-    async (input: SaveProfileInput) => {
+    async (input: SaveProfileInput, maxSports?: number) => {
       if (!user || !state.profile) {
         throw new Error('You need to be signed in to edit your profile.')
       }
@@ -68,6 +68,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         user.id,
         input,
         state.profile.preferences,
+        maxSports,
       )
       setState({ userId: user.id, profile, isLoading: false })
     },

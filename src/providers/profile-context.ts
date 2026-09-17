@@ -10,7 +10,7 @@ export interface ProfileContextValue {
   isLoading: boolean
   completeOnboarding: (input: SaveProfileInput) => Promise<void>
   completeGender: (gender: Gender) => Promise<void>
-  updateProfile: (input: SaveProfileInput) => Promise<void>
+  updateProfile: (input: SaveProfileInput, maxSports?: number) => Promise<void>
   updatePreferences: (preferences: UserPreferences) => Promise<void>
 }
 

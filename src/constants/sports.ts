@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import general from '@/data/general.json'
 import sportList from '@/data/sport-list.json'
 import type { SportId } from '@/types/sports-profile'
 
@@ -42,4 +43,5 @@ export const ALL_SPORTS: readonly SportDefinition[] = sportList.map((sport) => (
 /** Shared display list. Set `is_show` to false in sport-list.json to hide a sport. */
 export const SPORTS = ALL_SPORTS.filter(({ is_show }) => is_show)
 
-export const MAX_SPORTS = 5
+export const MAX_SPORTS = general.profile.sports.freeLimit
+export const MAX_BUDDY_PLUS_SPORTS = general.profile.sports.buddyPlusLimit

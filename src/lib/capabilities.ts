@@ -2,6 +2,7 @@ import {
   FREE_MAX_HOSTED_GROUP_ACTIVITIES,
   FREE_MAX_JOINED_GROUP_ACTIVITIES,
 } from '@/constants/entitlements'
+import { MAX_BUDDY_PLUS_SPORTS, MAX_SPORTS } from '@/constants/sports'
 import type { SubscriptionState } from '@/types/subscription'
 
 /**
@@ -17,6 +18,10 @@ const isEntitled = (state: SubscriptionState) => state === 'buddy_plus'
 
 export function isBuddyPlus(state: SubscriptionState): boolean {
   return isEntitled(state)
+}
+
+export function getMaxProfileSports(state: SubscriptionState): number {
+  return isEntitled(state) ? MAX_BUDDY_PLUS_SPORTS : MAX_SPORTS
 }
 
 /** `currentCount` is how many the member is joined to or hosting RIGHT NOW. */

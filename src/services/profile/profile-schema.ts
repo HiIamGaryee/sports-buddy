@@ -132,8 +132,11 @@ export const isValidSport = (value: unknown): value is UserSport =>
  * The sports array: within the documented cap, every entry valid, and no
  * duplicate sport — a duplicate would double-count in compatibility scoring.
  */
-export function isValidSports(value: unknown): value is UserSport[] {
-  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_SPORTS) {
+export function isValidSports(
+  value: unknown,
+  maxSports = MAX_SPORTS,
+): value is UserSport[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > maxSports) {
     return false
   }
   if (!value.every(isValidSport)) return false
@@ -149,8 +152,9 @@ export function isValidSports(value: unknown): value is UserSport[] {
  */
 export function isValidSportSelection(
   value: unknown,
+  maxSports = MAX_SPORTS,
 ): value is { sportId: SportId }[] {
-  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_SPORTS) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > maxSports) {
     return false
   }
   if (!value.every((entry) => isSportId((entry as { sportId?: unknown })?.sportId))) {

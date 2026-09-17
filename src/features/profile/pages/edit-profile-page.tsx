@@ -16,11 +16,13 @@ import { SportSelector } from '@/components/profile/sport-selector'
 import { Input } from '@/components/ui/input'
 import { EditSection } from '@/features/profile/components/edit-section'
 import { useProfile } from '@/hooks/use-profile'
+import { useSubscription } from '@/hooks/use-subscription'
 import {
   profileDraftReducer,
   profileToDraft,
   toSaveInput,
 } from '@/lib/profile-draft'
+import { getMaxProfileSports } from '@/lib/capabilities'
 import { validateProfileInput } from '@/services/profile/profile-validation'
 import { ROUTES } from '@/routes/routes'
 import type { SportsProfile } from '@/types/user'
@@ -36,6 +38,8 @@ export function EditProfilePage() {
 function EditProfileForm({ profile }: { profile: SportsProfile }) {
   const navigate = useNavigate()
   const { updateProfile } = useProfile()
+  const { state: subscriptionState, isBuddyPlus } = useSubscription()
+  const maxSports = getMaxProfileSports(subscriptionState)
   const initialDraft = useMemo(() => profileToDraft(profile), [profile])
   const [draft, dispatch] = useReducer(profileDraftReducer, initialDraft)
   const [saveError, setSaveError] = useState('')
@@ -43,7 +47,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
   const [isSaved, setIsSaved] = useState(false)
 
   const input = toSaveInput(draft, { includeGender: false })
-  const problem = validateProfileInput(input)
+  const problem = validateProfileInput(input, { maxSports })
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initialDraft)
 
   function close() {
@@ -55,7 +59,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
     setSaveError('')
     setIsSaving(true)
     try {
-      await updateProfile(input)
+      await updateProfile(input, maxSports)
       setIsSaved(true)
       // Brief confirmation, then back to the profile with the new values.
       setTimeout(close, 500)
@@ -144,7 +148,11 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
       >
         <SportSelector
           selected={draft.sports.map((sport) => sport.sportId)}
-          onToggle={(sportId) => dispatch({ type: 'toggle-sport', sportId })}
+          max={maxSports}
+          showUpgrade={!isBuddyPlus}
+          onToggle={(sportId) =>
+            dispatch({ type: 'toggle-sport', sportId, maxSports })
+          }
         />
       </EditSection>
 
