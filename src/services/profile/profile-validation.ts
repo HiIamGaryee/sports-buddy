@@ -40,21 +40,28 @@ export const profileRules = {
    * assigns one, so a sport just picked always has `skillLevel: null`.
    * `profileRules.skills` is what validates the level, once it exists.
    */
-  sports: (sports: readonly unknown[]) => {
+  sports: (sports: readonly unknown[], maxSports = MAX_SPORTS) => {
     if (sports.length === 0) return 'Choose at least one sport.'
-    if (sports.length > MAX_SPORTS) return `Choose up to ${MAX_SPORTS} sports.`
-    return isValidSportSelection(sports) ? undefined : 'Choose a valid sport.'
+    if (sports.length > maxSports) return `Choose up to ${maxSports} sports.`
+    return isValidSportSelection(sports, maxSports)
+      ? undefined
+      : 'Choose a valid sport.'
   },
 
   /**
    * Presence AND membership. Before this, an unset level was caught but an
    * invalid one (`'wizard'`) was not, because only `null` was checked.
    */
-  skills: (sports: readonly { skillLevel: SkillLevel | null }[]) => {
+  skills: (
+    sports: readonly { skillLevel: SkillLevel | null }[],
+    maxSports = MAX_SPORTS,
+  ) => {
     if (sports.some((sport) => sport.skillLevel === null)) {
       return 'Set a skill level for every sport.'
     }
-    return isValidSports(sports) ? undefined : 'Choose a valid skill level.'
+    return isValidSports(sports, maxSports)
+      ? undefined
+      : 'Choose a valid skill level.'
   },
 
   intents: (intents: readonly unknown[]) => {
@@ -112,11 +119,15 @@ export const profileRules = {
 } as const
 
 /** First blocking problem, or `undefined` when the profile is complete. */
-export function validateProfileInput(input: SaveProfileInput) {
+export function validateProfileInput(
+  input: SaveProfileInput,
+  options: { maxSports?: number } = {},
+) {
+  const maxSports = options.maxSports ?? MAX_SPORTS
   return (
     profileRules.displayName(input.displayName) ??
-    profileRules.sports(input.sports) ??
-    profileRules.skills(input.sports) ??
+    profileRules.sports(input.sports, maxSports) ??
+    profileRules.skills(input.sports, maxSports) ??
     profileRules.intents(input.intents) ??
     profileRules.intensity(input.preferredIntensity) ??
     profileRules.availability(input.availability) ??

@@ -6,12 +6,14 @@ import {
   canUseAdvancedAnalytics,
   canUseAdvancedDiscoverFilters,
   canUseReliabilityFilter,
+  getMaxProfileSports,
   isBuddyPlus,
 } from '@/lib/capabilities'
 import {
   FREE_MAX_HOSTED_GROUP_ACTIVITIES,
   FREE_MAX_JOINED_GROUP_ACTIVITIES,
 } from '@/constants/entitlements'
+import { MAX_BUDDY_PLUS_SPORTS, MAX_SPORTS } from '@/constants/sports'
 
 describe('isBuddyPlus', () => {
   it('is true only for the resolved buddy_plus state', () => {
@@ -54,5 +56,17 @@ describe('feature gates', () => {
       expect(gate('free')).toBe(false)
       expect(gate('buddy_plus')).toBe(true)
     }
+  })
+})
+
+describe('profile sports limit', () => {
+  it('uses the free limit until Buddy+ is resolved', () => {
+    expect(getMaxProfileSports('free')).toBe(MAX_SPORTS)
+    expect(getMaxProfileSports('loading')).toBe(MAX_SPORTS)
+    expect(getMaxProfileSports('error')).toBe(MAX_SPORTS)
+  })
+
+  it('uses the configured Buddy+ limit when entitled', () => {
+    expect(getMaxProfileSports('buddy_plus')).toBe(MAX_BUDDY_PLUS_SPORTS)
   })
 })

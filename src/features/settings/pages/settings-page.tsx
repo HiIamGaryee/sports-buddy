@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { APP_VERSION } from '@/constants/app'
 import { BlockedUsersList } from '@/features/settings/components/blocked-users-list'
+import { PremiumNotificationToggle } from '@/features/settings/components/premium-notification-toggle'
 import { PreferenceToggle } from '@/features/settings/components/preference-toggle'
 import { SettingsRow } from '@/features/settings/components/settings-row'
 import { SettingsSection } from '@/features/settings/components/settings-section'
@@ -49,7 +50,7 @@ const NOTIFICATION_OPTIONS = [
   {
     key: 'activityReminders',
     label: 'Activity reminders',
-    description: 'Before a planned session.',
+    description: 'Get a reminder before a planned session.',
   },
   {
     key: 'activityChanges',
@@ -215,22 +216,40 @@ export function SettingsPage() {
             NOTIFICATION_OPTIONS.map(({ key, label, description }, index) => (
               <div key={key} className="flex flex-col gap-4">
                 {index > 0 && <Separator />}
-                <PreferenceToggle
-                  id={`notify-${key}`}
-                  label={label}
-                  description={description}
-                  checked={preferences.notifications[key]}
-                  disabled={isSaving}
-                  onChange={(checked) =>
-                    void save({
-                      ...preferences,
-                      notifications: {
-                        ...preferences.notifications,
-                        [key]: checked,
-                      },
-                    })
-                  }
-                />
+                {key === 'activityReminders' ? (
+                  <PremiumNotificationToggle
+                    id={`notify-${key}`}
+                    checked={preferences.notifications[key]}
+                    disabled={isSaving}
+                    isBuddyPlus={isBuddyPlus}
+                    onChange={(checked) =>
+                      void save({
+                        ...preferences,
+                        notifications: {
+                          ...preferences.notifications,
+                          [key]: checked,
+                        },
+                      })
+                    }
+                  />
+                ) : (
+                  <PreferenceToggle
+                    id={`notify-${key}`}
+                    label={label}
+                    description={description}
+                    checked={preferences.notifications[key]}
+                    disabled={isSaving}
+                    onChange={(checked) =>
+                      void save({
+                        ...preferences,
+                        notifications: {
+                          ...preferences.notifications,
+                          [key]: checked,
+                        },
+                      })
+                    }
+                  />
+                )}
               </div>
             ))}
         </SettingsSection>

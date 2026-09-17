@@ -45,16 +45,20 @@ export function HomePage() {
     <>
       <AppHeader title={APP_NAME} subtitle={firstName ? `Ready to move, ${firstName}?` : 'Ready to move?'} size="wide" />
       <PageContainer size="wide">
-        <Card className="relative min-h-64 overflow-hidden border-primary/30 bg-card">
+        <Card className="relative min-h-68 overflow-hidden border-primary/30 bg-card">
+          {/*
+           * The image owns the right half and fades into the text column. The
+           * fade used to be a gradient PLUS a `w-3/5` blur panel, whose hard
+           * right edge drew a visible seam straight down the banner.
+           */}
           <img
             src={resolvedTheme === 'dark' ? heroDark : heroLight}
             alt=""
-            className="absolute inset-0 size-full object-cover"
+            className="absolute inset-y-0 right-0 h-full w-3/5 object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 to-card/15" />
-          <div className="absolute inset-y-0 left-0 w-3/5 backdrop-blur-[2px]" />
-          <CardContent className="relative z-10 flex max-w-xl flex-col gap-5 px-6 py-4 md:px-8 md:py-6">
-            <div className="flex flex-col gap-2 mt-4">
+          <div className="absolute inset-0 bg-gradient-to-r from-card from-40% via-card/85 to-card/10" />
+          <CardContent className="relative z-10 flex max-w-lg flex-col gap-6 p-6 md:p-8">
+            <div className="flex flex-col gap-2">
               <p className="text-heading-1 text-card-foreground">
                 {APP_TAGLINE_LINES.map((line) => <span key={line} className="block">{line}</span>)}
               </p>
@@ -81,7 +85,7 @@ export function HomePage() {
                 onRemove={myPosts.remove}
               />
             ) : nextSession ? (
-              <ActivityCard item={nextSession} now={now} />
+              <ActivityCard item={nextSession} now={now} surface="pastel" />
             ) : (
               <EmptyState
                 icon={CalendarDays}

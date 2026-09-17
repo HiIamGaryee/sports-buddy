@@ -44,7 +44,7 @@ export interface ProfileDraft {
 export type ProfileDraftAction =
   | { type: 'set-display-name'; value: string }
   | { type: 'set-gender'; gender: Gender }
-  | { type: 'toggle-sport'; sportId: SportId }
+  | { type: 'toggle-sport'; sportId: SportId; maxSports?: number }
   | { type: 'set-skill'; sportId: SportId; skillLevel: SkillLevel }
   | { type: 'toggle-intent'; intent: SportsIntent }
   | { type: 'set-intensity'; intensity: ActivityIntensity }
@@ -111,7 +111,7 @@ export function profileDraftReducer(
           ),
         }
       }
-      if (state.sports.length >= MAX_SPORTS) return state
+      if (state.sports.length >= (action.maxSports ?? MAX_SPORTS)) return state
       return {
         ...state,
         sports: [...state.sports, { sportId: action.sportId, skillLevel: null }],

@@ -2,6 +2,7 @@ import {
   createDefaultUserPreferences,
   reconcileDiscoveryPreferences,
 } from '@/lib/preferences'
+import { MAX_SPORTS } from '@/constants/sports'
 import { toDiscoveryProfile } from '@/lib/discovery-profile'
 import {
   profileRepository,
@@ -50,9 +51,13 @@ async function syncPublicProfile(profile: SportsProfile) {
 }
 
 /** Validate → persist → re-project. Throws a user-safe message. */
-async function saveValidated(userId: string, input: SaveProfileInput) {
+async function saveValidated(
+  userId: string,
+  input: SaveProfileInput,
+  maxSports = MAX_SPORTS,
+) {
   const normalized = normalize(input)
-  const problem = validateProfileInput(normalized)
+  const problem = validateProfileInput(normalized, { maxSports })
   if (problem) throw new Error(problem)
 
   let saved: SportsProfile
@@ -115,16 +120,21 @@ export const profileService = {
     userId: string,
     input: SaveProfileInput,
     preferences: UserPreferences,
+    maxSports = MAX_SPORTS,
   ): Promise<SportsProfile> {
     const { gender: _gender, ...editableInput } = input
-    return saveValidated(userId, {
-      ...editableInput,
-      preferences: reconcileDiscoveryPreferences(
-        preferences,
-        input.sports,
-        input.intents,
-      ),
-    })
+    return saveValidated(
+      userId,
+      {
+        ...editableInput,
+        preferences: reconcileDiscoveryPreferences(
+          preferences,
+          input.sports,
+          input.intents,
+        ),
+      },
+      maxSports,
+    )
   },
 
   /** Also re-projects: flipping `discoverable` publishes or deletes it. */
