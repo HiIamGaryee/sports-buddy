@@ -68,10 +68,10 @@ function toSportsProfile(id: string, data: DocumentData): SportsProfile {
   }
 }
 
-const fallbackProfile = (user: AuthUser): SportsProfile => ({
+const fallbackProfile = (user: AuthUser, gender: Gender | null = null): SportsProfile => ({
   ...user,
   ...EMPTY_PROFILE_FIELDS,
-  gender: null,
+  gender,
   onboardingCompleted: false,
   updatedAt: user.createdAt,
   preferences: normalizeUserPreferences(undefined, EMPTY_PROFILE_FIELDS),
@@ -101,8 +101,11 @@ export const firebaseProfileRepository: ProfileRepository = {
       updatedAt: serverTimestamp(),
     })
 
-    const created = await getByUserId(user.id)
-    return created ?? fallbackProfile(user)
+    // Skip the extra read-after-write round trip: every field just written is
+    // already known here, so the fallback shape (used as a contingency below
+    // anyway) can be returned directly. The next real load resolves the
+    // server timestamps.
+    return fallbackProfile(user, gender)
   },
 
   async setGender(userId: string, gender: Gender) {

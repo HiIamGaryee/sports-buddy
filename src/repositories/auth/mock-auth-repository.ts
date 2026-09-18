@@ -59,6 +59,14 @@ function saveAccount(account: MockAccount) {
   writeStore(MOCK_STORAGE_KEYS.accounts, [...accounts, account])
 }
 
+function removeAccount(id: string) {
+  const accounts = readStore<MockAccount[]>(MOCK_STORAGE_KEYS.accounts, [])
+  writeStore(
+    MOCK_STORAGE_KEYS.accounts,
+    accounts.filter((account) => account.id !== id),
+  )
+}
+
 const listeners = new Set<(user: AuthUser | null) => void>()
 
 function setSession(user: AuthUser | null) {
@@ -122,6 +130,13 @@ export const mockAuthRepository: AuthRepository = {
 
   async getCurrentUser() {
     return readSession()
+  },
+
+  async deleteCurrentUser() {
+    const session = readSession()
+    if (!session) return
+    removeAccount(session.id)
+    setSession(null)
   },
 
   subscribeToAuthState(listener) {

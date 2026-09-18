@@ -7,6 +7,11 @@ export interface AuthRepository {
   signInWithGoogle(): Promise<AuthUser>
   signOut(): Promise<void>
   getCurrentUser(): Promise<AuthUser | null>
+  /**
+   * Best-effort rollback for a just-created account whose profile document
+   * failed to write. No-op if there is no signed-in user to remove.
+   */
+  deleteCurrentUser(): Promise<void>
   /** Returns an unsubscribe function. Emits `null` when signed out. */
   subscribeToAuthState(listener: (user: AuthUser | null) => void): () => void
 }

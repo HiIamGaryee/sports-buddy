@@ -15,17 +15,25 @@ const normalizeEmail = (email: string) => email.trim().toLowerCase()
  */
 export const authService = {
   async signUp({ displayName, email, password, gender }: RegisterInput): Promise<AuthUser> {
+    if (!isGender(gender)) throw toAuthError(new Error('Choose a valid gender.'))
+
+    const user = await authRepository.registerWithEmail({
+      displayName: displayName.trim(),
+      email: normalizeEmail(email),
+      password,
+      gender,
+    }).catch((error) => {
+      throw toAuthError(error)
+    })
+
     try {
-      if (!isGender(gender)) throw new Error('Choose a valid gender.')
-      const user = await authRepository.registerWithEmail({
-        displayName: displayName.trim(),
-        email: normalizeEmail(email),
-        password,
-        gender,
-      })
       await profileRepository.createIfMissing(user, gender)
       return user
     } catch (error) {
+      // The auth account was created but its profile document was not — roll
+      // the account back so the email is free to retry rather than stuck on
+      // a half-created account only a repeated sign-in could repair.
+      await authRepository.deleteCurrentUser()
       throw toAuthError(error)
     }
   },

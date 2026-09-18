@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { idsMentionedByGroupActivities } from '@/features/group-activities/use-group-activities'
 import { useAuth } from '@/hooks/use-auth'
-import { compareGroupActivities, isUpcomingGroupActivity } from '@/lib/group-activity'
+import { compareGroupActivities, hasGroupActivityEnded } from '@/lib/group-activity'
 import { groupActivityService } from '@/services/group-activity/group-activity-service'
 import { discoverService } from '@/services/discover/discover-service'
 import type { GroupActivity } from '@/types/group-activity'
@@ -81,9 +81,9 @@ export function useMyGroupActivities(now: Date) {
 
   const grouped = useMemo(() => {
     const upcoming = (activities: readonly GroupActivity[]) =>
-      activities.filter((activity) => isUpcomingGroupActivity(activity, now))
+      activities.filter((activity) => !hasGroupActivityEnded(activity, now))
     const ended = (activities: readonly GroupActivity[]) =>
-      activities.filter((activity) => !isUpcomingGroupActivity(activity, now))
+      activities.filter((activity) => hasGroupActivityEnded(activity, now))
 
     return {
       hostedPlanned: soonestFirst(upcoming(state.hosted)),

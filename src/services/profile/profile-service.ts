@@ -78,11 +78,17 @@ export const profileService = {
    * sync failed). One extra read per session, no listeners.
    */
   async loadProfile(user: AuthUser): Promise<SportsProfile> {
+    // Fired alongside the profile read below (it only needs the uid), so
+    // sign-in pays for one network round trip instead of two in sequence.
+    const projectionPromise = publicProfileRepository
+      .getByUserId(user.id)
+      .catch(() => null)
+
     const existing = await profileRepository.getByUserId(user.id)
     const profile = existing ?? (await profileRepository.createIfMissing(user))
 
     try {
-      const projection = await publicProfileRepository.getByUserId(profile.id)
+      const projection = await projectionPromise
       if (shouldPublish(profile) && !projection) await syncPublicProfile(profile)
       if (!shouldPublish(profile) && projection) await syncPublicProfile(profile)
     } catch {

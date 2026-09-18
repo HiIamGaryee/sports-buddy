@@ -189,17 +189,12 @@ export function ActivitiesPage() {
                 ))}
               </div>
             </ActivityTabBody>
-          </TabsContent>
 
-          <TabsContent value="past" className="flex flex-col gap-6 pt-5">
+            {/* Every event you host stays under "Created by me" for its
+                whole life, planned or past — not split off into Past. */}
             <GroupActivities
-              title="Group activities you hosted"
+              title="Past group activities you hosted"
               activities={myGroupActivities.hostedPast}
-              {...groupActivityProps}
-            />
-            <GroupActivities
-              title="Past group activities you joined"
-              activities={myGroupActivities.joinedPast}
               {...groupActivityProps}
             />
             <PostedActivities
@@ -207,24 +202,35 @@ export function ActivitiesPage() {
               posts={myPosts.createdPast}
               {...postProps}
             />
-            <PostedActivities
-              title="Past activities you joined"
-              posts={myPosts.joinedPast}
-              {...postProps}
-            />
-            {myPosts.createdPast.length + myPosts.joinedPast.length > 0 && (
+          </TabsContent>
+
+          <TabsContent value="past" className="flex flex-col gap-6 pt-5">
+            <section className="flex flex-col gap-4">
               <SectionHeader title="Past sessions" />
-            )}
-            <ActivityTabBody
-              {...past}
-              emptyIcon={History}
-              emptyTitle="No past activities yet."
-              /* Careful wording: an activity lands here because its end time
-                 passed, which says nothing about whether anyone went. */
-              emptyDescription="Your confirmed sessions appear here after their scheduled time."
-            >
-              <ActivityHistory items={past.items} now={now} />
-            </ActivityTabBody>
+              {/* Everything you JOINED (not hosted) reads as one history,
+                  alongside sessions confirmed through Plan Together — hosted
+                  activities live under "Created by me" instead. */}
+              <GroupActivities
+                activities={myGroupActivities.joinedPast}
+                {...groupActivityProps}
+              />
+              <PostedActivities
+                posts={myPosts.joinedPast}
+                {...postProps}
+              />
+              <ActivityTabBody
+                {...past}
+                isLoading={past.isLoading || myGroupActivities.isLoading || myPosts.isLoading}
+                extraCount={myGroupActivities.joinedPast.length + myPosts.joinedPast.length}
+                emptyIcon={History}
+                emptyTitle="No past activities yet."
+                /* Careful wording: an activity lands here because its end time
+                   passed, which says nothing about whether anyone went. */
+                emptyDescription="Your confirmed sessions appear here after their scheduled time."
+              >
+                <ActivityHistory items={past.items} now={now} />
+              </ActivityTabBody>
+            </section>
           </TabsContent>
         </Tabs>
       </PageContainer>
@@ -247,7 +253,9 @@ function PostedActivities({
   onRetry,
   onRemove,
 }: {
-  title: string
+  /** Omitted when the caller already shows its own heading (e.g. a shared
+   * "Past sessions" section covering several sources). */
+  title?: string
   posts: readonly ActivityPost[]
   people: ReadonlyMap<string, DiscoveryProfile>
   now: Date
@@ -260,7 +268,7 @@ function PostedActivities({
 
   return (
     <section className="flex flex-col gap-4">
-      <SectionHeader title={title} />
+      {title && <SectionHeader title={title} />}
       {error ? (
         <ErrorState title={error} onRetry={onRetry} />
       ) : (
@@ -295,7 +303,9 @@ function GroupActivities({
   onRetry,
   onRemove,
 }: {
-  title: string
+  /** Omitted when the caller already shows its own heading (e.g. a shared
+   * "Past sessions" section covering several sources). */
+  title?: string
   activities: readonly GroupActivity[]
   people: ReadonlyMap<string, DiscoveryProfile>
   now: Date
@@ -308,7 +318,7 @@ function GroupActivities({
 
   return (
     <section className="flex flex-col gap-4">
-      <SectionHeader title={title} />
+      {title && <SectionHeader title={title} />}
       {error ? (
         <ErrorState title={error} onRetry={onRetry} />
       ) : (
