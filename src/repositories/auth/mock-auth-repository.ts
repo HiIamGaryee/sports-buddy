@@ -10,21 +10,22 @@ interface MockAccount extends AuthUser {
   gender: Gender | null
 }
 
-/** Development-only credentials — documented in CLAUDE.md, never shown in the UI. */
-const DEMO_ACCOUNT: MockAccount = {
-  id: 'user_demo_001',
-  email: 'demo@sportsbuddy.app',
-  password: 'password123',
-  displayName: 'Gary',
-  photoUrl: null,
-  gender: 'male',
-  createdAt: '2026-01-01T00:00:00.000Z',
-}
+/** Optional development-only credentials, supplied outside the source bundle. */
+const mockDemoEmail = import.meta.env.VITE_MOCK_LOGIN_EMAIL?.trim()
+const mockDemoPassword = import.meta.env.VITE_MOCK_LOGIN_PASSWORD
 
-export const MOCK_LOGIN_DEFAULTS = {
-  email: DEMO_ACCOUNT.email,
-  password: DEMO_ACCOUNT.password,
-} as const
+const DEMO_ACCOUNT: MockAccount | null =
+  mockDemoEmail && mockDemoPassword
+    ? {
+        id: 'user_demo_001',
+        email: mockDemoEmail,
+        password: mockDemoPassword,
+        displayName: 'Gary',
+        photoUrl: null,
+        gender: 'male',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }
+    : null
 
 const GOOGLE_ACCOUNT: MockAccount = {
   id: 'user_google_001',
@@ -48,7 +49,7 @@ function readAccounts(): MockAccount[] {
     ...account,
     gender: isGender(account.gender) ? account.gender : null,
   }))
-  const seeded = [DEMO_ACCOUNT, GOOGLE_ACCOUNT].filter(
+  const seeded = [GOOGLE_ACCOUNT, ...(DEMO_ACCOUNT ? [DEMO_ACCOUNT] : [])].filter(
     (seed) => !normalized.some((account) => account.email === seed.email),
   )
   return [...seeded, ...normalized]
