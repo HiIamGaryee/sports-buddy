@@ -17,10 +17,36 @@ Nothing in Phase 4/5 below is a blocker for the Shipaton submission itself.
 | Phase | Status |
 | --- | --- |
 | 1 — Firebase + Android | **Done.** One optional retest below, everything else verified live. |
-| 2 — Monetization + RevenueCat | **Code done, not demoed yet.** Blocked on you doing the one-time RevenueCat dashboard setup (§ below) — no more code needed for this. |
-| 3 — Build pipeline, crash tracking, push | Not started. Not blocked, not urgent. |
+| 2 — Monetization + RevenueCat | **Code done. Dashboard done (verified 2026-09-19).** The only thing left is running the Android app once and completing a Test Store purchase. |
+| 3 — Build pipeline, crash tracking, push | Not started. Optional, not blocked, not urgent. |
 | 4 — Play Console submission | **Deferred on purpose — after October.** Not part of the Shipaton deadline. |
 | 5 — Buffer | Deferred with Phase 4. |
+
+### How much is left, and will it fit before the deadline?
+
+**You are at the end of Phase 2 — roughly 90% of Player A's scope is done.**
+Everything that had to be *built* is built; what remains is verification plus
+a short cleanup list.
+
+Assuming the Shipaton deadline is end of September, you have ~11 days, and
+the remaining work is **about 1.5–2 days of focused effort.** It fits
+comfortably, with real buffer. In priority order:
+
+| Work | Estimate | Why now |
+| --- | --- | --- |
+| Run the Android app + complete one Test Store purchase | 1–2 h (mostly first-build wait) | **Do this first.** It's the last unproven claim in the whole submission. |
+| Swap the Profile recap banner onto the real Firestore data | 1 h | Fake data on a demo screen is the worst thing a judge can spot. |
+| Fix or remove Home's "Recommended for you" fake cards | 1 h | Same reason. |
+| Publish a RevenueCat paywall (optional) | 30 m | Nicer screenshots; the fallback already works. |
+| Device pass: group activities, paywall, recap share card | 2–3 h | Nothing has ever been tapped by a human. |
+| QR check-in on a real phone | 1 h | Needs two accounts + a real camera. |
+| Native Google sign-in | 2–4 h | **Skippable** — email/password works natively today. |
+| In-app account deletion | 3–5 h | Play Store requirement, **not** a Shipaton one — safe to defer. |
+
+**Verdict: yes, you'll settle before the deadline**, as long as the Android
+run happens in the next day or two rather than in the final week. The two
+genuinely optional items (native Google sign-in, account deletion) are both
+Play-Store concerns and both belong in the post-October window with Phase 4.
 
 ---
 
@@ -150,50 +176,52 @@ on the web build, or if no Paywall is designed in the dashboard yet).
 `android/gradlew assembleDebug` — **BUILD SUCCESSFUL** with both new
 plugins. Full detail: `docs/monetization.md`.
 
-### 2026-09-18 — RevenueCat dashboard setup checklist (what's still missing)
+### 2026-09-19 — RevenueCat dashboard VERIFIED (read directly via the API)
 
-**Nothing left to code.** `presentPaywall()` and `presentCustomerCenter()`
-are both fully implemented (`native-purchases-repository.ts` →
-`purchases-service.ts` → `subscription-provider.tsx` → `paywall-page.tsx`).
-What's left is dashboard configuration at app.revenuecat.com — a visual
-setup, not something that can be written as code. Work through this in
-order; each unchecked box is a real reason "buying Buddy+" won't work yet:
+Your dashboard was inspected directly through the RevenueCat MCP connector,
+not guessed at. **Your product/offering setup is correct. You did it right.**
 
-- [ ] **Test Store enabled** (Project settings → Test Store) — you said this
-      looks done already; just confirm it's ON for this project.
-- [ ] **Entitlement `sportbuddy_pro` exists** and is spelled exactly that —
-      this must match `BUDDY_PLUS_ENTITLEMENT_ID` in
-      `src/constants/entitlements.ts` character-for-character.
-- [ ] **Three Test Store products created** — `monthly`, `yearly`,
-      `lifetime` (any ids you like, the app doesn't hardcode them).
-- [ ] **Each product attached to the `sportbuddy_pro` entitlement** —
-      easy to forget this step per-product; a product with no entitlement
-      attached will "purchase" successfully but grant nothing.
-- [ ] **An Offering created, all three packages added to it, and that
-      Offering marked "Current"** — `getOffering()` only ever reads the
-      current offering. No current offering = the paywall shows "Buddy+
-      purchases are available in the Sports Buddy Android app" with an
-      empty package list, because there's nothing to sell yet.
-- [ ] **Sandbox testing access** set to "Anybody", OR your Firebase uid
-      (Firebase Console → Authentication → your account → "User UID") added
-      to the allowlist if you kept "Allowed App User IDs only". This is the
-      #1 cause of "the purchase sheet appeared and I picked a plan, but nothing
-      unlocked" — left on the default empty allowlist, every test purchase
-      silently fails to grant the entitlement.
-- [ ] **Android app registered in the RevenueCat project**, and the API key
-      you copied from it matches `VITE_REVENUECAT_ANDROID_API_KEY` in
-      `.env` — confirmed present and looks correct (`test_gzvexnGG…`).
-- [ ] Optional: **design a Paywall** (Tools → Paywalls, attach to the same
-      Offering) for RevenueCat's nicer hosted screen — skip this for now,
-      the built-in fallback list works fine for testing.
+| Thing | State |
+| --- | --- |
+| Project | `SportBuddy` (`projdfef7781`) ✅ |
+| App | "Test Store" (`app8334581361`, type `test_store`) ✅ |
+| Entitlement | `sportbuddy_pro` — **active**, matches the code exactly ✅ |
+| Products | `monthly` (P1M), `yearly` (P1Y), `lifetime` (non-consumable) — all 3 **attached to `sportbuddy_pro`** ✅ |
+| Offering | `default` — **`is_current: true`** ✅ |
+| Packages | `$rc_monthly`, `$rc_annual`, `$rc_lifetime`, each with its product ✅ |
+| Prices | USD 9.99 / 79.99 / 99.99 set ✅ (no MYR prices — fine, USD is used as the fallback) |
+| API key | `test_gzvexnGG…` matches `.env` exactly ✅ |
 
-Full step-by-step, in order: `docs/monetization.md` §"RevenueCat Test Store
-— manual dashboard setup".
+**So the dashboard is NOT the problem.** Two leftovers worth knowing about,
+neither of them breaking:
 
-**Tip:** if you connect the RevenueCat MCP integration in this environment
-(`/mcp` in an interactive Claude Code session, then authorize RevenueCat), I
-can read your actual dashboard config directly next time instead of you
-having to describe it — faster to spot which of the boxes above is unchecked.
+- A second, **inactive** entitlement `buddy_plus` ("plus") exists with zero
+  products — left over from the id mix-up. Harmless; archive it when you're
+  tidying up so nobody re-introduces the old name.
+- A paywall named "Untitled Paywall" exists but is **unpublished and
+  attached to no offering** (`offering_id: null`, `published_at: null`).
+  That's why `presentPaywall()` returns `not-presented` and the app shows
+  its own fallback package list instead.
+
+#### 🔴 THE ACTUAL BLOCKER — the app has never once contacted RevenueCat
+
+`list-customers` on the project returns **an empty list. Zero customers.**
+If `Purchases.configure()` had run even a single time — on any device, for
+any account, purchase or no purchase — a customer record would exist.
+
+That means you have only ever opened the **web** build (the Firebase Hosting
+demo, or `npm run dev`). `repositories.ts` picks the purchases repository by
+PLATFORM, and in a browser it always returns `webPurchasesRepository`, which
+deliberately never talks to RevenueCat and never fakes a purchase. So the
+Buddy+ button on the web can't do anything — **by design, not by bug.**
+
+**You are not blocked on anything you have to fix. You just have to run the
+actual Android app.** See the emulator instructions below. Once you do, a
+customer with your Firebase uid will appear in the RevenueCat dashboard —
+that alone is proof the SDK connected, before you even try buying.
+
+(Sandbox testing access is still worth setting to "Anybody" before you test,
+since it can't be read through the API and would silently block the grant.)
 
 #### How to test a Buddy+ purchase — you do NOT need a real phone or Play Store
 
@@ -223,6 +251,104 @@ the recap share card and the paywall visually — none of those need a real
 device either. **The one thing that DOES need a real phone: QR check-in**,
 because it needs a working camera pointed at another screen — see the
 reminder below.
+
+#### Android Studio — yes, it's the right tool, and why it's so slow
+
+Android Studio (Panda, or whichever version you have) gives you a real
+Android device on your PC — the full app, real touch, real camera
+permissions, real RevenueCat purchases. It is exactly what you want for
+"mobile view test and function", and it is far more accurate than resizing
+a desktop browser window.
+
+**The slowness is normal, and it's mostly one-time.** What's slow:
+
+- The **first** Gradle build downloads the whole Android toolchain and can
+  take 5–15 minutes. Later builds are 30–90 seconds.
+- **Cold-booting an emulator** takes 1–3 minutes.
+- The whole loop (`npm run build` → `cap sync` → Gradle → install) is
+  ~2–4 minutes per change even when warm.
+
+How to make it much less painful:
+
+- **Leave the emulator running.** Never close it between tests — reinstalling
+  into a live emulator is quick; cold-booting one is not.
+- **Use a real phone over USB instead.** Enable Developer options → USB
+  debugging, plug it in, pick it as the run target. It's usually *faster*
+  than the emulator, and it's the only way to test QR check-in anyway.
+- **Don't rebuild the native app for UI-only changes.** For layout/styling
+  work, `npm run dev` in a browser with the phone-size device toolbar
+  (F12 → device toolbar → 390px) is seconds, not minutes. Only rebuild in
+  Android Studio when you need something native: purchases, camera,
+  permissions, real Google sign-in.
+- Give the AVD more RAM and make sure hardware acceleration (WHPX/Hyper-V)
+  is on — a software-rendered emulator is painfully slow.
+
+Rule of thumb: **browser for looks, Android Studio for native behaviour.**
+
+#### 🔴 Google sign-in inside the Android app is BROKEN (known, expected)
+
+The error you hit —
+
+> Unable to process request due to missing initial state… sessionStorage is
+> inaccessible… signInWithRedirect in a storage-partitioned browser
+> environment
+
+— is not a bug in your code and not something a config tweak fixes. It is
+the documented consequence of using Firebase's **web** Google sign-in
+(`signInWithPopup`, `firebase-auth-repository.ts:47`) inside a Capacitor
+WebView. The WebView partitions storage, so Firebase can't hand the session
+back to the page after Google redirects. This exact caveat was written down
+in `CLAUDE.md` §13 before it ever happened.
+
+**The fix is a native Google auth plugin**, and only the repository layer
+changes (`firebase-auth-repository.signInWithGoogle`) — nothing above it
+moves. It needs:
+
+1. A plugin — `@capacitor-firebase/authentication` (recommended, it plugs
+   straight into the Firebase Auth you already use) or
+   `@codetrix-studio/capacitor-google-auth`.
+2. A **Google Cloud OAuth client of type Android**, created with your app's
+   package name (`com.sportsbuddy.app`) and the **SHA-1** of your signing
+   keystore (`keytool -list -v -keystore android/sports-buddy-release.keystore`
+   — and the debug keystore's SHA-1 too, if you want it working in debug
+   builds).
+3. That SHA-1 registered on the Firebase Android app.
+
+Estimated 2–4 hours including the Google Cloud console fiddling.
+
+**Until then: use email/password in the Android app.** It is fully portable,
+already works natively, and is enough for every Shipaton demo — Google
+sign-in still works fine on the web build. Do not let this block your
+RevenueCat testing; just register a test account with an email and password.
+
+### Hardcoded / fake data still shipping to real users (2026-09-19 audit)
+
+Two real screens still render static JSON instead of the member's own data.
+Both violate the project's own rule ("never render static or JSON demo
+people or activities in a signed-in screen") and both would be embarrassing
+in a demo, because the data is visibly not yours:
+
+1. **Home → "Recommended for you"**
+   (`features/home/components/recommendation-swiper.tsx` →
+   `src/data/recommendations.json`) — three invented venue cards with
+   invented locations, auto-rotating every 5 seconds. Shown to every signed-in
+   member on the Home page. Either wire it to real group activities /
+   activity posts, or remove the section.
+2. **Profile → Monthly recap banner**
+   (`features/recap/components/monthly-recap-banner.tsx` →
+   `use-monthly-recap-demo.ts` → `monthly-recap-service.ts` →
+   `src/data/last-month-exercise.json`) — the recap on your Profile page is
+   computed from a **static fixture**, not your actual sessions. The REAL
+   Firestore-backed implementation already exists at
+   `features/recap/use-monthly-recap.ts` and is simply not the one the banner
+   imports. **This is a one-line-ish swap** and the single highest-value
+   cleanup on this list.
+
+Everything else that looked like a hardcode is legitimate and should be left
+alone: `general.json` (UI copy), `faq-list.json` (FAQ content),
+`sport-list.json` (the sports dataset), and the three hex fallbacks in
+`venue-map.tsx` (the Google Maps API needs colour strings and cannot accept a
+CSS class — it reads the live theme tokens first and only falls back).
 
 ### Blocked on you doing something outside the code
 
