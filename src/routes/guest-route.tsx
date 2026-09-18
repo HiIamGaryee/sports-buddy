@@ -16,6 +16,9 @@ export function GuestRoute() {
   if (state === 'onboarding-required') {
     return <Navigate to={ROUTES.onboarding} replace />
   }
+  if (state === 'gender-required') {
+    return <Navigate to={ROUTES.completeProfile} replace />
+  }
   if (state === 'ready') {
     return <Navigate to={peekReturnPath() ?? ROUTES.home} replace />
   }

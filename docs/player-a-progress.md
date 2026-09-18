@@ -6,7 +6,7 @@ everything else built alongside it. For the product/business picture (what
 Sports Buddy is, monetization, business model), see `docs/project-overview.md`
 — this file is your own personal task tracker.
 
-Owner: Lynn662312 (Player A). Last updated: 2026-09-14.
+Owner: Lynn662312 (Player A). Last updated: 2026-09-18.
 
 **Google Play Store publishing is intentionally deferred until after the
 Shipaton judging period ends — planned for after October, not before.**
@@ -80,6 +80,17 @@ Nothing in Phase 4/5 below is a blocker for the Shipaton submission itself.
       the web build never fakes a purchase)
 - [x] Buddy+ entitlement read live from RevenueCat, never a database flag
 - [x] Paywall screen (`/buddy-plus`), linked from Settings
+- [x] `presentPaywall()` — the official RevenueCat-hosted Paywall UI
+      (`@revenuecat/purchases-capacitor-ui`), the modern recommended way to
+      sell the entitlement. **Fully implemented in code — nothing left to
+      build here.** It falls back automatically to the hand-built package
+      list on the same page if no Paywall has been *designed* in the
+      dashboard yet (that design step is optional and dashboard-only, see
+      below).
+- [x] `presentCustomerCenter()` — RevenueCat-hosted Customer Center
+      ("Manage subscription" once you're on Buddy+): cancel, change plan,
+      see receipts. Also fully implemented in code.
+- [x] Entitlement id bug fixed (`sportbuddy_pro`, was `buddy_plus`)
 - [x need test in app] Free/Buddy+ limits actually enforced in the app
 
 ### Web hosting + sharing
@@ -139,20 +150,100 @@ on the web build, or if no Paywall is designed in the dashboard yet).
 `android/gradlew assembleDebug` — **BUILD SUCCESSFUL** with both new
 plugins. Full detail: `docs/monetization.md`.
 
+### 2026-09-18 — RevenueCat dashboard setup checklist (what's still missing)
+
+**Nothing left to code.** `presentPaywall()` and `presentCustomerCenter()`
+are both fully implemented (`native-purchases-repository.ts` →
+`purchases-service.ts` → `subscription-provider.tsx` → `paywall-page.tsx`).
+What's left is dashboard configuration at app.revenuecat.com — a visual
+setup, not something that can be written as code. Work through this in
+order; each unchecked box is a real reason "buying Buddy+" won't work yet:
+
+- [ ] **Test Store enabled** (Project settings → Test Store) — you said this
+      looks done already; just confirm it's ON for this project.
+- [ ] **Entitlement `sportbuddy_pro` exists** and is spelled exactly that —
+      this must match `BUDDY_PLUS_ENTITLEMENT_ID` in
+      `src/constants/entitlements.ts` character-for-character.
+- [ ] **Three Test Store products created** — `monthly`, `yearly`,
+      `lifetime` (any ids you like, the app doesn't hardcode them).
+- [ ] **Each product attached to the `sportbuddy_pro` entitlement** —
+      easy to forget this step per-product; a product with no entitlement
+      attached will "purchase" successfully but grant nothing.
+- [ ] **An Offering created, all three packages added to it, and that
+      Offering marked "Current"** — `getOffering()` only ever reads the
+      current offering. No current offering = the paywall shows "Buddy+
+      purchases are available in the Sports Buddy Android app" with an
+      empty package list, because there's nothing to sell yet.
+- [ ] **Sandbox testing access** set to "Anybody", OR your Firebase uid
+      (Firebase Console → Authentication → your account → "User UID") added
+      to the allowlist if you kept "Allowed App User IDs only". This is the
+      #1 cause of "the purchase sheet appeared and I picked a plan, but nothing
+      unlocked" — left on the default empty allowlist, every test purchase
+      silently fails to grant the entitlement.
+- [ ] **Android app registered in the RevenueCat project**, and the API key
+      you copied from it matches `VITE_REVENUECAT_ANDROID_API_KEY` in
+      `.env` — confirmed present and looks correct (`test_gzvexnGG…`).
+- [ ] Optional: **design a Paywall** (Tools → Paywalls, attach to the same
+      Offering) for RevenueCat's nicer hosted screen — skip this for now,
+      the built-in fallback list works fine for testing.
+
+Full step-by-step, in order: `docs/monetization.md` §"RevenueCat Test Store
+— manual dashboard setup".
+
+**Tip:** if you connect the RevenueCat MCP integration in this environment
+(`/mcp` in an interactive Claude Code session, then authorize RevenueCat), I
+can read your actual dashboard config directly next time instead of you
+having to describe it — faster to spot which of the boxes above is unchecked.
+
+#### How to test a Buddy+ purchase — you do NOT need a real phone or Play Store
+
+RevenueCat's **Test Store** exists specifically so this can be tested without
+Google Play Console, without a signed release build, and without a physical
+device:
+
+1. `npm run build` (or just let step 2 do it via `cap sync`)
+2. `npx cap sync android`
+3. `npx cap open android` — opens the project in Android Studio
+4. Run it on **any target**: an Android Virtual Device (Android Studio →
+   Device Manager → create one if you don't have one) or a real phone over
+   USB — a plain **debug** run configuration is fine, no release signing
+   needed, since Test Store never talks to real Google Play Billing.
+5. Sign in with your live Firebase test account → Settings → Buddy+ (or
+   `/buddy-plus`) → **Get Buddy+**.
+6. If the dashboard checklist above is complete, a Test Store purchase sheet
+   appears (or the fallback package list, if no Paywall is designed) →
+   pick a plan → it should unlock Buddy+ within a couple seconds, no app
+   restart.
+7. If nothing purchasable shows up at all → an Offering/product step above
+   is missing. If it "purchases" but nothing unlocks → sandbox testing
+   access.
+
+This same emulator run is also how you'll eventually check group activities,
+the recap share card and the paywall visually — none of those need a real
+device either. **The one thing that DOES need a real phone: QR check-in**,
+because it needs a working camera pointed at another screen — see the
+reminder below.
+
 ### Blocked on you doing something outside the code
 
 - [ ] **A real RevenueCat purchase.** Both bugs above are now fixed in
-      code — try again once you've fixed the sandbox testing access setting
-      (#2 above). If it still doesn't unlock Buddy+, that's the next thing
-      to check.
+      code — work through the dashboard checklist above, then try again.
 - [ ] **Design a Paywall in the RevenueCat dashboard** (Tools → Paywalls,
       optional) for a nicer purchase screen than the plain fallback list —
       not required, the fallback works either way.
 - [ ] **Confirming everything on a real/emulated Android device** — group
-      activities, QR check-in with an actual camera, the paywall, the recap
-      share sheet. All of this has only been checked with automated tests so
-      far (510 unit tests, 205 Firestore rules tests, all passing), never a
-      real screen tap.
+      activities, the paywall, the recap share sheet. All of this has only
+      been checked with automated tests so far (510+ unit tests, 205+
+      Firestore rules tests, all passing), never a real screen tap. See "How
+      to test a Buddy+ purchase" above — same emulator run covers all of it.
+- [ ] **REMINDER: QR check-in — test later, using an actual phone.** You
+      said you'll do this yourself once you have a phone in hand (needs a
+      real camera pointed at a second screen/device showing the QR — an
+      emulator's fake camera won't do a convincing test). Two accounts,
+      create a group activity a few minutes in the future, wait for the
+      start time to pass, organizer taps "Show check-in code", participant
+      taps "Scan check-in code". Not blocking anything else — do it whenever
+      you have the phone available.
 - [ ] Native Google Sign-In inside the Android app (today's Google sign-in
       is the browser popup flow — works, but needs a Google Cloud OAuth
       client + your app's SHA-1 to go native)

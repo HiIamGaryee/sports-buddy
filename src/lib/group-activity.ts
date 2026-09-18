@@ -178,11 +178,22 @@ export function toDraftFromGroupActivity(activity: GroupActivity): GroupActivity
   }
 }
 
-/** Still worth showing: it has not started yet. */
+/** Still worth showing: it has not started yet. Used to gate joining. */
 export const isUpcomingGroupActivity = (
   activity: Pick<GroupActivity, 'startAt'>,
   now: Date,
 ) => new Date(activity.startAt).getTime() > now.getTime()
+
+/**
+ * Genuinely finished, for the Planned/Past split — mirrors
+ * `getActivityTemporalState`'s use of `endAt` rather than `startAt`, so a
+ * group activity in progress stays out of "Past" the same way a confirmed
+ * `Activity` does. Falls back to the start time when no end was given.
+ */
+export const hasGroupActivityEnded = (
+  activity: Pick<GroupActivity, 'startAt' | 'endAt'>,
+  now: Date,
+) => new Date(activity.endAt ?? activity.startAt).getTime() <= now.getTime()
 
 /** Soonest first, with the id as a stable tie-break. */
 export const compareGroupActivities = (a: GroupActivity, b: GroupActivity) =>
