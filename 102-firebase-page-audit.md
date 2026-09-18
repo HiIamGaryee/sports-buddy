@@ -2,9 +2,7 @@
 
 Audit scope: route configuration, page components, hooks, services, repositories, Firebase SDK calls, environment switching, authentication guards, Firestore collections, mock fallbacks, and realtime listener cleanup.
 
-No source code or configuration was changed during the original audit. Sensitive environment values are intentionally omitted.
-
-Implementation follow-up: the primary findings from this audit have since been addressed. The source changes are summarized in the resolved findings below.
+No source code or configuration was changed during the audit. Sensitive environment values are intentionally omitted.
 
 ## Summary
 
@@ -17,9 +15,8 @@ Implementation follow-up: the primary findings from this audit have since been a
 | Non-database page routes | 5 (`/privacy`, `/map`, `/buddy-plus`, and the two share-entry routes) |
 | Firebase-connected pages | YES |
 | Missing core page-to-Firestore connections | NO confirmed cases |
-| Active mock/static feature data | NO for profile metrics; static UI/content remains intentionally |
+| Active mock/static feature data | YES — `/profile` has sample ratings and a static recap banner |
 | Broken Firebase flows | NO confirmed cases |
-| Primary audit fixes implemented | YES |
 | TypeScript verification | PASS (`npm run typecheck`) |
 | Lazy-loaded routes | NO found; routes are eagerly imported |
 
@@ -214,32 +211,32 @@ No listener leak was confirmed. Effects use cleanup and, where applicable, an ac
 
 ## Problems Found
 
-### HIGH — Mock login credentials are statically bundled in Firebase mode — RESOLVED
+### HIGH — Mock login credentials are statically bundled in Firebase mode
 
 | Field | Finding |
 | --- | --- |
 | Page | `/auth/login` |
 | File | `src/features/auth/pages/login-page.tsx:17,31-34` |
-| Problem | Previously, `MOCK_LOGIN_DEFAULTS` was imported by the login page and the demo credentials were present in source. |
-| Resolution | The login page now starts blank and no longer imports mock defaults. Optional mock credentials are supplied through `VITE_MOCK_LOGIN_EMAIL` and `VITE_MOCK_LOGIN_PASSWORD`; no credential literals were found in the generated production bundle. |
+| Problem | `MOCK_LOGIN_DEFAULTS` is statically imported from the mock auth repository. The values are only used when `env.dataSource === 'mock'`, but the static import can still ship the mock credentials in the frontend bundle while Firebase mode is active. |
+| Suggested fix | Keep mock credentials outside the production bundle, or load mock-only code through a development/test-only boundary. |
 
-### MEDIUM — Profile contains active non-Firestore sample data — RESOLVED
+### MEDIUM — Profile contains active non-Firestore sample data
 
 | Field | Finding |
 | --- | --- |
 | Page | `/profile` |
 | Files | `src/features/profile/pages/profile-page.tsx:228`, `src/features/ratings/components/reliability-card.tsx`, `src/features/ratings/mock-ratings.ts`; `src/features/recap/components/monthly-recap-banner.tsx`, `src/features/recap/use-monthly-recap-demo.ts`, `src/data/last-month-exercise.json` |
-| Problem | Previously, the visible Track Record card used demo ratings and the monthly recap banner used static JSON. |
-| Resolution | `/profile` now uses `useReliability` and the live attendance repository, plus `useMonthlyRecap` and the live recap service. Both flows select Firebase repositories in Firebase mode. |
+| Problem | The profile itself uses Firestore, but the visible Track Record card uses a demo ratings source and the visible monthly recap banner uses static JSON. These sections are not persisted through Firestore. |
+| Suggested fix | Replace the active demo components with Firestore-backed attendance/recap data, or label and gate them explicitly as development-only. |
 
-### MEDIUM — Home can display an empty state when a Firestore read fails — RESOLVED
+### MEDIUM — Home can display an empty state when a Firestore read fails
 
 | Field | Finding |
 | --- | --- |
 | Page | `/home` |
 | File | `src/pages/home-page.tsx:27-42,77-100` |
-| Problem | Previously, the page primarily branched on loading and empty results. |
-| Resolution | `/home` now renders `ErrorState` with retry actions when upcoming activities or personal activity-post reads fail. |
+| Problem | The activity hooks expose errors, but the page primarily branches on loading and empty results. A failed activity/post read can therefore look like “no activities” rather than an error. |
+| Suggested fix | Render the hook error state with retry guidance instead of treating failed reads as empty data. |
 
 ### LOW — Profile-load errors are swallowed
 
@@ -272,9 +269,9 @@ No confirmed wrong repository import, missing Firebase call, unauthenticated Fir
 
 ## Recommended Fix Order
 
-1. Completed: prevent mock login credentials from entering Firebase-mode production bundles.
-2. Completed: replace the mock ratings and static recap sections on `/profile`.
-3. Completed: add visible error/retry handling for Home activity reads.
+1. Prevent mock login credentials from entering Firebase-mode production bundles.
+2. Replace or explicitly gate the mock ratings and static recap sections on `/profile`.
+3. Add visible error/retry handling for Home activity reads.
 4. Separate profile-load and safety-listener failures from valid empty states.
 5. Add an explicit production environment verification step for `VITE_DATA_SOURCE=firebase`.
 
@@ -349,10 +346,8 @@ No confirmed wrong repository import, missing Firebase call, unauthenticated Fir
 | Firestore collection references mapped | YES |
 | Protected-page user gating verified | YES |
 | Realtime listeners unsubscribe | YES |
-| Database-required page data is Firestore-backed | YES |
-| Static UI/content remains | YES — recommendations and FAQ copy are not database records |
+| All visible page data is Firestore-backed | NO — `/profile` contains active demo/static sections |
 | Firebase production environment confirmed | UNCONFIRMED |
 | Firebase REST API used | NO found |
 | Firebase Admin SDK used | NO found |
 | Confirmed broken core Firestore flow | NO |
-| Primary audit findings resolved | YES |

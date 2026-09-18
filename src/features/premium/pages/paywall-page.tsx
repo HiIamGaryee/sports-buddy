@@ -3,7 +3,6 @@ import {
   Check,
   LockKeyhole,
   Settings2,
-  Sparkles,
 } from 'lucide-react'
 
 import { AppHeader } from '@/components/layout/app-header'
@@ -12,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusPill } from '@/components/ui/status-pill'
+import diamondIcon from '@/assets/svg/diamond-search-svgrepo-com.svg'
 import { MAX_BUDDY_PLUS_SPORTS } from '@/constants/sports'
 import general from '@/data/general.json'
 import { useSubscription } from '@/hooks/use-subscription'
@@ -236,8 +236,7 @@ export function PaywallPage() {
       />
       <PageContainer size="wide" className="gap-8 md:gap-10">
         <section className="flex flex-col items-center gap-4 py-2 text-center md:py-6">
-          <span className="flex items-center gap-2 rounded-full border border-border bg-surface-subtle px-3 py-1 text-caption text-foreground">
-            <Sparkles aria-hidden className="size-3.5 text-primary" />
+          <span className="text-caption text-foreground">
             Pricing plans
           </span>
           <div className="flex max-w-2xl flex-col gap-3">
@@ -283,7 +282,10 @@ export function PaywallPage() {
             <CardContent className="flex h-full flex-col gap-7 p-1">
               <div className="flex flex-col gap-3 rounded-xl bg-card/80 p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-label text-primary uppercase">Buddy+</span>
+                  <span className="flex items-center gap-1.5 text-label text-primary uppercase">
+                    <img src={diamondIcon} alt="" aria-hidden className="size-3.5" />
+                    Buddy+
+                  </span>
                   <span className="rounded-full bg-primary-gradient px-3 py-1 text-caption text-primary-foreground">
                     Recommended
                   </span>

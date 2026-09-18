@@ -24,9 +24,10 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AvailabilitySummary } from '@/features/profile/components/availability-summary'
 import { ProfileHero } from '@/features/profile/components/profile-hero'
-import { ReliabilityCard } from '@/features/profile/components/reliability-card'
 import { GenderLabel } from '@/components/profile/gender-label'
 import { MonthlyRecapBanner } from '@/features/recap/components/monthly-recap-banner'
+import { ReliabilityCard } from '@/features/ratings/components/reliability-card'
+import { DEMO_SELF_ID } from '@/features/ratings/mock-ratings'
 import { SportSkillList } from '@/features/profile/components/sport-skill-list'
 import { SettingsSection } from '@/features/settings/components/settings-section'
 import { useProfile } from '@/hooks/use-profile'
@@ -224,7 +225,7 @@ export function ProfilePage() {
                   title="Track record"
                   description="What other sports buddies see about how reliably you turn up."
                 />
-                <ReliabilityCard />
+                <ReliabilityCard buddyId={DEMO_SELF_ID} isSelf />
               </section>
 
               <SettingsSection id="sports" title="Sports & playing style">
@@ -335,7 +336,7 @@ export function ProfilePage() {
 
               {/* LAST section on the page: a recap is a reward, not profile
                   identity, so it never pushes who you are further down. */}
-              <MonthlyRecapBanner />
+              <MonthlyRecapBanner displayName={profile.displayName} />
             </div>
           </div>
         )}

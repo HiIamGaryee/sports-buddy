@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 
 import heroDark from '@/assets/hero-dark.jpeg'
 import heroLight from '@/assets/hero-light.jpeg'
-import { ErrorState } from '@/components/common/error-state'
 import { EmptyState } from '@/components/common/empty-state'
 import { SectionHeader } from '@/components/common/section-header'
 import { AppHeader } from '@/components/layout/app-header'
@@ -25,12 +24,7 @@ export function HomePage() {
   const { profile } = useProfile()
   const { resolvedTheme } = useTheme()
   const now = useCoarseNow()
-  const {
-    items,
-    isLoading: isLoadingActivities,
-    error: activitiesError,
-    refresh: refreshActivities,
-  } = useUpcomingActivities()
+  const { items, isLoading: isLoadingActivities } = useUpcomingActivities()
   const myPosts = useMyActivityPosts(now)
   const firstName = profile?.displayName.split(' ')[0]
 
@@ -46,12 +40,6 @@ export function HomePage() {
     nextPost !== null &&
     (nextSession === null || nextPost.startAt < nextSession.activity.startAt)
   const isLoadingUpcoming = isLoadingActivities || myPosts.isLoading
-  const upcomingError = activitiesError || myPosts.error
-
-  const retryUpcoming = () => {
-    if (activitiesError) refreshActivities()
-    if (myPosts.error) myPosts.refresh()
-  }
 
   return (
     <>
@@ -88,12 +76,6 @@ export function HomePage() {
             <SectionHeader title="Upcoming" />
             {isLoadingUpcoming ? (
               <Skeleton className="h-36 w-full rounded-2xl" />
-            ) : upcomingError ? (
-              <ErrorState
-                title={upcomingError}
-                description="We couldn't load your upcoming activities."
-                onRetry={retryUpcoming}
-              />
             ) : showPost && nextPost ? (
               <ActivityPostCard
                 post={nextPost}

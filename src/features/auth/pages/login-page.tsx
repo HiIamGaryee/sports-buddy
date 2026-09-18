@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { env } from '@/config/env'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AuthAlert } from '@/features/auth/components/auth-alert'
@@ -13,6 +14,7 @@ import {
   validateRequiredPassword,
 } from '@/features/auth/validation'
 import { useAuth } from '@/hooks/use-auth'
+import { MOCK_LOGIN_DEFAULTS } from '@/repositories/auth/mock-auth-repository'
 import { ROUTES } from '@/routes/routes'
 
 interface LoginForm {
@@ -25,7 +27,11 @@ type Pending = 'email' | 'google' | null
 
 export function LoginPage() {
   const { signIn, signInWithGoogle } = useAuth()
-  const [form, setForm] = useState<LoginForm>({ email: '', password: '' })
+  const [form, setForm] = useState<LoginForm>(() =>
+    env.dataSource === 'mock'
+      ? { ...MOCK_LOGIN_DEFAULTS }
+      : { email: '', password: '' },
+  )
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState('')
   const [pending, setPending] = useState<Pending>(null)
