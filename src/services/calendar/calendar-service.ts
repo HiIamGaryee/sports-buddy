@@ -1,12 +1,13 @@
 import { isActivityPast } from '@/lib/activity'
+import { env } from '@/config/env'
 import { formatDuration } from '@/lib/activity-format'
 import { isValidDocumentId } from '@/lib/ids'
 import { formatBudget, getSportName } from '@/lib/profile-format'
-import { isTrustedMapsUrl } from '@/lib/safe-url'
 import { normalizeSingleLine } from '@/lib/sanitize'
 import { isSportId } from '@/services/profile/profile-schema'
 import { calendarFailure } from '@/services/calendar/calendar-error'
 import { createIcsCalendarProvider } from '@/services/calendar/providers/ics-calendar-provider'
+import { isTrustedMapsUrl, isTrustedOpenStreetMapUrl } from '@/lib/safe-url'
 import type { Activity } from '@/types/activity'
 import type {
   CalendarEventData,
@@ -27,7 +28,7 @@ import type {
  * connection id and the source plan id cannot reach an exported file.
  */
 
-/** Bounds a value that came from Google Places or another member's profile. */
+/** Bounds a value that came from OpenStreetMap or another member's profile. */
 const MAX_FIELD_LENGTH = 200
 
 /**
@@ -140,11 +141,18 @@ export const calendarService = {
       endAt,
       location: address ? `${venueName}, ${address}` : venueName,
       description,
-      // The stored URI was written by whichever participant proposed the
-      // venue, so it is only carried when it is a real Google Maps link.
-      ...(isTrustedMapsUrl(activity.venue.googleMapsUri)
-        ? { url: activity.venue.googleMapsUri as string }
-        : {}),
+      // Only carry a provider URL that was actually stored and validated.
+      // Calendar export must not invent a link from hostile persisted data.
+      ...(() => {
+        const url = env.venueSource === 'google'
+          ? isTrustedMapsUrl(activity.venue.googleMapsUri)
+            ? activity.venue.googleMapsUri
+            : null
+          : isTrustedOpenStreetMapUrl(activity.venue.openStreetMapUrl)
+            ? activity.venue.openStreetMapUrl
+            : null
+        return url ? { url } : {}
+      })(),
     }
   },
 

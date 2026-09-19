@@ -94,6 +94,8 @@ const readVenue = (value: unknown): VenueSelection | null => {
     name: data.name,
     address: asString(data.address),
     location: point,
+    openStreetMapUrl:
+      typeof data.openStreetMapUrl === 'string' ? data.openStreetMapUrl : null,
     googleMapsUri:
       typeof data.googleMapsUri === 'string' ? data.googleMapsUri : null,
   }

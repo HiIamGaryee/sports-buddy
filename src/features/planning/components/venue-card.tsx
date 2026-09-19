@@ -1,5 +1,6 @@
 import { MapPin, Star } from 'lucide-react'
 
+import { env } from '@/config/env'
 import { SafeExternalLink } from '@/components/common/external-link'
 import { Button } from '@/components/ui/button'
 import { formatDistance } from '@/lib/geo'
@@ -89,8 +90,8 @@ export function VenueCard({
         <SafeExternalLink
           size="sm"
           href={venueService.mapsUrl(venue)}
-          label="Open in Maps"
-          ariaLabel={`Open ${venue.name} in Google Maps`}
+          label={env.venueSource === 'google' ? 'Open in Google Maps' : 'Open in OpenStreetMap'}
+          ariaLabel={`Open ${venue.name} in ${env.venueSource === 'google' ? 'Google Maps' : 'OpenStreetMap'}`}
         />
       </div>
     </div>

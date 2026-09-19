@@ -19,6 +19,7 @@ import {
 import {
   ACTIVITIES_COLLECTION,
   type ActivityQuery,
+  type ActivityRangeQuery,
   type ActivityRepository,
 } from '@/repositories/activity/activity-repository'
 import { toActivityDocument } from '@/repositories/activity/activity-document'
@@ -173,5 +174,24 @@ export const firebaseActivityRepository: ActivityRepository = {
     return readPage(request, (base, now) =>
       query(base, where('endAt', '<', now), orderBy('endAt', 'desc')),
     )
+  },
+
+  async getForUserInRange({ userId, startAtFrom, startAtBefore, now, limit }: ActivityRangeQuery) {
+    const snapshot = await getDocs(
+      query(
+        collection(getFirebaseDb(), ACTIVITIES_COLLECTION),
+        where('participants', 'array-contains', userId),
+        where('startAt', '>=', Timestamp.fromDate(startAtFrom)),
+        where('startAt', '<', Timestamp.fromDate(startAtBefore)),
+        orderBy('startAt'),
+        firestoreLimit(limit),
+      ),
+    )
+
+    return snapshot.docs.flatMap((entry) => {
+      const activity = toActivityDocument(entry.id, entry.data())
+      if (!activity || new Date(activity.endAt) >= now) return []
+      return [activity]
+    })
   },
 }

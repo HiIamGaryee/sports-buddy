@@ -37,21 +37,21 @@ const VENUES: Record<string, VenueSelection> = {
     name: 'Subang Racquet Centre',
     address: 'Jalan SS15/4, Subang Jaya, Selangor',
     location: { lat: 3.0722, lng: 101.5859 },
-    googleMapsUri: 'https://maps.google.com/?cid=1000000000000000001',
+    openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.0722&mlon=101.5859#map=17/3.0722/101.5859',
   },
   pjClimb: {
     placeId: 'mock_place_pj_climb',
     name: 'PJ Climb Lab',
     address: 'Jalan 51A/225, Petaling Jaya, Selangor',
     location: { lat: 3.1055, lng: 101.6421 },
-    googleMapsUri: 'https://maps.google.com/?cid=1000000000000000002',
+    openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.1055&mlon=101.6421#map=17/3.1055/101.6421',
   },
   taskPark: {
     placeId: 'mock_place_taman_jaya',
     name: 'Taman Jaya Park',
     address: 'Jalan Barat, Petaling Jaya, Selangor',
     location: { lat: 3.1035, lng: 101.6437 },
-    googleMapsUri: null,
+    openStreetMapUrl: null,
   },
 }
 

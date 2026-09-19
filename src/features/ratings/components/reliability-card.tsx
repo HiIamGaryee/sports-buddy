@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { RECENT_WINDOW_DAYS } from '@/features/ratings/mock-ratings'
+import { RECENT_WINDOW_DAYS } from '@/lib/buddy-rating'
 import { useBuddyRatings } from '@/features/ratings/use-buddy-ratings'
 import { cn } from '@/lib/utils'
 
@@ -10,10 +10,9 @@ import { cn } from '@/lib/utils'
  * user's `/profile` and a candidate's `/discover/:userId`, so what you see about
  * yourself is exactly what other people see about you.
  *
- * DEMO DATA. Attendance, punctuality and no-shows are not recorded anywhere in
- * Firestore — there is no check-in and no post-activity confirmation. These
- * numbers come from `mock-ratings.ts` and are labelled as sample data on screen
- * so nobody mistakes them for a real history.
+ * Ratings are loaded through the repository-backed ratings hook. Mock mode
+ * still uses its fixture repository; Firebase mode reads the bounded
+ * `buddyRatings` collection.
  */
 export function ReliabilityCard({
   buddyId,
@@ -22,7 +21,7 @@ export function ReliabilityCard({
   buddyId: string
   isSelf?: boolean
 }) {
-  const { calculateReliability } = useBuddyRatings()
+  const { calculateReliability } = useBuddyRatings(buddyId)
   const stats = calculateReliability(buddyId)
 
   return (
@@ -90,9 +89,6 @@ export function ReliabilityCard({
           </>
         )}
 
-        <p className="text-caption text-muted-foreground">
-          Sample data — attendance is not tracked yet.
-        </p>
       </CardContent>
     </Card>
   )

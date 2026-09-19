@@ -24,16 +24,14 @@ npm run dev
 The app runs against mock repositories by default — no credentials, nothing to
 sign up for.
 
-## Google Maps setup
+## OpenStreetMap setup
 
-1. Create or select a Google Cloud project.
-2. Enable Maps JavaScript API and Places API (New).
-3. Create a browser API key.
-4. Add `VITE_GOOGLE_MAPS_API_KEY=` to `.env`.
-5. Restart the Vite server.
+Venue search and venue maps use the existing OpenStreetMap integrations through
+Nominatim, Overpass, and Leaflet. No map API key is required.
 
-Restrict the key by website/application and enable only the required Google
-APIs before production use.
+Set `VITE_VENUE_SOURCE=openstreetmap` and restart the Vite server. Google Maps
+remains available as an alternative with `VITE_VENUE_SOURCE=google` plus
+`VITE_GOOGLE_MAPS_API_KEY`.
 
 ### Environment variables
 
@@ -49,12 +47,11 @@ They are read only in `src/config/env.ts`.
 | `VITE_FIREBASE_STORAGE_BUCKET` | same | same config block |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | same | same config block |
 | `VITE_FIREBASE_APP_ID` | same | same config block |
-| `VITE_VENUE_SOURCE` | always (`mock` \| `google`, defaults to `mock`) | pick it yourself — independent of `VITE_DATA_SOURCE` |
-| `VITE_GOOGLE_MAPS_API_KEY` | `VITE_VENUE_SOURCE=google` | Google Cloud console → APIs & Services → Credentials → Create credentials → API key, then enable **Maps JavaScript API** + **Places API (New)** |
+| `VITE_VENUE_SOURCE` | always (`google` \| `openstreetmap` \| `mock`, defaults to `openstreetmap`) | pick it yourself — independent of `VITE_DATA_SOURCE` |
+| `VITE_GOOGLE_MAPS_API_KEY` | `VITE_VENUE_SOURCE=google` | Google Cloud browser API key |
 
 `VITE_*` values are compiled into the browser bundle and are **not secret** —
-never put a server credential there. Restrict the Maps key by HTTP referrer and
-API, and set a daily quota. Setup walkthroughs: `docs/firebase.md`,
+never put a server credential there. Setup walkthroughs: `docs/firebase.md`,
 `docs/venues.md`.
 
 ## Android app (Capacitor)
@@ -119,3 +116,48 @@ share to help make local connections relevant. We never collect GPS or precise
 location data, and your email address is not shown to other users.
 
 Find your people. Play more often.
+
+## Firebase tester account
+
+Use `VITE_DATA_SOURCE=firebase` to test a normal free account against the live
+Firebase Auth and Firestore project:
+
+| Field | Value |
+| --- | --- |
+| Email | `tester.normal@sportsbuddy.app` |
+| Password | `SportsBuddy123!` |
+| Subscription | Free |
+
+This account has a completed badminton profile and a discoverable
+`publicProfiles` record. It is for development/testing only.
+
+## Buddy+ mock demo
+
+Use `VITE_DATA_SOURCE=mock` in the browser to open the seeded Buddy+ account:
+
+| Field | Value |
+| --- | --- |
+| Email | `super-tai@gmail.com` |
+| Password | `BuddyPlusDemo2026!` |
+| Subscription | Buddy+ active |
+
+The web demo has no payment gateway. The Buddy+ page accepts these one-time
+local demo codes instead:
+
+```text
+BUDDY-7K4M-2Q9P
+BUDDY-3F8N-6R2T
+BUDDY-9H5Q-4W7K
+BUDDY-2M6X-8C3V
+BUDDY-5P9L-1D7S
+BUDDY-4T2B-6Y8J
+BUDDY-8G3R-5K1N
+BUDDY-6V7C-2H9M
+BUDDY-1Q4W-8F6P
+BUDDY-9Z2D-3L5X
+```
+
+These Buddy+ credentials and codes are mock-only, stored locally in the browser,
+and must not be used as production payment credentials. There is currently no
+Firebase-backed premium tester account: production subscription status comes
+from RevenueCat, and web purchases remain intentionally unconnected.

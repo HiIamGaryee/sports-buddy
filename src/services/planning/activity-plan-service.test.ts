@@ -393,7 +393,7 @@ describe('venue', () => {
     name: 'Petaling Jaya Racquet Club',
     address: 'Jalan 13/6, Seksyen 13, Petaling Jaya',
     location: { lat: 3.1096, lng: 101.6371 },
-    googleMapsUri: 'https://maps.google.com/?cid=1',
+    openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.1&mlon=101.6#map=17/3.1/101.6',
   }
   const OTHER_VENUE = {
     ...VENUE,

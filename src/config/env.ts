@@ -3,13 +3,13 @@ import type { DataSource, VenueSource } from '@/types/data-source'
 const dataSource: DataSource =
   import.meta.env.VITE_DATA_SOURCE === 'firebase' ? 'firebase' : 'mock'
 
-/**
- * Deliberately independent of `dataSource`: a Firebase backend with mock
- * venues is the normal development setup, and Google billing should not be a
- * prerequisite for working on anything else.
- */
+/** Deliberately independent of `dataSource`: OpenStreetMap is the default. */
 const venueSource: VenueSource =
-  import.meta.env.VITE_VENUE_SOURCE === 'google' ? 'google' : 'mock'
+  import.meta.env.VITE_VENUE_SOURCE === 'google'
+    ? 'google'
+    : import.meta.env.VITE_VENUE_SOURCE === 'mock'
+      ? 'mock'
+      : 'openstreetmap'
 
 /** Single read point for build-time environment variables. */
 export const env = {
@@ -24,11 +24,6 @@ export const env = {
    */
   publicAppUrl: import.meta.env.VITE_PUBLIC_APP_URL,
   google: {
-    /**
-     * A Maps browser key is public by design — it is restricted in Google
-     * Cloud (API + HTTP referrer restrictions and quotas), not hidden. It is
-     * still only ever read here and never logged.
-     */
     mapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   },
   revenueCat: {

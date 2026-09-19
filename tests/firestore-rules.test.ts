@@ -1213,7 +1213,7 @@ describe('activity plans', () => {
       name: 'Petaling Jaya Racquet Club',
       address: 'Jalan 13/6, Seksyen 13, Petaling Jaya',
       location: { lat: 3.1096, lng: 101.6371 },
-      googleMapsUri: 'https://maps.google.com/?cid=1',
+      openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.1096&mlon=101.6371#map=17/3.1096/101.6371',
     }
 
     const agreedProposal = (value: unknown) => ({
@@ -1407,7 +1407,7 @@ describe('confirmed activities', () => {
     name: 'Petaling Jaya Racquet Club',
     address: 'Jalan 13/6, Seksyen 13, Petaling Jaya',
     location: { lat: 3.1096, lng: 101.6371 },
-    googleMapsUri: 'https://maps.google.com/?cid=1',
+    openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.1096&mlon=101.6371#map=17/3.1096/101.6371',
   }
   const BUDGET = { min: 20, max: 40 }
   const START = new Date('2030-01-05T09:00:00.000Z')
@@ -3010,5 +3010,52 @@ describe('attendance records', () => {
       query(collection(asUser(GARY), 'attendanceRecords'), where('activityId', '==', 'activity_1')),
     )
     expect(snapshot.docs.map((entry) => entry.id)).toEqual(['activity_1__aina'])
+  })
+})
+
+describe('buddy ratings', () => {
+  const activityId = 'activity_rating_1'
+  const ratingPath = `${'buddyRatings'}/${activityId}__${GARY}`
+  const activity = {
+    participants: [GARY, AINA],
+    endAt: new Date(Date.now() - 60_000),
+  }
+  const rating = {
+    id: `${activityId}__${GARY}`,
+    eventId: activityId,
+    reviewerId: GARY,
+    reviewedUserId: AINA,
+    attendanceStatus: 'attended',
+    punctuality: 'on_time',
+    experience: 'great',
+    note: 'Good session.',
+    createdAt: serverTimestamp(),
+  }
+
+  it('allows an authenticated participant to create one rating', async () => {
+    await seedDocument(`activities/${activityId}`, activity)
+    await assertSucceeds(setDoc(doc(asUser(GARY), ratingPath), rating))
+  })
+
+  it('rejects self-ratings and ratings from unrelated users', async () => {
+    await seedDocument(`activities/${activityId}`, activity)
+    await assertFails(setDoc(doc(asUser(GARY), `${'buddyRatings'}/${activityId}__${GARY}__self`), {
+      ...rating,
+      id: `${activityId}__${GARY}__self`,
+      reviewedUserId: GARY,
+    }))
+    await assertFails(setDoc(doc(asUser(STRANGER), `${'buddyRatings'}/${activityId}__${STRANGER}`), {
+      ...rating,
+      id: `${activityId}__${STRANGER}`,
+      reviewerId: STRANGER,
+    }))
+  })
+
+  it('rejects a duplicate deterministic rating and all updates', async () => {
+    await seedDocument(`activities/${activityId}`, activity)
+    const reference = doc(asUser(GARY), ratingPath)
+    await assertSucceeds(setDoc(reference, rating))
+    await assertFails(setDoc(reference, rating))
+    await assertFails(updateDoc(reference, { note: 'Changed' }))
   })
 })

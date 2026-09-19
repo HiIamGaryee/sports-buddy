@@ -44,7 +44,7 @@ entitlement id in `CustomerInfo` just never matches.
   mounted in `ProtectedRoute` (beside `ConnectionProvider` /
   `ConversationsProvider`), so no purchases call ever runs on the login,
   register or onboarding screens. `useSubscription()` exposes `state`,
-  `isBuddyPlus`, `offering`, `purchase()`, `restore()`.
+  `isBuddyPlus`, `offering`, `purchase()`, `redeemCode()`, `restore()`.
 - `src/lib/capabilities.ts` — the ONLY place a feature checks entitlement:
   `isBuddyPlus`, `canJoinAnotherGroupActivity`, `canHostAnotherGroupActivity`,
   `canUseAdvancedDiscoverFilters`, `canUseReliabilityFilter`,
@@ -96,14 +96,15 @@ A real purchase can only happen inside the Capacitor Android app. The
 browser build (Firebase Hosting demo, `npm run dev`, a future Vercel deploy)
 always gets `webPurchasesRepository`:
 
-- `getOffering()` returns `null` — the paywall shows "Buddy+ purchases are
-  only available in the Sports Buddy Android app" rather than inventing
-  prices or a broken package list.
+- `getOffering()` returns `null` — the paywall does not invent prices or a
+  broken package list.
 - `purchasePackage()` / `restorePurchases()` throw a coded, user-safe error.
-  **No purchase is ever faked on the web** — there is no "pretend Buddy+"
-  toggle anywhere in this codebase.
-- `getEntitlements()` returns `{ activeEntitlementIds: [] }`, so the web
-  build always reads as `free`.
+- No store purchase is faked on the web. The browser has a deliberately
+  separate demo path: the seeded `super-tai@gmail.com` account starts with
+  Buddy+, and the paywall accepts ten one-time local demo codes. Redemptions
+  are stored in browser localStorage and are not production entitlements.
+- `getEntitlements()` returns Buddy+ only for that seeded account or a local
+  code redemption; all other web accounts read as `free`.
 
 ## RevenueCat Test Store — manual dashboard setup
 
@@ -186,8 +187,5 @@ the current session; it does not delete anything server-side.
   entitlement into Firestore — RevenueCat's own `CustomerInfo` is read
   directly, live, every time.
 - A real RevenueCat WEB purchase flow (Stripe/RevenueCat Billing) — out of
-  scope for this Shipaton pass; the web build only ever shows the paywall
-  and explains that purchasing needs the Android app, per the constraint
-  above.
-- Any fake/local "premium" toggle for testing convenience — testing Buddy+
-  must always go through a real Test Store transaction.
+  scope for this Shipaton pass; the web build uses only the documented local
+  demo account and redeem codes.

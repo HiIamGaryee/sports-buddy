@@ -60,7 +60,7 @@ const VENUE = {
   name: 'Petaling Jaya Racquet Club',
   address: 'Jalan 13/6, Seksyen 13, Petaling Jaya',
   location: { lat: 3.1096, lng: 101.6371 },
-  googleMapsUri: 'https://maps.google.com/?cid=1',
+  openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.1&mlon=101.6#map=17/3.1/101.6',
 }
 const TIME = { date: '2030-01-05', startTime: '17:00', endTime: '19:00' }
 const BUDGET = { min: 20, max: 40 }

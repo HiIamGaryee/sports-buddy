@@ -5,9 +5,8 @@ import type { VenueRepository } from '@/repositories/venue/venue-repository'
 import type { Venue } from '@/types/venue'
 
 /**
- * Mirrors the Google repository's contract — same shape out, same sport
- * relevance, same distance-first ordering — from a fixed local list, so the
- * whole planner is developable without a Google key or billing.
+ * Mirrors the OpenStreetMap repository's contract — same shape out, same sport
+ * relevance, same distance-first ordering — from a fixed local list.
  */
 const toVenue = (venue: MockVenue): Venue => ({
   id: venue.id,
@@ -15,7 +14,7 @@ const toVenue = (venue: MockVenue): Venue => ({
   address: venue.address,
   location: venue.location,
   // Built by the service, so the mock stores no provider URL of its own.
-  googleMapsUri: null,
+  openStreetMapUrl: null,
   rating: venue.rating,
   ratingCount: venue.ratingCount,
   primaryType: venue.primaryType,

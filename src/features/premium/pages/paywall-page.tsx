@@ -4,14 +4,25 @@ import {
   LockKeyhole,
   Settings2,
 } from 'lucide-react'
+import { Capacitor } from '@capacitor/core'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusPill } from '@/components/ui/status-pill'
 import diamondIcon from '@/assets/svg/diamond-search-svgrepo-com.svg'
+import { isMockRedeemCodeFormat, normalizeMockRedeemCode } from '@/constants/entitlements'
 import { MAX_BUDDY_PLUS_SPORTS } from '@/constants/sports'
 import general from '@/data/general.json'
 import { useSubscription } from '@/hooks/use-subscription'
@@ -121,13 +132,10 @@ function PackageOption({
  * `/buddy-plus` — the one premium tier. Prices and periods are always
  * RevenueCat's own localized store strings; nothing here hardcodes a price.
  *
- * The primary path is RevenueCat's own hosted Paywall UI (designed in the
- * dashboard, shown via `presentPaywall()`) — the modern, recommended way to
- * sell a RevenueCat entitlement. The package list below it is a FALLBACK,
- * shown only once `presentPaywall()` reports `'not-presented'`: on the
- * web/mock stand-in (no native Paywall exists there), or if nobody has
- * designed a Paywall for the current offering yet. Nothing here fakes a
- * purchase on the web — see `webPurchasesRepository`.
+ * The native path is RevenueCat's own hosted Paywall UI (designed in the
+ * dashboard, shown via `presentPaywall()`). Browsers use the local demo-code
+ * dialog because no web payment gateway is configured; see
+ * `webPurchasesRepository`.
  */
 export function PaywallPage() {
   const {
@@ -136,6 +144,7 @@ export function PaywallPage() {
     isLoadingOffering,
     offeringError,
     purchase,
+    redeemCode: redeemSubscriptionCode,
     restore,
     refreshOffering,
     presentPaywall,
@@ -148,9 +157,20 @@ export function PaywallPage() {
   const [isManaging, setIsManaging] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
+  const [isRedeemOpen, setIsRedeemOpen] = useState(false)
+  const [redeemCodeInput, setRedeemCodeInput] = useState('')
+  const [redeemError, setRedeemError] = useState('')
+  const [isRedeeming, setIsRedeeming] = useState(false)
   const featuredPackage = offering?.packages[0]
 
   const openPaywall = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      setRedeemCodeInput('')
+      setRedeemError('')
+      setIsRedeemOpen(true)
+      return
+    }
+
     setIsPresentingPaywall(true)
     setError('')
     setFeedback('')
@@ -171,6 +191,33 @@ export function PaywallPage() {
       setShowFallback(true)
     } finally {
       setIsPresentingPaywall(false)
+    }
+  }
+
+  const redeem = async () => {
+    const normalized = normalizeMockRedeemCode(redeemCodeInput)
+    if (!isMockRedeemCodeFormat(normalized)) {
+      setRedeemError('Use a code in the format BUDDY-XXXX-XXXX.')
+      return
+    }
+
+    setIsRedeeming(true)
+    setRedeemError('')
+    try {
+      const outcome = await redeemSubscriptionCode(normalized)
+      if (outcome === 'purchased') {
+        setFeedback("You're on Buddy+. Enjoy the full app.")
+        setIsRedeemOpen(false)
+        setRedeemCodeInput('')
+      }
+    } catch (redeemErrorValue) {
+      setRedeemError(
+        redeemErrorValue instanceof Error
+          ? redeemErrorValue.message
+          : "We couldn't redeem that code. Please try again.",
+      )
+    } finally {
+      setIsRedeeming(false)
     }
   }
 
@@ -323,6 +370,18 @@ export function PaywallPage() {
                     {isPresentingPaywall ? 'Opening…' : 'Upgrade to Buddy+'}
                   </Button>
                 )}
+                {!isBuddyPlus && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setRedeemCodeInput('')
+                      setRedeemError('')
+                      setIsRedeemOpen(true)
+                    }}
+                  >
+                    Have a redeem code?
+                  </Button>
+                )}
               </div>
 
               <div className="flex flex-col gap-4 px-1 pb-1">
@@ -403,6 +462,60 @@ export function PaywallPage() {
           </Card>
         </section>
       </PageContainer>
+
+      <Dialog
+        open={isRedeemOpen}
+        onOpenChange={(open) => {
+          setIsRedeemOpen(open)
+          if (!open) {
+            setRedeemCodeInput('')
+            setRedeemError('')
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Redeem Buddy+</DialogTitle>
+            <DialogDescription>
+              Enter a valid demo subscription code to unlock Buddy+ on this browser.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void redeem()
+            }}
+          >
+            <Input
+              value={redeemCodeInput}
+              onChange={(event) => {
+                setRedeemCodeInput(event.target.value.toUpperCase())
+                setRedeemError('')
+              }}
+              placeholder="BUDDY-7K4M-2Q9P"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              aria-invalid={Boolean(redeemError)}
+              aria-describedby={redeemError ? 'redeem-code-error' : undefined}
+            />
+            {redeemError && (
+              <p id="redeem-code-error" role="alert" className="text-body-small text-destructive">
+                {redeemError}
+              </p>
+            )}
+            <DialogFooter className="-mx-4 -mb-4">
+              <Button type="button" variant="outline" onClick={() => setIsRedeemOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isRedeeming || !redeemCodeInput.trim()}>
+                {isRedeeming ? 'Checking…' : 'Redeem code'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

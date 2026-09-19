@@ -34,7 +34,9 @@ export interface Venue {
   name: string
   address: string
   location: GeoPoint
-  googleMapsUri: string | null
+  openStreetMapUrl: string | null
+  /** Preserved for the optional Google provider. */
+  googleMapsUri?: string | null
   rating: number | null
   ratingCount: number | null
   /** Provider category, e.g. `sports_complex`. Display only. */
@@ -55,7 +57,9 @@ export interface VenueSelection {
   name: string
   address: string
   location: GeoPoint
-  googleMapsUri: string | null
+  openStreetMapUrl: string | null
+  /** Preserved for the optional Google provider. */
+  googleMapsUri?: string | null
 }
 
 export interface VenueSearchParams {

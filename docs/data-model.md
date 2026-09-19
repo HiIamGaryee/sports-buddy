@@ -348,7 +348,7 @@ connection document on **every** access. Types live in `src/types/planning.ts`.
       "name": "Petaling Jaya Racquet Club",
       "address": "Jalan 13/6, Seksyen 13, Petaling Jaya",
       "location": { "lat": 3.1096, "lng": 101.6371 },
-      "googleMapsUri": "https://maps.google.com/?cid=..."
+      "openStreetMapUrl": "https://www.openstreetmap.org/?mlat=3.139&mlon=101.686#map=17/3.139/101.686"
     },
     "proposedBy": "gary",
     "acceptedBy": ["gary"],
@@ -397,7 +397,7 @@ The minimal, stable record of the place two people settled on:
 | `name` | `string` | non-empty; validated before it is written |
 | `address` | `string` | formatted address as the provider gave it |
 | `location` | `{ lat, lng }` | validated in range; never a user's position |
-| `googleMapsUri` | `string \| null` | provider link, or one built from the place |
+| `openStreetMapUrl` | `string \| null` | provider link, or one built from the place |
 
 It is snapshotted so the plan still shows its venue if the provider is
 unavailable later, re-ranks, or the place changes.
@@ -454,7 +454,7 @@ do* — a stable snapshot taken at confirmation, and **immutable** afterwards.
     "name": "Petaling Jaya Racquet Club",
     "address": "Jalan 13/6, Seksyen 13, Petaling Jaya",
     "location": { "lat": 3.1096, "lng": 101.6371 },
-    "googleMapsUri": "https://maps.google.com/?cid=..."
+    "openStreetMapUrl": "https://www.openstreetmap.org/?mlat=3.139&mlon=101.686#map=17/3.139/101.686"
   },
   "status": "upcoming",
   "createdBy": "gary",
@@ -571,7 +571,7 @@ a client can be skipped entirely. Full rationale: `docs/security-audit.md`.
 | message `content` | non-empty after trim, ≤ 1000 characters, plain text |
 | `VenueSelection.placeId` | a valid document id — no `/`, no `..`, ≤ 200 chars |
 | `VenueSelection.name` / `address` | ≤ 300 characters |
-| `VenueSelection.googleMapsUri` | `null`, or https on a Google Maps host |
+| `VenueSelection.openStreetMapUrl` | `null`, or https on an OpenStreetMap host |
 | coordinates | finite; lat −90…90, lng −180…180 |
 | `Proposal.version` | non-negative integer, checked inside the transaction |
 | participants | exactly two distinct user ids, immutable after creation |

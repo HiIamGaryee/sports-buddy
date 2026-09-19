@@ -27,8 +27,8 @@ const initialOfferingState = (userId: string | null): OfferingState => ({
  *
  * Mounted inside `ProtectedRoute`, so no purchases call ever runs on the
  * login, register or onboarding screens. On the web/mock stand-in
- * (`webPurchasesRepository`) this resolves to `'free'` and never changes —
- * see `docs/monetization.md`.
+ * (`webPurchasesRepository`) this resolves to `'free'` unless the seeded demo
+ * account or a valid local demo code is used — see `docs/monetization.md`.
  */
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -111,6 +111,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     return result.outcome
   }, [])
 
+  const redeemCode = useCallback(async (code: string): Promise<PurchaseOutcome> => {
+    const result = await purchasesService.redeemCode(code)
+    setState(result.state)
+    return result.outcome
+  }, [])
+
   const restore = useCallback(async () => {
     setState(await purchasesService.restore())
   }, [])
@@ -138,12 +144,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       isLoadingOffering: offeringState.isLoading,
       offeringError: offeringState.error,
       purchase,
+      redeemCode,
       restore,
       refreshOffering,
       presentPaywall,
       presentCustomerCenter,
     }),
-    [state, offeringState, purchase, restore, refreshOffering, presentPaywall, presentCustomerCenter],
+    [state, offeringState, purchase, redeemCode, restore, refreshOffering, presentPaywall, presentCustomerCenter],
   )
 
   return (
