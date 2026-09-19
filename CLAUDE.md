@@ -41,7 +41,7 @@ None of those features exist yet. Only the foundation does (STEP 1).
 | Backend | Firebase (planned — not installed yet) |
 
 Planned Firebase services: Auth, Firestore, Cloud Messaging, Analytics,
-Crashlytics. Planned external services: Google Maps/Places, OneSignal,
+Crashlytics. Planned external services: OpenStreetMap, OneSignal,
 RevenueCat. Do not install any of them before the step that uses them.
 
 ## 3. Architecture
@@ -575,7 +575,7 @@ venueService            search area, ranking, snapshot validation
   ↓
 venueRepository         chosen once in repositories.ts, from env.venueSource
   ↓
-Google Places (New) REST  |  Mock venues
+OpenStreetMap search  |  Mock venues
 ```
 
 - **PRIVACY IS THE DESIGN.** The app still stores an `areaId` and nothing
@@ -592,34 +592,30 @@ Google Places (New) REST  |  Mock venues
 - `src/lib/geo.ts` is pure: `isValidCoordinate`, `calculateMidpoint`,
   `calculateHaversineDistance`, `deriveVenueSearchRadius` (5 km base widening
   with area spread, clamped 3–12 km — deliberately NOT the profile's
-  `radiusKm`), `formatDistance`, `buildGoogleMapsUrl`.
+  `radiusKm`), `formatDistance`, `buildOpenStreetMapUrl`.
 - `src/types/venue.ts` — `GeoPoint`, `AreaLocation`, `PlanningSearchArea`,
   `Venue`, `VenueSelection`, `VenueSearchParams`, `VenueSearchResult`.
 - `src/constants/venues.ts` — `SPORT_VENUE_SEARCH` (every `SportId` → search
   terms + label; running/cycling-style sports map to parks, tracks, stadiums),
   radius bounds, `VENUE_RESULT_LIMIT`, debounce and minimum query length.
-- `googleVenueRepository` calls **Places API (New)** over REST with a narrow
-  field mask; `mapGooglePlaceToVenue()` is the only boundary, so a raw place
-  object never reaches state or storage. `mockVenueRepository` serves 12 real
+- `openStreetMapVenueRepository` calls the existing OpenStreetMap search
+  service; provider results are mapped before they reach state or storage.
+  `mockVenueRepository` serves 12 real
   Klang Valley venues tagged by sport.
-- `src/services/google/maps-loader.ts` is the ONLY place the Maps JavaScript
-  API is loaded — one cached promise, one script tag. Search does not use it,
-  so a page with no map loads no Google JavaScript.
+- `src/features/planning/components/venue-map.tsx` and the `/map` page use
+  Leaflet with OpenStreetMap tiles. Search does not depend on a map SDK.
 - `VenueMap` is presentation only: it draws markers and reports a click. It
   never searches, never touches a plan, never sees Firebase. **If it fails to
   load it renders nothing and the list is untouched** — nothing is map-only.
-  Marker colours are read from live theme tokens, since the Maps API needs
-  colour strings and cannot take a class.
+  Marker colours are read from live theme tokens.
 
-**Environment.** `VITE_VENUE_SOURCE` (`mock | google`, defaults to `mock`) is
+**Environment.** `VITE_VENUE_SOURCE` (`openstreetmap | mock`, defaults to
+`openstreetmap`) is
 **independent of `VITE_DATA_SOURCE`**, so Firebase plus mock venues is a
-normal setup and Google billing is never a prerequisite. The key lives only in
-`env.google.mapsApiKey`, is never logged, and a missing key gives a developer
-setup message in dev and a plain unavailable state in production — it never
-crashes the app. Restrict production keys by referrer + API and set quotas
-(`docs/venues.md` §17).
+normal setup and provider billing is never a prerequisite. OpenStreetMap
+requires no browser API key.
 
-**Cost controls.** A Places request happens when the venue step opens, when
+**Cost controls.** An OpenStreetMap request happens when the venue step opens, when
 typing pauses (400 ms, 3+ characters) or on retry — never on render, hover,
 marker click or map pan, and never before the plan is `ready`. A small
 in-memory cache serves repeats, results are capped at 16 in the request and
@@ -634,7 +630,7 @@ rules). A venue may only be proposed from `ready`, because the search depends
 on the agreed sport.
 
 **Persistence.** Only the `VenueSelection` snapshot (`placeId`, `name`,
-`address`, `location`, `googleMapsUri`) is stored — ratings, categories and
+`address`, `location`, `openStreetMapUrl`) is stored — ratings, categories and
 price bands are dropped because they go stale and were not agreed to. There is
 **no `venues` collection**; discovery results are transient.
 
@@ -1076,8 +1072,8 @@ src/
     connection/ connection-repository.ts (contract),
                 connection-document.ts, firebase-connection-repository.ts,
                 mock-connection-repository.ts
-    venue/      venue-repository.ts (contract), google-place-mapper.ts,
-                google-venue-repository.ts, mock-venue-repository.ts,
+    venue/      venue-repository.ts (contract),
+                openstreetmap-venue-repository.ts, mock-venue-repository.ts,
                 mock-venues.ts
     profile/    profile-repository.ts (contract),
                 firebase-profile-repository.ts, mock-profile-repository.ts
@@ -1099,7 +1095,6 @@ src/
     chat/       chat-service.ts (+ .test.ts), chat-error.ts
     planning/   activity-plan-service.ts (+ .test.ts), planning-error.ts
     venue/      venue-service.ts (+ .test.ts), venue-error.ts
-    google/     maps-loader.ts (the only Maps JS API load)
     connection/ connection-service.ts (+ .test.ts), connection-error.ts
     discover/   discover-service.ts
     matching/   matching-constants.ts, matching-factors.ts,
@@ -1341,7 +1336,7 @@ Permanent. Full audit and rationale: `docs/security-audit.md`.
 
 **Trust.** Every external and persisted value is untrusted — form fields,
 route params, query strings, Firestore documents, `publicProfiles` written by
-other members, localStorage, Google Places responses, and provider photo URLs.
+other members, localStorage, OpenStreetMap responses, and provider photo URLs.
 "It came from Firestore" is not a safety argument: in a two-person feature,
 half the document is the other person's input.
 
@@ -1349,7 +1344,7 @@ half the document is the other person's input.
 - Never render user content as HTML. No `dangerouslySetInnerHTML`, `innerHTML`
   or `document.write` — anywhere, for any field. React text rendering is the
   escape mechanism, and it is sufficient.
-- Every external URL passes `safeLinkUrl` / `isTrustedMapsUrl`
+- Every external URL passes `safeLinkUrl` / `isTrustedOpenStreetMapUrl`
   (`src/lib/safe-url.ts`) before it reaches an `href`, and `safeImageUrl`
   before an `<img src>`. Use `SafeExternalLink`; a rejected URL renders
   nothing rather than a repaired link.
@@ -1536,7 +1531,7 @@ it. Feature logic never leaks into `components/ui/`.
 - Render user content as HTML, or use `dangerouslySetInnerHTML` / `innerHTML`
   / `document.write` with any data.
 - Put a URL into an `href` or `<img src>` without `safeLinkUrl` /
-  `safeImageUrl` / `isTrustedMapsUrl`.
+  `safeImageUrl` / `isTrustedOpenStreetMapUrl`.
 - Derive a Firestore collection, field name, operator or limit from user input.
 - Reach `doc()` with an unvalidated route parameter.
 - Write a client object to Firestore with a spread instead of an explicit
@@ -1993,18 +1988,16 @@ client write shape, server timestamps nested in proposal maps included.
 (dark/light at 390px and 430px) was not automated in this environment** — no
 headless browser is installed.
 
-STEP 11 — Venue Discovery + Google Maps / Places:
+STEP 11 — Venue Discovery + OpenStreetMap:
 
 - `AreaDefinition` gained a public approximate `center`; `src/lib/geo.ts`
   added midpoint, Haversine, coordinate validation and an adaptive search
   radius. **No GPS, no permission, no user coordinate is stored** — profiles
   still hold an `areaId` and nothing else.
-- `Venue` / `VenueSelection` domain, `VenueRepository` with a Places (New)
-  REST implementation (narrow field mask, capped results, mapped through
-  `mapGooglePlaceToVenue`) and a 12-venue Klang Valley mock.
-- `VITE_VENUE_SOURCE` (`mock | google`) chosen independently of the backend,
-  plus `VITE_GOOGLE_MAPS_API_KEY`; `.env.example` updated. A missing key never
-  crashes anything.
+- `Venue` / `VenueSelection` domain, `VenueRepository` with an OpenStreetMap
+  implementation and a 12-venue Klang Valley mock.
+- `VITE_VENUE_SOURCE` (`openstreetmap | mock`) chosen independently of the
+  backend; `.env.example` updated. No browser API key is required.
 - `ActivityPlan` gained `venueProposal: Proposal<VenueSelection>` and status
   `venue-agreed`, reusing the STEP 10 propose/accept/version machinery
   unchanged. `ready` kept its name (now "ready for a venue"), so no data
@@ -2080,9 +2073,8 @@ deletion, and edits to a confirmed plan. `tsc -b`, oxlint and the production
 build all pass. **A visual browser pass (dark/light at 390px and 430px) was
 not automated in this environment** — no headless browser is installed.
 
-**Live Google Maps / Places verification is outstanding** — no API key exists
-in this environment, so the Places request shape, the Maps script load and
-marker rendering are implemented and typed but have not run against Google.
+**Live OpenStreetMap verification is outstanding** — provider requests and
+marker rendering have not run against the live service in this environment.
 
 **Live two-user Firebase verification is still outstanding** — no project credentials
 exist in this environment. The firebase-mode paths (auth, profile,
@@ -2142,7 +2134,7 @@ STEP 12.6 — Security Hardening: Input Validation + Injection Prevention:
   no over-filtering), `src/lib/ids.ts` (document id shape),
   `src/services/profile/profile-schema.ts` (enum membership, number and array
   validation, and the profile write allowlist).
-- One real vulnerability found and fixed: `VenueSelection.googleMapsUri` was
+- One real vulnerability found and fixed: `VenueSelection.openStreetMapUrl` was
   any string, written into a SHARED plan document by either participant, and
   rendered into an `href`. A participant could hand the other a `javascript:`
   or phishing link behind "Open in Maps". Now validated at the mapper, the
@@ -2175,7 +2167,7 @@ Known limitations (recorded honestly, not fixed here): no rate limiting —
 loading flags and debounce are UX, not abuse protection; Firebase App Check
 not configured; no abuse reporting or blocking; no logging or monitoring;
 CSP/security headers documented but not applied because no hosting config
-exists; account deletion still absent. Live Firebase and Google Places remain
+exists; account deletion still absent. Live Firebase and OpenStreetMap remain
 unverified in this environment.
 
 STEP 13 — Calendar + Upcoming/Past Activity History:
@@ -2350,6 +2342,15 @@ values and are never displayed in the UI:
 | Email | `demo@sportsbuddy.app` |
 | Password | `password123` |
 
+The mock-mode Buddy+ demo account is also seeded with a completed profile and
+an active Buddy+ entitlement:
+
+| Email | `super-tai@gmail.com` |
+| Password | `BuddyPlusDemo2026!` |
+
+The browser paywall accepts the ten one-time local demo codes documented in
+`README.md`. These codes are mock-only and do not create RevenueCat purchases.
+
 "Continue with Google" in mock mode signs in a second seeded account
 (`gary.google@sportsbuddy.app`). Registration creates additional local
 accounts that persist in localStorage until cleared.
@@ -2373,7 +2374,7 @@ STEP 8 — Connect + Mutual Connection Flow
 STEP 9 — Realtime Chat
 STEP 9.5 — Responsive UI + Tablet/Desktop + Gradient Polish
 STEP 10 — Plan Together: Sport + Availability + Budget
-STEP 11 — Venue Discovery + Google Maps / Places
+STEP 11 — Venue Discovery + OpenStreetMap
 STEP 12 — Confirmed Activity + Activity Card
 STEP 12.5 — Design System Refactor + Theme-First Styling
 STEP 12.6 — Security Hardening + Input Validation

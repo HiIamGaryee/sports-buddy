@@ -23,7 +23,7 @@ const activity = (overrides: Partial<Activity> = {}): Activity => ({
     name: 'Subang Racquet Centre',
     address: 'Jalan SS15/4, Subang Jaya',
     location: { lat: 3.0722, lng: 101.5859 },
-    googleMapsUri: 'https://maps.google.com/?cid=1',
+    openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.1&mlon=101.6#map=17/3.1/101.6',
   },
   status: 'confirmed',
   createdBy: 'gary',
@@ -91,20 +91,20 @@ describe('toEventData', () => {
 
   it('carries a trusted maps link and drops an untrusted one', () => {
     expect(calendarService.toEventData(activity(), 'Aina')?.url).toBe(
-      'https://maps.google.com/?cid=1',
+      'https://www.openstreetmap.org/?mlat=3.1&mlon=101.6#map=17/3.1/101.6',
     )
 
     const hostile = activity()
     hostile.venue = {
       ...hostile.venue,
-      googleMapsUri: 'javascript:alert(1)',
+      openStreetMapUrl: 'javascript:alert(1)',
     }
     expect(calendarService.toEventData(hostile, 'Aina')?.url).toBeUndefined()
 
     const phishing = activity()
     phishing.venue = {
       ...phishing.venue,
-      googleMapsUri: 'https://maps.google.com.evil.test/x',
+      openStreetMapUrl: 'https://openstreetmap.org.evil.test/x',
     }
     expect(calendarService.toEventData(phishing, 'Aina')?.url).toBeUndefined()
   })

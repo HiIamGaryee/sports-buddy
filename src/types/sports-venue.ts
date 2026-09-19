@@ -7,7 +7,7 @@ export interface SportsVenue {
   rating?: number
   userRatingCount?: number
   openNow?: boolean
-  googleMapsUri?: string
   openStreetMapUrl?: string
+  googleMapsUri?: string
   distanceKm: number
 }

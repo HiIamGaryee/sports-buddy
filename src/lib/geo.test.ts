@@ -6,7 +6,7 @@ import {
   MIN_VENUE_SEARCH_RADIUS_METERS,
 } from '@/constants/venues'
 import {
-  buildGoogleMapsUrl,
+  buildOpenStreetMapUrl,
   calculateHaversineDistance,
   calculateMidpoint,
   deriveVenueSearchRadius,
@@ -130,19 +130,11 @@ describe('formatDistance', () => {
   })
 })
 
-describe('buildGoogleMapsUrl', () => {
-  it('prefers the place id when there is one', () => {
-    const url = buildGoogleMapsUrl({
-      name: 'PJ Racquet Club',
-      placeId: 'abc123',
-      location: PJ,
-    })
-    expect(url).toContain('query_place_id=abc123')
-    expect(url).toContain('PJ%20Racquet%20Club')
-  })
-
-  it('falls back to coordinates without one', () => {
-    const url = buildGoogleMapsUrl({ name: 'Somewhere', location: PJ })
-    expect(url).toContain(`${PJ.lat},${PJ.lng}`)
+describe('buildOpenStreetMapUrl', () => {
+  it('opens the venue coordinates in OpenStreetMap', () => {
+    const url = buildOpenStreetMapUrl({ location: PJ })
+    expect(url).toContain('www.openstreetmap.org')
+    expect(url).toContain(`mlat=${PJ.lat}`)
+    expect(url).toContain(`mlon=${PJ.lng}`)
   })
 })

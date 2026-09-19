@@ -63,6 +63,18 @@ export const purchasesService = {
     }
   },
 
+  async redeemCode(code: string): Promise<{ outcome: PurchaseOutcome; state: SubscriptionState }> {
+    try {
+      const result = await purchasesRepository.redeemCode(code)
+      return {
+        outcome: result.completed ? 'purchased' : 'cancelled',
+        state: stateFromSnapshot(result),
+      }
+    } catch (error) {
+      throw toPurchasesError(error, PURCHASES_FALLBACK_MESSAGES.redeem)
+    }
+  },
+
   async restore(): Promise<SubscriptionState> {
     try {
       return stateFromSnapshot(await purchasesRepository.restorePurchases())

@@ -1240,6 +1240,55 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // BUDDY RATINGS. A review is a public reliability signal, but only the
+    // authenticated participant who wrote it may create it. One deterministic
+    // document per activity/reviewer prevents duplicate submissions.
+    match /buddyRatings/{ratingId} {
+      function incoming() { return request.resource.data; }
+      function activity() {
+        return get(/databases/$(database)/documents/activities/$(incoming().eventId)).data;
+      }
+      function validChoiceValues() {
+        return incoming().attendanceStatus in ['attended', 'no_show']
+          && (incoming().punctuality == null
+              || incoming().punctuality in ['on_time', 'late', 'very_late'])
+          && (incoming().experience == null
+              || incoming().experience in ['great', 'good', 'okay', 'not_great']);
+      }
+
+      allow get, list: if request.auth != null;
+
+      allow create: if request.auth != null
+        && incoming().keys().hasOnly(['id', 'eventId', 'reviewerId',
+                                      'reviewedUserId', 'attendanceStatus',
+                                      'punctuality', 'experience', 'note',
+                                      'createdAt'])
+        && incoming().keys().hasAll(['id', 'eventId', 'reviewerId',
+                                     'reviewedUserId', 'attendanceStatus',
+                                     'punctuality', 'experience', 'note',
+                                     'createdAt'])
+        && ratingId == incoming().eventId + '__' + incoming().reviewerId
+        && incoming().id == ratingId
+        && incoming().reviewerId == request.auth.uid
+        && incoming().reviewerId != incoming().reviewedUserId
+        && incoming().eventId is string
+        && incoming().eventId.size() > 0
+        && incoming().eventId.size() <= 200
+        && incoming().reviewedUserId is string
+        && incoming().reviewedUserId.size() > 0
+        && incoming().reviewedUserId.size() <= 128
+        && request.auth.uid in activity().participants
+        && incoming().reviewedUserId in activity().participants
+        && activity().endAt < request.time
+        && validChoiceValues()
+        && incoming().note is string
+        && incoming().note.size() <= 200
+        && incoming().createdAt == request.time;
+
+      // MVP policy: a review is immutable after creation.
+      allow update, delete: if false;
+    }
+
     // Collections for later steps stay closed until their model exists.
     match /{document=**} {
       allow read, write: if false;

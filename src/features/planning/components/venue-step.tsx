@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getAreaName } from '@/lib/profile-format'
 import { VenueCard } from '@/features/planning/components/venue-card'
 import { VenueMap } from '@/features/planning/components/venue-map'
-import { isMapsConfigured } from '@/services/google/maps-loader'
 import { venueService } from '@/services/venue/venue-service'
 import type { PlanningSearchArea, Venue } from '@/types/venue'
 import type { SportId } from '@/types/sports-profile'
@@ -121,9 +120,8 @@ export function VenueStep({
             ))}
         </div>
 
-        {/* Enhancement only: `VenueMap` renders nothing if Maps fails, and
-            the list above stays completely usable. */}
-        {isMapsConfigured() && venues.length > 0 && (
+        {/* Enhancement only: the list above stays usable if map tiles fail. */}
+        {venues.length > 0 && (
           <VenueMap
             venues={venues}
             selectedVenueId={selectedVenueId}

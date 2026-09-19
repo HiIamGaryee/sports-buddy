@@ -78,7 +78,14 @@ export function formatDistance(meters: number): string {
     : `${(meters / 1000).toFixed(1)} km`
 }
 
-/** A stable, human-readable Google Maps link for a place. */
+/** A stable, human-readable OpenStreetMap link for a place. */
+export const buildOpenStreetMapUrl = (venue: {
+  location: GeoPoint
+}) => {
+  return `https://www.openstreetmap.org/?mlat=${venue.location.lat}&mlon=${venue.location.lng}#map=17/${venue.location.lat}/${venue.location.lng}`
+}
+
+/** Preserved for the optional Google venue provider. */
 export const buildGoogleMapsUrl = (venue: {
   name: string
   placeId?: string | null

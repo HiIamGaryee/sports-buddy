@@ -17,11 +17,14 @@ interface RecapState {
  * mount (a recap page is a snapshot, not a live view) so "the current month"
  * doesn't shift under the reader while they browse.
  */
-export function useMonthlyRecap() {
+export function useMonthlyRecap({ initialMonth = 'current' }: { initialMonth?: 'current' | 'previous' } = {}) {
   const { user } = useAuth()
   const userId = user?.id ?? null
   const [now] = useState(() => new Date())
-  const [monthKey, setMonthKey] = useState(() => monthKeyOf(now))
+  const [monthKey, setMonthKey] = useState(() => {
+    const current = monthKeyOf(now)
+    return initialMonth === 'previous' ? previousMonthKey(current) : current
+  })
   const [state, setState] = useState<RecapState>({ key: '', recap: null, isLoading: true, error: '' })
 
   useEffect(() => {

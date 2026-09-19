@@ -35,6 +35,9 @@ export interface ActivityRepository {
    * Same scoping and the same opaque cursor.
    */
   getPastForUser(query: ActivityQuery): Promise<ActivityPage>
+
+  /** Confirmed sessions beginning inside a bounded calendar range. */
+  getForUserInRange(query: ActivityRangeQuery): Promise<Activity[]>
 }
 
 /** One page request. `now` is injected so the boundary is never the clock. */
@@ -44,6 +47,14 @@ export interface ActivityQuery {
   limit: number
   /** An activity ID returned as `nextCursor` by the previous page. */
   cursor?: string | null
+}
+
+export interface ActivityRangeQuery {
+  userId: string
+  startAtFrom: Date
+  startAtBefore: Date
+  now: Date
+  limit: number
 }
 
 export const ACTIVITIES_COLLECTION = 'activities'

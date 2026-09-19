@@ -1,28 +1,65 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, type ComponentProps } from 'react'
+import {
+  CircleMarker,
+  MapContainer,
+  Popup,
+  TileLayer,
+  useMap,
+} from 'react-leaflet'
+import type { LatLngExpression, LatLngTuple } from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-import { loadGoogleMaps } from '@/services/google/maps-loader'
+import { env } from '@/config/env'
 import { cn } from '@/lib/utils'
 import type { GeoPoint, Venue } from '@/types/venue'
+import { GoogleVenueMap } from '@/features/planning/components/google-venue-map'
 
-/**
- * Presentation only. It draws venues and reports a click — it never searches,
- * never touches a plan and never sees Firebase.
- *
- * The map is an ENHANCEMENT: if it fails to load, the parent still renders
- * the full venue list, and every venue remains selectable from it.
- *
- * Marker colours are read from the live theme tokens rather than hardcoded,
- * because the Maps API needs real colour strings and cannot take a class.
- */
-function themeColor(token: string, fallback: string) {
-  if (typeof document === 'undefined') return fallback
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(token)
-    .trim()
-  return value || fallback
+function MapController({
+  center,
+  venues,
+  selectedVenue,
+}: {
+  center: GeoPoint
+  venues: readonly Venue[]
+  selectedVenue: Venue | null
+}) {
+  const map = useMap()
+
+  useEffect(() => {
+    const points: LatLngTuple[] = [
+      [center.lat, center.lng],
+      ...venues.map(({ location }) => [location.lat, location.lng] as LatLngTuple),
+    ]
+    if (venues.length === 0) map.setView([center.lat, center.lng], 14)
+    else if (venues.length === 1) map.setView([venues[0].location.lat, venues[0].location.lng], 15)
+    else map.fitBounds(points, { padding: [40, 40], maxZoom: 15 })
+  }, [center, map, venues])
+
+  useEffect(() => {
+    if (!selectedVenue) return
+    map.flyTo(
+      [selectedVenue.location.lat, selectedVenue.location.lng],
+      Math.max(map.getZoom(), 15),
+      { duration: 0.35 },
+    )
+  }, [map, selectedVenue])
+
+  useEffect(() => {
+    const invalidate = () => map.invalidateSize({ pan: false })
+    const timeout = window.setTimeout(invalidate, 100)
+    const observer = new ResizeObserver(invalidate)
+    observer.observe(map.getContainer())
+    return () => {
+      window.clearTimeout(timeout)
+      observer.disconnect()
+    }
+  }, [map])
+
+  return null
 }
 
-export function VenueMap({
+/** Presentation-only OpenStreetMap view. Venue selection stays in the list. */
+export function OpenStreetMapVenueMap({
   venues,
   selectedVenueId,
   center,
@@ -35,106 +72,54 @@ export function VenueMap({
   onSelect: (venueId: string) => void
   className?: string
 }) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const mapRef = useRef<google.maps.Map | null>(null)
-  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map())
-  const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
-
-  useEffect(() => {
-    let active = true
-
-    loadGoogleMaps()
-      .then((maps) => {
-        if (!active || !containerRef.current) return
-        mapRef.current ??= new maps.Map(containerRef.current, {
-          center,
-          zoom: 13,
-          disableDefaultUI: true,
-          zoomControl: true,
-          clickableIcons: false,
-        })
-        setStatus('ready')
-      })
-      .catch(() => {
-        if (active) setStatus('failed')
-      })
-
-    return () => {
-      active = false
-    }
-    // The map is created once; markers and bounds are synced separately.
-  }, [center])
-
-  useEffect(() => {
-    const map = mapRef.current
-    if (status !== 'ready' || !map) return
-
-    const markers = markersRef.current
-    const primary = themeColor('--primary', '#c4ff3d')
-    const muted = themeColor('--muted-foreground', '#9ba1ae')
-    const outline = themeColor('--background', '#0b0c10')
-
-    // Drop markers for venues that are no longer in the results.
-    for (const [id, marker] of markers) {
-      if (!venues.some((venue) => venue.id === id)) {
-        marker.setMap(null)
-        markers.delete(id)
-      }
-    }
-
-    const bounds = new google.maps.LatLngBounds()
-    for (const venue of venues) {
-      const isSelected = venue.id === selectedVenueId
-      const icon: google.maps.Symbol = {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: isSelected ? 11 : 7,
-        fillColor: isSelected ? primary : muted,
-        fillOpacity: 1,
-        strokeColor: outline,
-        strokeWeight: 2,
-      }
-
-      const existing = markers.get(venue.id)
-      if (existing) {
-        existing.setIcon(icon)
-        existing.setZIndex(isSelected ? 2 : 1)
-      } else {
-        const marker = new google.maps.Marker({
-          map,
-          position: venue.location,
-          title: venue.name,
-          icon,
-          zIndex: isSelected ? 2 : 1,
-        })
-        marker.addListener('click', () => onSelect(venue.id))
-        markers.set(venue.id, marker)
-      }
-      bounds.extend(venue.location)
-    }
-
-    if (venues.length > 0) map.fitBounds(bounds, 48)
-  }, [venues, selectedVenueId, status, onSelect])
-
-  // Keep the selected venue in view when it is chosen from the list.
-  useEffect(() => {
-    const map = mapRef.current
-    if (status !== 'ready' || !map || !selectedVenueId) return
-    const venue = venues.find((entry) => entry.id === selectedVenueId)
-    if (venue) map.panTo(venue.location)
-  }, [selectedVenueId, venues, status])
-
-  if (status === 'failed') return null
+  const selectedVenue = venues.find(({ id }) => id === selectedVenueId) ?? null
+  const mapCenter: LatLngExpression = [center.lat, center.lng]
 
   return (
     <div className={cn('relative overflow-hidden rounded-2xl border border-border', className)}>
-      <div ref={containerRef} className="size-full" aria-hidden />
-      {status === 'loading' && (
-        <div className="absolute inset-0 flex animate-pulse items-center justify-center bg-muted">
-          <span className="text-body-small text-muted-foreground">
-            Loading map…
-          </span>
-        </div>
-      )}
+      <MapContainer center={mapCenter} zoom={14} scrollWheelZoom className="size-full" aria-label="Nearby venue map">
+        <TileLayer
+          attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'}
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <MapController center={center} venues={venues} selectedVenue={selectedVenue} />
+        <CircleMarker
+          center={mapCenter}
+          radius={11}
+          pathOptions={{ color: 'var(--foreground)', fillColor: 'var(--primary)', fillOpacity: 1, weight: 3 }}
+        >
+          <Popup>Search location</Popup>
+        </CircleMarker>
+        {venues.map((venue) => {
+          const selected = venue.id === selectedVenueId
+          return (
+            <CircleMarker
+              key={venue.id}
+              center={[venue.location.lat, venue.location.lng]}
+              radius={selected ? 10 : 7}
+              pathOptions={{
+                color: selected ? 'var(--foreground)' : 'var(--primary)',
+                fillColor: selected ? 'var(--primary)' : 'var(--surface-raised)',
+                fillOpacity: 1,
+                weight: selected ? 3 : 2,
+              }}
+              eventHandlers={{ click: () => onSelect(venue.id) }}
+            >
+              <Popup>
+                <div className="flex max-w-48 flex-col gap-1">
+                  <strong>{venue.name}</strong>
+                  <span>{venue.address}</span>
+                </div>
+              </Popup>
+            </CircleMarker>
+          )
+        })}
+      </MapContainer>
     </div>
   )
+}
+
+/** Keeps the existing import stable while selecting the configured map. */
+export function VenueMap(props: ComponentProps<typeof OpenStreetMapVenueMap>) {
+  return env.venueSource === 'google' ? <GoogleVenueMap {...props} /> : <OpenStreetMapVenueMap {...props} />
 }

@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useReducer, useState } from 'react'
 
 import { FormField } from '@/components/common/form-field'
@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { AREAS } from '@/constants/areas'
 import { SPORTS } from '@/constants/sports'
-import { useVenueMapSearch } from '@/features/map/use-venue-map-search'
+import { DiscoverVenuePicker } from '@/features/discover/components/discover-venue-picker'
 import { formatPlanDate } from '@/lib/plan-format'
 import type { ParticipantRule } from '@/types/discover-item'
 import type { SportId } from '@/types/sports-profile'
@@ -340,32 +340,20 @@ function BudgetStep({ draft, setField, error }: { draft: DiscoverDraftState; set
 }
 
 function LocationStep({ draft, setField, setLocation, error }: { draft: DiscoverDraftState; setField: (field: keyof DiscoverDraftState, value: string) => void; setLocation: (value: string) => void; error: string | null }) {
-  const { venues, status, error: searchError, search } = useVenueMapSearch({
-    initialLocation: draft.customLocation || 'Puchong',
-    initialSportId: draft.sportId,
-  })
-  const [selectedVenueId, setSelectedVenueId] = useState('')
   const selectedArea = LOCATION_OPTIONS.find(({ value }) => value === draft.location)
-  const searchQuery = draft.customLocation.trim() || selectedArea?.label || ''
-
-  const selectVenue = (venueId: string) => {
-    const venue = venues.find(({ id }) => id === venueId)
-    setSelectedVenueId(venueId)
-    if (venue) setField('customLocation', venue.name)
-  }
+  const searchLocation = draft.customLocation.trim() || selectedArea?.label || 'Puchong'
 
   return (
     <div className="flex flex-col gap-5">
       <AppDropdown
-        label="Location"
+        label="Area"
         value={draft.location}
         onChange={(value) => {
           setLocation(value)
-          setSelectedVenueId('')
         }}
         options={LOCATION_OPTIONS}
         error={draft.location ? undefined : error ?? undefined}
-        placeholder="Select a location"
+        placeholder="Select an area"
       />
       {draft.location === CUSTOM_LOCATION && (
         <FormField
@@ -380,7 +368,6 @@ function LocationStep({ draft, setField, setLocation, error }: { draft: Discover
             value={draft.customLocation}
             onChange={(event) => {
               setField('customLocation', event.target.value)
-              setSelectedVenueId('')
             }}
             placeholder="Enter venue or location..."
             autoComplete="street-address"
@@ -388,34 +375,15 @@ function LocationStep({ draft, setField, setLocation, error }: { draft: Discover
         </FormField>
       )}
       {draft.location && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <Search aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            <span className="text-body-small text-muted-foreground">Search nearby venues on the map</span>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void search(searchQuery)}
-            disabled={!searchQuery || status === 'loading'}
-          >
-            {status === 'loading' ? 'Searching…' : 'Search nearby venues'}
-          </Button>
-        </div>
-      )}
-      {status === 'searched' && venues.length > 0 && (
-        <AppDropdown
-          label="Nearby venues"
-          value={selectedVenueId}
-          onChange={selectVenue}
-          options={venues.map(({ id, name, address }) => ({
-            value: id,
-            label: address ? `${name} · ${address}` : name,
-          }))}
+        <DiscoverVenuePicker
+          key={`${draft.sportId}-${draft.location}`}
+          sportId={draft.sportId}
+          initialLocation={searchLocation}
+          value={draft.customLocation}
+          onSelectVenue={(venueName) => setField('customLocation', venueName)}
         />
       )}
-      {searchError && <p role="alert" className="text-body-small text-muted-foreground">{searchError}</p>}
-      <p className="text-body-small text-muted-foreground">Choose an area, search nearby venues, or enter a custom location.</p>
+      <p className="text-body-small text-muted-foreground">Choose an area, then search OpenStreetMap for a venue people can find.</p>
       <FinalSummary draft={draft} />
     </div>
   )

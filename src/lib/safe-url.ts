@@ -1,7 +1,7 @@
 /**
  * URL SAFETY BOUNDARY.
  *
- * Every URL the app renders comes from somewhere untrusted: a Google Places
+ * Every URL the app renders comes from somewhere untrusted: an OpenStreetMap
  * response, an auth provider, a Firestore document another member wrote, or
  * localStorage the user can edit by hand. `href` and `src` are the two places
  * where a string becomes behaviour, so both go through here.
@@ -64,14 +64,21 @@ export const safeImageUrl = (raw: unknown): string | null =>
   isSafeImageUrl(raw) ? (raw as string) : null
 
 /**
- * Hosts Google serves map links from. A venue's `googleMapsUri` is written by
- * whichever participant proposed the venue, so "it is https" is necessary but
- * not sufficient: an attacker-controlled https link is still a phishing target
- * once it is presented to the other person under an "Open in Maps" label.
- *
- * A URI that fails this is not rendered. The app falls back to a maps link it
- * builds itself from the validated place id and coordinates.
+ * Only OpenStreetMap links may be carried in an agreed venue snapshot.
  */
+const OPENSTREETMAP_HOSTS: readonly string[] = [
+  'openstreetmap.org',
+  'www.openstreetmap.org',
+]
+
+export const isTrustedOpenStreetMapUrl = (raw: unknown): boolean => {
+  const url = parse(raw)
+  if (!url || url.protocol !== 'https:') return false
+  const host = url.hostname.toLowerCase()
+  return OPENSTREETMAP_HOSTS.includes(host)
+}
+
+/** Preserved for the optional Google Maps provider. */
 const GOOGLE_MAPS_HOSTS: readonly string[] = [
   'google.com',
   'www.google.com',
@@ -80,6 +87,7 @@ const GOOGLE_MAPS_HOSTS: readonly string[] = [
   'maps.app.goo.gl',
 ]
 
+/** Google Maps links remain supported when the Google provider is selected. */
 export const isTrustedMapsUrl = (raw: unknown): boolean => {
   const url = parse(raw)
   if (!url || url.protocol !== 'https:') return false

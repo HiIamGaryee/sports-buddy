@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isSafeImageUrl,
   isSafeLinkUrl,
-  isTrustedMapsUrl,
+  isTrustedOpenStreetMapUrl,
   safeImageUrl,
   safeLinkUrl,
 } from '@/lib/safe-url'
@@ -64,21 +64,20 @@ describe('safeLinkUrl / safeImageUrl', () => {
   })
 })
 
-describe('isTrustedMapsUrl', () => {
-  it('accepts the Google hosts a maps link really comes from', () => {
-    expect(isTrustedMapsUrl('https://www.google.com/maps/place/?q=1')).toBe(true)
-    expect(isTrustedMapsUrl('https://maps.google.com/?cid=123')).toBe(true)
-    expect(isTrustedMapsUrl('https://maps.app.goo.gl/abc')).toBe(true)
-    expect(isTrustedMapsUrl('https://google.com.my/maps')).toBe(false)
+describe('isTrustedOpenStreetMapUrl', () => {
+  it('accepts OpenStreetMap hosts only', () => {
+    expect(isTrustedOpenStreetMapUrl('https://www.openstreetmap.org/?mlat=3&mlon=101')).toBe(true)
+    expect(isTrustedOpenStreetMapUrl('https://openstreetmap.org/#map=17/3/101')).toBe(true)
+    expect(isTrustedOpenStreetMapUrl('https://openstreetmap.org.evil.test/maps')).toBe(false)
   })
 
   it('rejects a look-alike host — https alone is not trust', () => {
-    expect(isTrustedMapsUrl('https://google.com.evil.test/maps')).toBe(false)
-    expect(isTrustedMapsUrl('https://notgoogle.com/maps')).toBe(false)
-    expect(isTrustedMapsUrl('http://www.google.com/maps')).toBe(false)
+    expect(isTrustedOpenStreetMapUrl('https://openstreetmap.org.evil.test/maps')).toBe(false)
+    expect(isTrustedOpenStreetMapUrl('https://notopenstreetmap.org/maps')).toBe(false)
+    expect(isTrustedOpenStreetMapUrl('http://www.openstreetmap.org/maps')).toBe(false)
   })
 
   it.each(HOSTILE_URLS)('rejects %s', (url) => {
-    expect(isTrustedMapsUrl(url)).toBe(false)
+    expect(isTrustedOpenStreetMapUrl(url)).toBe(false)
   })
 })

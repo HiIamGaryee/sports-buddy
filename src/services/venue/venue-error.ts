@@ -10,17 +10,14 @@ export class VenueError extends Error {
 }
 
 export const VENUE_FALLBACK_MESSAGES = {
-  search: "We couldn't load nearby venues.",
+  search: "We couldn't load venues.",
   invalid: "That venue's details look wrong, so it wasn't saved.",
   noArea: 'Add your area to your profile to search for venues.',
 } as const
 
-/**
- * Developer-facing, and only ever shown in development: a missing key is a
- * setup problem, not something a user can act on.
- */
+/** Kept for callers that distinguish provider setup errors from network errors. */
 export const VENUE_NOT_CONFIGURED_MESSAGE =
-  'Venue search is set to Google but VITE_GOOGLE_MAPS_API_KEY is missing. Set it, or use VITE_VENUE_SOURCE=mock.'
+  'Venue search is not configured. Set VITE_VENUE_SOURCE=openstreetmap, configure Google Maps, or use mock mode.'
 
 const getCode = (error: unknown): string =>
   typeof error === 'object' && error !== null && 'code' in error

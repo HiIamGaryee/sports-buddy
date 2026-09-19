@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { ShareCardPreview } from '@/features/recap/components/share-card-preview'
-import { formatRecapDuration } from '@/lib/monthly-recap'
-import type { MonthlyExerciseRecap } from '@/types/exercise'
+import { getSportName } from '@/lib/profile-format'
+import type { MonthlyRecap } from '@/types/recap'
 
 /**
  * The full recap: every statistic the source actually supports, then the share
@@ -25,7 +25,7 @@ export function MonthlyRecapDialog({
   open,
   onOpenChange,
 }: {
-  recap: MonthlyExerciseRecap
+  recap: MonthlyRecap
   displayName: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -42,7 +42,7 @@ export function MonthlyRecapDialog({
     >
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl lg:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{recap.label} Recap</DialogTitle>
+        <DialogTitle>{recap.monthLabel} Recap</DialogTitle>
           <DialogDescription>
             {isSharing
               ? 'Pick a style and background, then download your card.'
@@ -57,12 +57,6 @@ export function MonthlyRecapDialog({
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <Stat value={`${recap.totalSessions}`} label="Activities" />
               <Stat value={`${recap.activeDays}`} label="Active days" />
-              {recap.totalDurationMinutes !== null && (
-                <Stat
-                  value={formatRecapDuration(recap.totalDurationMinutes)}
-                  label="Moving"
-                />
-              )}
             </div>
 
             <Separator />
@@ -71,21 +65,20 @@ export function MonthlyRecapDialog({
               <SectionHeader level="group" title="Your sports" />
               <ul className="flex flex-col gap-3">
                 {recap.sports.map((sport) => (
-                  <li key={sport.label} className="flex flex-col gap-1.5">
+                  <li key={sport.sportId} className="flex flex-col gap-1.5">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="text-title text-card-foreground">
-                        {sport.label}
+                        {getSportName(sport.sportId)}
                       </span>
                       <span className="text-body-small text-muted-foreground">
-                        {sport.sessions}{' '}
-                        {sport.sessions === 1 ? 'session' : 'sessions'} ·{' '}
-                        {sport.percentage}%
+                        {sport.count}{' '}
+                        {sport.count === 1 ? 'session' : 'sessions'}
                       </span>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-primary-gradient"
-                        style={{ width: `${sport.percentage}%` }}
+                        style={{ width: `${recap.totalSessions ? (sport.count / recap.totalSessions) * 100 : 0}%` }}
                       />
                     </div>
                   </li>
@@ -100,11 +93,11 @@ export function MonthlyRecapDialog({
                   <SectionHeader level="group" title="Top sport" />
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="text-heading-3 text-card-foreground">
-                      {recap.topSport.label}
+                      {getSportName(recap.topSport.sportId)}
                     </span>
                     <span className="text-body-small text-muted-foreground">
-                      {recap.topSport.sessions}{' '}
-                      {recap.topSport.sessions === 1 ? 'session' : 'sessions'}
+                      {recap.topSport.count}{' '}
+                      {recap.topSport.count === 1 ? 'session' : 'sessions'}
                     </span>
                   </div>
                 </section>
@@ -126,32 +119,8 @@ export function MonthlyRecapDialog({
                           {venue.name}
                         </span>
                         <span className="text-body-small text-muted-foreground">
-                          {venue.sessions}{' '}
-                          {venue.sessions === 1 ? 'session' : 'sessions'}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              </>
-            )}
-
-            {recap.distances && (
-              <>
-                <Separator />
-                <section className="flex flex-col gap-2">
-                  <SectionHeader level="group" title="Distance covered" />
-                  <ul className="flex flex-col gap-2">
-                    {recap.distances.map((entry) => (
-                      <li
-                        key={entry.label}
-                        className="flex items-baseline justify-between gap-3"
-                      >
-                        <span className="text-body text-card-foreground">
-                          {entry.label}
-                        </span>
-                        <span className="text-body-small text-muted-foreground">
-                          {entry.distanceKm} km
+                          {venue.count}{' '}
+                          {venue.count === 1 ? 'session' : 'sessions'}
                         </span>
                       </li>
                     ))}

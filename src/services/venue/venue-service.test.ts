@@ -8,7 +8,6 @@ import {
 } from '@/constants/venues'
 import { calculateHaversineDistance, calculateMidpoint } from '@/lib/geo'
 import { MOCK_VENUES } from '@/repositories/venue/mock-venues'
-import { mapGooglePlaceToVenue } from '@/repositories/venue/google-place-mapper'
 import { venueService } from '@/services/venue/venue-service'
 import { VenueError } from '@/services/venue/venue-error'
 import type { Venue } from '@/types/venue'
@@ -121,7 +120,7 @@ describe('toSelection', () => {
     name: '  PJ Racquet Club  ',
     address: '  Jalan 13/6, Petaling Jaya  ',
     location: { lat: 3.1096, lng: 101.6371 },
-    googleMapsUri: 'https://maps.google.com/?cid=1',
+    openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.1096&mlon=101.6371#map=17/3.1096/101.6371',
     rating: 4.5,
     ratingCount: 421,
     primaryType: 'sports_club',
@@ -136,7 +135,7 @@ describe('toSelection', () => {
       name: 'PJ Racquet Club',
       address: 'Jalan 13/6, Petaling Jaya',
       location: { lat: 3.1096, lng: 101.6371 },
-      googleMapsUri: 'https://maps.google.com/?cid=1',
+      openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.1096&mlon=101.6371#map=17/3.1096/101.6371',
     })
     // Ratings, categories and price bands go stale and are not agreed to.
     expect(Object.keys(selection)).not.toContain('rating')
@@ -147,9 +146,9 @@ describe('toSelection', () => {
   it('builds a maps link when the provider gives none', () => {
     const selection = venueService.toSelection({
       ...venue,
-      googleMapsUri: null,
+      openStreetMapUrl: null,
     })
-    expect(selection.googleMapsUri).toContain('google.com/maps')
+    expect(selection.openStreetMapUrl).toContain('openstreetmap.org')
   })
 
   it('refuses a venue with impossible coordinates', () => {
@@ -174,7 +173,7 @@ describe('isValidSelection', () => {
     name: 'PJ Racquet Club',
     address: 'Jalan 13/6',
     location: { lat: 3.1096, lng: 101.6371 },
-    googleMapsUri: null,
+    openStreetMapUrl: null,
   }
 
   it('accepts a well-formed snapshot', () => {
@@ -204,23 +203,23 @@ describe('isValidSelection', () => {
    * participant renders whatever is stored. These are the fields an attacker
    * would reach for.
    */
-  it('rejects a maps URI that is not a real Google Maps link', () => {
+  it('rejects a maps URI that is not a real OpenStreetMap link', () => {
     expect(
       venueService.isValidSelection({
         ...selection,
-        googleMapsUri: 'javascript:alert(1)',
+        openStreetMapUrl: 'javascript:alert(1)',
       }),
     ).toBe(false)
     expect(
       venueService.isValidSelection({
         ...selection,
-        googleMapsUri: 'https://phishing.example.com/maps',
+        openStreetMapUrl: 'https://phishing.example.com/maps',
       }),
     ).toBe(false)
     expect(
       venueService.isValidSelection({
         ...selection,
-        googleMapsUri: 'https://maps.google.com/?cid=1',
+        openStreetMapUrl: 'https://www.openstreetmap.org/?mlat=3.1096&mlon=101.6371#map=17/3.1096/101.6371',
       }),
     ).toBe(true)
   })
@@ -241,69 +240,5 @@ describe('isValidSelection', () => {
     expect(
       venueService.isValidSelection({ ...selection, address: 'a'.repeat(500) }),
     ).toBe(false)
-  })
-})
-
-describe('google place mapping', () => {
-  const place = {
-    id: 'ChIJ123',
-    displayName: { text: 'Subang Badminton Centre' },
-    formattedAddress: 'SS 15, Subang Jaya',
-    location: { latitude: 3.0722, longitude: 101.5865 },
-    googleMapsUri: 'https://maps.google.com/?cid=9',
-    rating: 4.4,
-    userRatingCount: 312,
-    primaryType: 'sports_complex',
-    priceLevel: 'PRICE_LEVEL_INEXPENSIVE',
-    businessStatus: 'OPERATIONAL',
-  }
-
-  it('maps a provider place onto the domain model', () => {
-    expect(mapGooglePlaceToVenue(place)).toEqual({
-      id: 'ChIJ123',
-      name: 'Subang Badminton Centre',
-      address: 'SS 15, Subang Jaya',
-      location: { lat: 3.0722, lng: 101.5865 },
-      googleMapsUri: 'https://maps.google.com/?cid=9',
-      rating: 4.4,
-      ratingCount: 312,
-      primaryType: 'sports_complex',
-      priceLevel: 'PRICE_LEVEL_INEXPENSIVE',
-      businessStatus: 'OPERATIONAL',
-    })
-  })
-
-  it('keeps no field the app did not ask for', () => {
-    const mapped = mapGooglePlaceToVenue({
-      ...place,
-      photos: [{ name: 'ignored' }],
-      reviews: [{ text: 'ignored' }],
-    })
-    expect(Object.keys(mapped ?? {})).not.toContain('photos')
-    expect(Object.keys(mapped ?? {})).not.toContain('reviews')
-  })
-
-  it('drops a place with no id, name or usable location', () => {
-    expect(mapGooglePlaceToVenue({ ...place, id: undefined })).toBeNull()
-    expect(mapGooglePlaceToVenue({ ...place, displayName: {} })).toBeNull()
-    expect(mapGooglePlaceToVenue({ ...place, location: undefined })).toBeNull()
-    expect(
-      mapGooglePlaceToVenue({
-        ...place,
-        location: { latitude: 999, longitude: 0 },
-      }),
-    ).toBeNull()
-    expect(mapGooglePlaceToVenue(null)).toBeNull()
-  })
-
-  it('leaves optional fields null rather than guessing', () => {
-    const mapped = mapGooglePlaceToVenue({
-      id: 'x',
-      displayName: { text: 'Somewhere' },
-      location: { latitude: 3, longitude: 101 },
-    })
-    expect(mapped?.rating).toBeNull()
-    expect(mapped?.priceLevel).toBeNull()
-    expect(mapped?.address).toBe('')
   })
 })

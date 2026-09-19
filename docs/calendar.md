@@ -51,7 +51,7 @@ it obvious that none of them can reach an exported file.
 | `title` | sport label + buddy display name | never ids |
 | `location` | the agreed venue name + address | never anybody's area or home |
 | `description` | sport, duration, budget, a disclaimer | plain text only |
-| `url` | the venue's `googleMapsUri` | only when `isTrustedMapsUrl` passes |
+| `url` | the venue's `openStreetMapUrl` | only when `isTrustedOpenStreetMapUrl` passes |
 
 ## 5. Native provider status
 

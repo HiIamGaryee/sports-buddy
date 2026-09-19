@@ -11,6 +11,11 @@ export interface SportRecapEntry {
   count: number
 }
 
+export interface VenueRecapEntry {
+  name: string
+  count: number
+}
+
 export interface MonthlyRecap {
   /** `YYYY-MM`, so recaps compare and sort without parsing a label. */
   monthKey: string
@@ -18,7 +23,13 @@ export interface MonthlyRecap {
   monthLabel: string
   /** Most-played sport first. Empty when nothing happened that month. */
   sports: SportRecapEntry[]
+  topSport: SportRecapEntry | null
   totalSessions: number
+  activeDays: number
+  /** Activity documents do not currently store duration. */
+  totalDurationMinutes: number | null
+  /** Only populated when a confirmed activity carries a venue snapshot. */
+  venues: VenueRecapEntry[] | null
   /**
    * QR-verified group activities only — 1-to-1 confirmed activities have no
    * check-in mechanism, so they can never count toward this number.

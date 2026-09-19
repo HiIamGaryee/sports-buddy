@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MonthlyRecapDialog } from '@/features/recap/components/monthly-recap-dialog'
-import { useMonthlyRecapDemo } from '@/features/recap/use-monthly-recap-demo'
-import { getMonthName } from '@/lib/calendar-month'
+import { useMonthlyRecap } from '@/features/recap/use-monthly-recap'
+import { getSportName } from '@/lib/profile-format'
 import { ROUTES } from '@/routes/routes'
 
 const MAX_SPORTS_TEASED = 3
@@ -17,7 +17,7 @@ const MAX_SPORTS_TEASED = 3
  * so this never becomes a second profile page.
  */
 export function MonthlyRecapBanner({ displayName }: { displayName: string | null }) {
-  const { recap, isLoading, error } = useMonthlyRecapDemo()
+  const { recap, isLoading, error } = useMonthlyRecap({ initialMonth: 'previous' })
   const [isOpen, setIsOpen] = useState(false)
 
   if (isLoading) {
@@ -37,7 +37,7 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
   // rather than putting an error banner under someone's profile.
   if (error || !recap) return null
 
-  const month = getMonthName(recap).toUpperCase()
+  const month = recap.monthLabel.split(' ')[0]?.toUpperCase() ?? 'MONTHLY'
 
   if (recap.totalSessions === 0) {
     return (
@@ -75,14 +75,14 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
             </span>
             {recap.topSport && (
               <p className="text-body-small text-muted-foreground">
-                Your most active sport was {recap.topSport.label}.
+                Your most active sport was {getSportName(recap.topSport.sportId)}.
               </p>
             )}
             <ul className="flex flex-wrap gap-x-5 gap-y-1">
               {recap.sports.slice(0, MAX_SPORTS_TEASED).map((sport) => (
-                <li key={sport.label} className="inline-flex items-baseline gap-1.5 text-body-small text-muted-foreground">
-                  <span>{sport.label}</span>
-                  <span className="font-semibold text-card-foreground">{sport.sessions}</span>
+                <li key={sport.sportId} className="inline-flex items-baseline gap-1.5 text-body-small text-muted-foreground">
+                  <span>{getSportName(sport.sportId)}</span>
+                  <span className="font-semibold text-card-foreground">{sport.count}</span>
                 </li>
               ))}
             </ul>

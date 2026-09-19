@@ -119,10 +119,10 @@ describe('buildIcsCalendar', () => {
 
   it('includes a URL when one was supplied', () => {
     const ics = buildIcsCalendar(
-      event({ url: 'https://maps.google.com/?cid=1' }),
+      event({ url: 'https://www.openstreetmap.org/?mlat=3.1&mlon=101.6#map=17/3.1/101.6' }),
       NOW,
     )
-    expect(ics).toContain('URL:https://maps.google.com/?cid=1')
+    expect(ics).toContain('URL:https://www.openstreetmap.org/?mlat=3.1&mlon=101.6#map=17/3.1/101.6')
   })
 
   it('never emits an HTML description alternative', () => {

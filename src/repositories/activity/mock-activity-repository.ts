@@ -7,6 +7,7 @@ import {
 import { readActiveMockPlan, saveMockPlan } from '@/repositories/activity-plan/mock-activity-plan-repository'
 import type {
   ActivityQuery,
+  ActivityRangeQuery,
   ActivityRepository,
 } from '@/repositories/activity/activity-repository'
 import { buildMockActivities } from '@/repositories/activity/mock-activities'
@@ -141,5 +142,26 @@ export const mockActivityRepository: ActivityRepository = {
     return page(request, (activity, now) => Date.parse(activity.endAt) < now, [
       compareByEndDescending,
     ])
+  },
+
+  async getForUserInRange({ userId, startAtFrom, startAtBefore, now, limit }: ActivityRangeQuery) {
+    await delay(null, 200)
+    const from = startAtFrom.getTime()
+    const before = startAtBefore.getTime()
+    return ensureSeeded(userId).activities
+      .filter((activity) => {
+        const start = Date.parse(activity.startAt)
+        const end = Date.parse(activity.endAt)
+        return (
+          activity.participants.includes(userId) &&
+          Number.isFinite(start) &&
+          Number.isFinite(end) &&
+          start >= from &&
+          start < before &&
+          end < now.getTime()
+        )
+      })
+      .sort(compareByEndDescending)
+      .slice(0, limit)
   },
 }

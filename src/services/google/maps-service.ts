@@ -4,11 +4,10 @@ import { distanceKm } from '@/lib/distance'
 import type { SportsVenue } from '@/types/sports-venue'
 
 const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()
-
 export const hasGoogleMapsKey = Boolean(apiKey)
-
 let ready: Promise<void> | null = null
 
+/** Legacy Google Places helper retained for the optional Google map path. */
 export async function loadGoogleMaps() {
   if (!apiKey) return false
   ready ??= (async () => {
@@ -31,7 +30,7 @@ export async function resolveLocation(location: string) {
 
 export async function searchSportsVenues({ query, location, radiusMeters }: { query: string; location: { lat: number; lng: number }; radiusMeters: number }) {
   await loadGoogleMaps()
-  const { Place } = await google.maps.importLibrary('places') as google.maps.PlacesLibrary
+  const { Place } = (await google.maps.importLibrary('places')) as google.maps.PlacesLibrary
   const result = await Place.searchByText({
     textQuery: query,
     fields: ['id', 'displayName', 'formattedAddress', 'location', 'rating', 'userRatingCount', 'regularOpeningHours', 'googleMapsURI'],
@@ -45,7 +44,8 @@ export async function searchSportsVenues({ query, location, radiusMeters }: { qu
       id: place.id,
       name: place.displayName,
       address: place.formattedAddress ?? '',
-      lat: point.lat(), lng: point.lng(),
+      lat: point.lat(),
+      lng: point.lng(),
       rating: place.rating ?? undefined,
       userRatingCount: place.userRatingCount ?? undefined,
       googleMapsUri: place.googleMapsURI ?? undefined,

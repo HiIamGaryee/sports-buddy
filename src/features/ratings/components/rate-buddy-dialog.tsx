@@ -55,6 +55,8 @@ export function RateBuddyDialog({
   const [punctuality, setPunctuality] = useState<Punctuality | null>(null)
   const [experience, setExperience] = useState<Experience | null>(null)
   const [note, setNote] = useState('')
+  const [submitError, setSubmitError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const reset = () => {
     setConfirmNoShow(false)
@@ -62,6 +64,8 @@ export function RateBuddyDialog({
     setPunctuality(null)
     setExperience(null)
     setNote('')
+    setSubmitError('')
+    setIsSubmitting(false)
   }
 
   const close = (nextOpen: boolean) => {
@@ -69,7 +73,7 @@ export function RateBuddyDialog({
     if (!nextOpen) reset()
   }
 
-  const submit = () => {
+  const submit = async () => {
     if (!attendanceStatus || (attendanceStatus === 'attended' && !punctuality)) {
       return
     }
@@ -78,16 +82,23 @@ export function RateBuddyDialog({
       return
     }
 
-    submitReview({
-      eventId: activity.id,
-      reviewerId,
-      reviewedUserId: activity.buddy.id,
-      attendanceStatus,
-      punctuality: attendanceStatus === 'attended' ? punctuality : null,
-      experience: attendanceStatus === 'attended' ? experience : null,
-      note: note.trim(),
-    })
-    close(false)
+    setIsSubmitting(true)
+    setSubmitError('')
+    try {
+      await submitReview({
+        eventId: activity.id,
+        reviewerId,
+        reviewedUserId: activity.buddy.id,
+        attendanceStatus,
+        punctuality: attendanceStatus === 'attended' ? punctuality : null,
+        experience: attendanceStatus === 'attended' ? experience : null,
+        note: note.trim(),
+      })
+      close(false)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "We couldn't save this review.")
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -181,14 +192,12 @@ export function RateBuddyDialog({
               </Button>
               <Button
                 onClick={submit}
-                disabled={
-                  !attendanceStatus ||
-                  (attendanceStatus === 'attended' && !punctuality)
-                }
+                disabled={isSubmitting || !attendanceStatus || (attendanceStatus === 'attended' && !punctuality)}
               >
-                Submit review
+                {isSubmitting ? 'Saving…' : 'Submit review'}
               </Button>
             </DialogFooter>
+            {submitError && <p role="alert" className="text-body-small text-destructive">{submitError}</p>}
           </>
         )}
       </DialogContent>
