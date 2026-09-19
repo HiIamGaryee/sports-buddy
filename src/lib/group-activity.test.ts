@@ -10,6 +10,7 @@ import {
   getGroupActivityError,
   getGroupActivityViewerState,
   groupActivitySpotsLeft,
+  hasGroupActivityEnded,
   isGroupActivityFull,
   isUpcomingGroupActivity,
   toCreateGroupActivityInput,
@@ -164,6 +165,30 @@ describe('ordering and viewer state', () => {
   it('keeps a participant joined even after it starts', () => {
     const started = activity({ startAt: '2020-01-01T00:00:00.000Z', participantIds: [ALEX] })
     expect(getGroupActivityViewerState(started, ALEX, NOW)).toBe('joined')
+  })
+
+  it('is not ended while in progress, unlike the start-based check', () => {
+    const inProgress = activity({
+      startAt: '2020-01-01T00:00:00.000Z',
+      endAt: '2099-01-01T00:00:00.000Z',
+    })
+    expect(isUpcomingGroupActivity(inProgress, NOW)).toBe(false)
+    expect(hasGroupActivityEnded(inProgress, NOW)).toBe(false)
+  })
+
+  it('is ended once the end time passes', () => {
+    const ended = activity({
+      startAt: '2020-01-01T00:00:00.000Z',
+      endAt: '2020-01-01T02:00:00.000Z',
+    })
+    expect(hasGroupActivityEnded(ended, NOW)).toBe(true)
+  })
+
+  it('falls back to the start time when no end was given', () => {
+    const noEnd = activity({ startAt: '2020-01-01T00:00:00.000Z', endAt: null })
+    expect(hasGroupActivityEnded(noEnd, NOW)).toBe(true)
+    const upcoming = activity({ startAt: '2099-01-01T00:00:00.000Z', endAt: null })
+    expect(hasGroupActivityEnded(upcoming, NOW)).toBe(false)
   })
 })
 

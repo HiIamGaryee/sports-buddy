@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -52,6 +53,16 @@ export const firebaseAuthRepository: AuthRepository = {
 
   signOut() {
     return firebaseSignOut(getFirebaseAuth())
+  },
+
+  async deleteCurrentUser() {
+    const { currentUser } = getFirebaseAuth()
+    if (!currentUser) return
+    try {
+      await deleteUser(currentUser)
+    } catch {
+      // Best-effort rollback only; leave the account for the user to retry signing into.
+    }
   },
 
   async getCurrentUser() {

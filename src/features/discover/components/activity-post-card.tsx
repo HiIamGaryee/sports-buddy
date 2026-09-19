@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarClock, Check, MapPin, UserCheck, Users, Wallet } from 'lucide-react'
+import { CalendarClock, Check, History, MapPin, UserCheck, Users, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -20,6 +20,7 @@ import {
   getIntentLabel,
   getSportName,
 } from '@/lib/profile-format'
+import { cn } from '@/lib/utils'
 import { editActivityPostPath } from '@/routes/routes'
 import type { ActivityPost } from '@/types/activity-post'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
@@ -109,7 +110,17 @@ export function ActivityPostCard({
   }
 
   return (
-    <article className="opportunity-card group/card h-full">
+    <article
+      className={cn(
+        'group/card h-full',
+        // History reads calm rather than disabled: the same treatment
+        // `ActivityCard` gives a past confirmed session, so a past post you
+        // joined and a past confirmed session look like one system.
+        isPast
+          ? 'min-h-72 rounded-[1.875rem] border border-border bg-surface-subtle shadow-none'
+          : 'opportunity-card',
+      )}
+    >
       <div className="flex h-full flex-col gap-4 p-5">
         <div className="flex items-center gap-3">
           <Avatar className="size-11 shrink-0">
@@ -134,9 +145,15 @@ export function ActivityPostCard({
               )
             )}
           </div>
-          <StatusPill tone={full ? 'neutral' : 'success'} icon={full ? Check : Users}>
-            {full ? 'Full' : '1 spot'}
-          </StatusPill>
+          {isPast ? (
+            <StatusPill tone="neutral" icon={History}>
+              Past
+            </StatusPill>
+          ) : (
+            <StatusPill tone={full ? 'neutral' : 'success'} icon={full ? Check : Users}>
+              {full ? 'Full' : '1 spot'}
+            </StatusPill>
+          )}
         </div>
 
         {!isAuthor && author && author.intents.length > 0 && (
@@ -312,7 +329,7 @@ export function ActivityPostCard({
           {viewerState === 'joined' && (
             <>
               <div className="flex items-center justify-between gap-2">
-                <StatusPill tone="success" icon={UserCheck}>
+                <StatusPill tone={isPast ? 'neutral' : 'success'} icon={UserCheck}>
                   You&apos;re in
                 </StatusPill>
                 {!isPast && (
