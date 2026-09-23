@@ -178,7 +178,7 @@ pressed Confirm — or a 1-to-1 post whose single spot got taken. It does NOT
 mean anything was booked or paid. That heading is gone; those now appear in the
 list with a **Confirmed** pill.
 
-- [ ] Rebuild and retest on the phone: no sideways scroll on Discover,
+- [done] Rebuild and retest on the phone: no sideways scroll on Discover,
       Buddy+ and Activities; bottom bar stays put; the Group/1-to-1 switches
       show the right events
 

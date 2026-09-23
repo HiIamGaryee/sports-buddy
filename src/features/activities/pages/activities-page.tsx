@@ -25,6 +25,7 @@ import { getAreaName, getSportName } from '@/lib/profile-format'
 import { activityPath, activityPostPath, groupActivityDetailPath, ROUTES } from '@/routes/routes'
 import type { ActivityWithBuddy } from '@/types/activity'
 import type { ActivityPost } from '@/types/activity-post'
+import type { DiscoveryProfile } from '@/types/discovery-profile'
 import type { GroupActivity } from '@/types/group-activity'
 
 const SKELETON_ROWS = [0, 1, 2]
@@ -71,15 +72,28 @@ function fromGroupActivity(
   }
 }
 
-/** A 1-to-1 post has no title of its own: the sport and "1-to-1" say it. */
+/**
+ * A 1-to-1 post has no title of its own, so it is named after the sport and
+ * the person: "Badminton with Aina". Until somebody has the spot there is no
+ * name to use, so it reads as the sport alone.
+ */
 function fromActivityPost(
   post: ActivityPost,
+  viewerId: string | null,
+  people: ReadonlyMap<string, DiscoveryProfile>,
   pill?: { label: string; tone: Tone },
 ): EventItem {
+  const otherId =
+    post.authorId === viewerId
+      ? (post.joinedIds[0] ?? post.invitedId ?? null)
+      : post.authorId
+  const otherName = otherId ? people.get(otherId)?.displayName : undefined
+  const sport = getSportName(post.sportId)
+
   return {
     id: post.id,
     to: activityPostPath(post.id),
-    title: `1-to-1 ${getSportName(post.sportId)}`,
+    title: otherName ? `${sport} with ${otherName}` : `${sport} (1-to-1)`,
     startAt: post.startAt,
     meta: joinPart(post.venueName, getAreaName(post.areaId)),
     pill,
@@ -119,6 +133,7 @@ export function ActivitiesPage() {
   const past = usePastActivities()
   const myPosts = useMyActivityPosts(now)
   const myGroups = useMyGroupActivities(now)
+  const viewerId = user?.id ?? null
   const [plannedKind, setPlannedKind] = useState<EventKind>('group')
   const [createdKind, setCreatedKind] = useState<EventKind>('group')
   const [pastKind, setPastKind] = useState<EventKind>('group')
@@ -139,26 +154,26 @@ export function ActivitiesPage() {
       ]),
       solo: soonestFirst([
         ...myPosts.invitations.map((post) =>
-          fromActivityPost(post, { label: 'Invitation', tone: 'pending' }),
+          fromActivityPost(post, viewerId, myPosts.people, { label: 'Invitation', tone: 'pending' }),
         ),
         ...myPosts.openPlanned.map((post) =>
-          fromActivityPost(post, { label: 'Looking for a buddy', tone: 'neutral' }),
+          fromActivityPost(post, viewerId, myPosts.people, { label: 'Looking for a buddy', tone: 'neutral' }),
         ),
         ...myPosts.waitingPlanned.map((post) =>
-          fromActivityPost(post, { label: 'Waiting for approval', tone: 'pending' }),
+          fromActivityPost(post, viewerId, myPosts.people, { label: 'Waiting for approval', tone: 'pending' }),
         ),
         ...myPosts.confirmedPlanned.map((post) =>
-          fromActivityPost(post, { label: 'Confirmed', tone: 'success' }),
+          fromActivityPost(post, viewerId, myPosts.people, { label: 'Confirmed', tone: 'success' }),
         ),
         ...upcoming.items.map(fromSession),
       ]),
     }),
-    [myGroups.hostedPlanned, myGroups.joinedPlanned, myPosts.invitations, myPosts.openPlanned, myPosts.waitingPlanned, myPosts.confirmedPlanned, upcoming.items],
+    [myGroups.hostedPlanned, myGroups.joinedPlanned, myPosts.invitations, myPosts.openPlanned, myPosts.waitingPlanned, myPosts.confirmedPlanned, upcoming.items, viewerId, myPosts.people],
   )
 
   const created = useMemo(() => {
     const mySessions = upcoming.items.filter(
-      ({ activity }) => activity.createdBy === user?.id,
+      ({ activity }) => activity.createdBy === viewerId,
     )
     return {
       group: [
@@ -175,27 +190,27 @@ export function ActivitiesPage() {
       ],
       solo: [
         ...soonestFirst([
-          ...myPosts.createdPlanned.map((post) => fromActivityPost(post)),
+          ...myPosts.createdPlanned.map((post) => fromActivityPost(post, viewerId, myPosts.people)),
           ...mySessions.map(fromSession),
         ]),
         ...latestFirst(
           myPosts.createdPast.map((post) =>
-            fromActivityPost(post, { label: 'Past', tone: 'neutral' }),
+            fromActivityPost(post, viewerId, myPosts.people, { label: 'Past', tone: 'neutral' }),
           ),
         ),
       ],
     }
-  }, [myGroups.hostedPlanned, myGroups.hostedPast, myPosts.createdPlanned, myPosts.createdPast, upcoming.items, user?.id])
+  }, [myGroups.hostedPlanned, myGroups.hostedPast, myPosts.createdPlanned, myPosts.createdPast, upcoming.items, viewerId, myPosts.people])
 
   const pastEvents = useMemo(
     () => ({
       group: latestFirst(myGroups.joinedPast.map((activity) => fromGroupActivity(activity))),
       solo: latestFirst([
-        ...myPosts.joinedPast.map((post) => fromActivityPost(post)),
+        ...myPosts.joinedPast.map((post) => fromActivityPost(post, viewerId, myPosts.people)),
         ...past.items.map(fromSession),
       ]),
     }),
-    [myGroups.joinedPast, myPosts.joinedPast, past.items],
+    [myGroups.joinedPast, myPosts.joinedPast, past.items, viewerId, myPosts.people],
   )
 
   return (

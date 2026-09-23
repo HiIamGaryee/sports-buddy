@@ -166,14 +166,10 @@ export function ProfilePage() {
                   </>
                 )}
                 <Separator />
-                <div className="flex gap-3">
-                  <Button
-                    size="icon-lg"
-                    className="rounded-full"
-                    aria-label="Edit profile"
-                    title="Edit profile"
-                    asChild
-                  >
+                {/* Labelled buttons, not bare icons: an icon alone left people
+                    guessing which one edits and which one previews. */}
+                <div className="flex flex-wrap gap-3">
+                  <Button size="lg" className="rounded-full" asChild>
                     <Link to={ROUTES.profileEdit}>
                       <img
                         src={editIcon}
@@ -181,6 +177,7 @@ export function ProfilePage() {
                         aria-hidden
                         className="size-5 object-contain"
                       />
+                      Edit profile
                     </Link>
                   </Button>
                   <Dialog
@@ -188,19 +185,14 @@ export function ProfilePage() {
                     onOpenChange={setIsPreviewOpen}
                   >
                     <DialogTrigger asChild>
-                      <Button
-                        size="icon-lg"
-                        variant="outline"
-                        className="rounded-full"
-                        aria-label="Preview profile"
-                        title="Preview profile"
-                      >
+                      <Button size="lg" variant="outline" className="rounded-full">
                         <img
                           src={previewIcon}
                           alt=""
                           aria-hidden
                           className="size-5 object-contain"
                         />
+                        Preview profile
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-h-[85dvh] overflow-y-auto">

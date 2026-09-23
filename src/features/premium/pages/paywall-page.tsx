@@ -43,31 +43,42 @@ const PREMIUM_FILTER_COPY = general.discover.premiumFilters
 const PLAN_FEATURES = [
   {
     label: 'Sports on your profile',
+    detail:
+      'How many sports you can list. More sports means you turn up in more people’s Discover results.',
     free: 'Up to 5',
     buddyPlus: `Up to ${MAX_BUDDY_PLUS_SPORTS}`,
   },
   {
     label: 'Group activities you host at once',
+    detail:
+      'Open sessions you organise and others join. The cap counts only sessions that have not happened yet — once one is over, the slot frees up.',
     free: `${FREE_MAX_HOSTED_GROUP_ACTIVITIES}`,
     buddyPlus: 'Unlimited',
   },
   {
     label: 'Group activities you join at once',
+    detail:
+      'Other people’s sessions you have a place in. Same rule: finished sessions stop counting.',
     free: `${FREE_MAX_JOINED_GROUP_ACTIVITIES}`,
     buddyPlus: 'Unlimited',
   },
   {
     label: PREMIUM_FILTER_COPY.title,
+    detail: `Narrow Discover by ${PREMIUM_FILTER_COPY.items.map(({ label }) => label.toLowerCase()).join(', ')}. Free members browse with location and activity only.`,
     free: null,
     buddyPlus: `All ${PREMIUM_FILTER_COPY.items.length} filters`,
   },
   {
     label: 'Discover, chat and planning',
+    detail:
+      'Compatibility matching, connecting, unlimited messages, and planning a session together down to the venue. Never limited.',
     free: 'Included',
     buddyPlus: 'Included',
   },
   {
     label: 'QR check-in, reliability and recap',
+    detail:
+      'Scan the organiser’s code at the venue to verify you turned up, build a show-up rate on your profile, and get your monthly recap. Free for everyone.',
     free: 'Included',
     buddyPlus: 'Included',
   },
@@ -104,7 +115,7 @@ function PlanComparison({ isBuddyPlus }: { isBuddyPlus: boolean }) {
           <table className="w-full table-fixed border-collapse">
             <thead>
               <tr className="border-b border-border">
-                <th scope="col" className="w-[44%] px-4 py-3 text-left text-label text-muted-foreground">
+                <th scope="col" className="w-[52%] px-4 py-3 text-left text-label text-muted-foreground">
                   Feature
                 </th>
                 <th scope="col" className="px-2 py-3 text-center text-label text-card-foreground">
@@ -122,13 +133,19 @@ function PlanComparison({ isBuddyPlus }: { isBuddyPlus: boolean }) {
               </tr>
             </thead>
             <tbody>
-              {PLAN_FEATURES.map(({ label, free, buddyPlus }) => (
+              {PLAN_FEATURES.map(({ label, detail, free, buddyPlus }) => (
                 <tr key={label} className="border-b border-border last:border-b-0">
-                  <th
-                    scope="row"
-                    className="px-4 py-3 text-left text-body-small font-semibold text-card-foreground"
-                  >
-                    {label}
+                  <th scope="row" className="px-4 py-3 text-left">
+                    <span className="flex flex-col gap-1">
+                      <span className="text-body-small font-semibold text-card-foreground">
+                        {label}
+                      </span>
+                      {/* Says what the row actually means: "2" on its own told
+                          nobody what was being counted, or when it resets. */}
+                      <span className="text-caption font-normal text-muted-foreground">
+                        {detail}
+                      </span>
+                    </span>
                   </th>
                   <td className="px-2 py-3 align-top">
                     <PlanCell value={free} />
