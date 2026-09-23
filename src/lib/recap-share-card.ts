@@ -1,5 +1,5 @@
-import { formatRecapDuration } from '@/lib/monthly-recap'
-import type { MonthlyExerciseRecap } from '@/types/exercise'
+import { getSportName } from '@/lib/profile-format'
+import type { MonthlyRecap } from '@/types/recap'
 
 /**
  * Draws the recap share card onto a canvas at full export resolution.
@@ -38,7 +38,7 @@ export const SHARE_CARD_TEXT_COLORS = [
 export type ShareCardTextColor = (typeof SHARE_CARD_TEXT_COLORS)[number]['id']
 
 export interface ShareCardInput {
-  recap: MonthlyExerciseRecap
+  recap: MonthlyRecap
   style: ShareCardStyle
   background: ShareCardBackground
   textColor: ShareCardTextColor
@@ -194,8 +194,8 @@ export function drawRecapShareCard(
   setType(context, font(600, 44))
   context.fillStyle = textPalette.foreground
   const heading = input.displayName
-    ? `${input.displayName}'s ${recap.label}`
-    : recap.label
+    ? `${input.displayName}'s ${recap.monthLabel}`
+    : recap.monthLabel
   context.fillText(truncate(context, heading, SHARE_CARD_WIDTH - margin * 2), margin, margin + 108)
 
   // ---- Middle: the headline number, given real room
@@ -223,12 +223,12 @@ export function drawRecapShareCard(
     setType(context, font(500, 40))
     context.fillStyle = textPalette.foreground
     context.textAlign = 'left'
-    context.fillText(truncate(context, sport.label, 620), margin, y)
+    context.fillText(truncate(context, getSportName(sport.sportId), 620), margin, y)
 
     setType(context, font(700, 40))
     context.fillStyle = palette.accent
     context.textAlign = 'right'
-    context.fillText(`${sport.sessions}`, SHARE_CARD_WIDTH - margin, y)
+    context.fillText(`${sport.count}`, SHARE_CARD_WIDTH - margin, y)
     y += 62
   }
 
@@ -241,13 +241,10 @@ export function drawRecapShareCard(
 }
 
 /** Only facts the recap actually has — never a fabricated stat. */
-function buildFooter(recap: MonthlyExerciseRecap): string {
+function buildFooter(recap: MonthlyRecap): string {
   const parts = [
     `${recap.activeDays} ACTIVE ${recap.activeDays === 1 ? 'DAY' : 'DAYS'}`,
   ]
-  if (recap.totalDurationMinutes !== null) {
-    parts.push(formatRecapDuration(recap.totalDurationMinutes).toUpperCase())
-  }
   return parts.join('  ·  ')
 }
 

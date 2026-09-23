@@ -1,4 +1,4 @@
-import { MOCK_STORAGE_KEYS } from '@/constants/app'
+import { MOCK_PREMIUM_ACCOUNT_ID, MOCK_STORAGE_KEYS } from '@/constants/app'
 import { clearStore, delay, readStore, writeStore } from '@/repositories/mock-store'
 import type { AuthRepository } from '@/repositories/auth/auth-repository'
 import type { AuthUser, EmailCredentials, RegisterInput } from '@/types/auth'
@@ -16,6 +16,17 @@ const DEMO_ACCOUNT: MockAccount = {
   email: 'demo@sportsbuddy.app',
   password: 'password123',
   displayName: 'Gary',
+  photoUrl: null,
+  gender: 'male',
+  createdAt: '2026-01-01T00:00:00.000Z',
+}
+
+/** Development-only Buddy+ account for demos and UI review. */
+const PREMIUM_DEMO_ACCOUNT: MockAccount = {
+  id: MOCK_PREMIUM_ACCOUNT_ID,
+  email: 'super-tai@gmail.com',
+  password: 'BuddyPlusDemo2026!',
+  displayName: 'Super Tai',
   photoUrl: null,
   gender: 'male',
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -48,7 +59,7 @@ function readAccounts(): MockAccount[] {
     ...account,
     gender: isGender(account.gender) ? account.gender : null,
   }))
-  const seeded = [DEMO_ACCOUNT, GOOGLE_ACCOUNT].filter(
+  const seeded = [DEMO_ACCOUNT, PREMIUM_DEMO_ACCOUNT, GOOGLE_ACCOUNT].filter(
     (seed) => !normalized.some((account) => account.email === seed.email),
   )
   return [...seeded, ...normalized]

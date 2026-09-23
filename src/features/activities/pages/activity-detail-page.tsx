@@ -8,7 +8,6 @@ import { activityService } from '@/services/activity/activity-service'
 import { calendarService } from '@/services/calendar/calendar-service'
 import { SafeExternalLink } from '@/components/common/external-link'
 import { validDocumentId } from '@/lib/ids'
-import { isTrustedMapsUrl } from '@/lib/safe-url'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
@@ -22,10 +21,10 @@ import {
   formatActivityTimeRange,
   formatDuration,
 } from '@/lib/activity-format'
-import { buildGoogleMapsUrl } from '@/lib/geo'
+import { env } from '@/config/env'
 import { formatBudget, getSportName } from '@/lib/profile-format'
 import { ROUTES } from '@/routes/routes'
-import { isMapsConfigured } from '@/services/google/maps-loader'
+import { venueService } from '@/services/venue/venue-service'
 
 export function ActivityDetailPage() {
   const now = useCoarseNow()
@@ -71,17 +70,8 @@ export function ActivityDetailPage() {
   const state = activityService.getTemporalState(activity, now)
   const happeningNow = activityService.isHappeningNow(activity, now)
 
-  // The stored URI was written by whichever participant proposed the venue,
-  // so it is only used when it is a real Google Maps link.
-  const mapsUrl =
-    (isTrustedMapsUrl(activity.venue.googleMapsUri)
-      ? activity.venue.googleMapsUri
-      : null) ??
-    buildGoogleMapsUrl({
-      name: activity.venue.name,
-      placeId: activity.venue.placeId,
-      location: activity.venue.location,
-    })
+  const mapsUrl = venueService.mapsUrl(activity.venue)
+  const mapLabel = env.venueSource === 'google' ? 'Open in Google Maps' : 'Open in OpenStreetMap'
 
   return (
     <>
@@ -148,7 +138,7 @@ export function ActivityDetailPage() {
 
               {/* Public venue coordinates, not anybody's location. An
                   enhancement only: the address above stands on its own. */}
-              {isMapsConfigured() && (
+              {(
                 <VenueMap
                   venues={[
                     {
@@ -156,7 +146,7 @@ export function ActivityDetailPage() {
                       name: activity.venue.name,
                       address: activity.venue.address,
                       location: activity.venue.location,
-                      googleMapsUri: activity.venue.googleMapsUri,
+                      openStreetMapUrl: activity.venue.openStreetMapUrl,
                       rating: null,
                       ratingCount: null,
                       primaryType: null,
@@ -171,10 +161,10 @@ export function ActivityDetailPage() {
                 />
               )}
 
-              <SafeExternalLink
-                href={mapsUrl}
-                label="Open in Maps"
-                ariaLabel={`Open ${activity.venue.name} in Google Maps`}
+                <SafeExternalLink
+                  href={mapsUrl}
+                  label={mapLabel}
+                  ariaLabel={`${mapLabel}: ${activity.venue.name}`}
                 className="sm:w-auto sm:self-start sm:px-6"
               />
 
@@ -210,5 +200,3 @@ export function ActivityDetailPage() {
     </>
   )
 }
-
-

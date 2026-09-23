@@ -15,5 +15,5 @@ export interface VenueRepository {
   getVenueById(placeId: string): Promise<Venue | null>
 }
 
-/** Raised when the Google provider is selected but has no key configured. */
+/** Reserved for provider setup failures. OpenStreetMap normally needs no key. */
 export const VENUE_NOT_CONFIGURED = 'venue/not-configured'

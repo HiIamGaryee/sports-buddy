@@ -12,6 +12,7 @@ export interface SubscriptionContextValue {
   isLoadingOffering: boolean
   offeringError: string
   purchase: (packageId: string) => Promise<PurchaseOutcome>
+  redeemCode: (code: string) => Promise<PurchaseOutcome>
   restore: () => Promise<void>
   refreshOffering: () => void
   /**

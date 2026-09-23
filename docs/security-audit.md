@@ -43,7 +43,7 @@ Everything in this list is untrusted, including the things that came from us:
 | Firestore documents | written by the other participant in a pair |
 | `publicProfiles` | written by any member, read by every member |
 | localStorage | editable in devtools; may hold an older shape |
-| Google Places responses | external service, and the field set can change |
+| OpenStreetMap responses | external service, and the field set can change |
 | Auth provider `photoUrl` | a URL we did not choose |
 | `import.meta.env` | shipped in the bundle, not a secret store |
 
@@ -117,24 +117,25 @@ becomes a class or a style.
 
 ## 6. URL safety — the one real vulnerability found
 
-**Finding (High, fixed).** `VenueSelection.googleMapsUri` was accepted as any
+**Finding (High, fixed).** `VenueSelection.openStreetMapUrl` was accepted as any
 non-empty string, stored in the shared `activityPlans` document, and rendered
 straight into an `href` behind an "Open in Maps" button.
 
 That document is written by **either participant**. A user calling the SDK
-directly could propose a venue whose `googleMapsUri` was
+directly could propose a venue whose `openStreetMapUrl` was
 `javascript:…`, and the other person would be shown a clickable control for
 it — a stored XSS / phishing vector across a trust boundary.
 
 Fixed in four places, deliberately overlapping:
 
-1. `mapGooglePlaceToVenue` drops a URI that is not a trusted Google host.
+1. `openStreetMapVenueRepository` drops a URI that is not a trusted
+   OpenStreetMap host.
 2. `venueService.mapsUrl` ignores an untrusted URI and builds its own link
    from the validated place id and coordinates.
 3. `venueService.isValidSelection` refuses to persist one.
 4. `SafeExternalLink` renders **nothing** for a URL that is not http(s).
 
-`isTrustedMapsUrl` requires https *and* a Google host, because an
+`isTrustedOpenStreetMapUrl` requires https *and* an OpenStreetMap host, because an
 attacker-controlled https link is still phishing once it is labelled
 "Open in Maps".
 
@@ -200,8 +201,8 @@ collapses to a literal escape inside the value, and no code path lets user
 input become a property name. Tested through `buildIcsCalendar` directly and
 through `calendarService` with a hostile buddy display name.
 
-**URL.** The optional `URL` property carries the venue's `googleMapsUri` only
-when `isTrustedMapsUrl` passes — the same STEP 12.6 allowlist that guards the
+**URL.** The optional `URL` property carries the venue's `openStreetMapUrl` only
+when `isTrustedOpenStreetMapUrl` passes — the same STEP 12.6 allowlist that guards the
 "Open in Maps" link. A `javascript:` or look-alike-host URI is dropped.
 
 **Filename.** `buildIcsFilename` slugs everything outside `a-z0-9` to a
@@ -312,10 +313,11 @@ existence.
 
 ## 14. External API validation
 
-Google Places responses go through `mapGooglePlaceToVenue`, which reads a
+OpenStreetMap responses go through the venue repository mapper, which reads a
 declared shape rather than casting, validates coordinate ranges
 (`-90..90`, `-180..180`, finite), rejects a place with no id or name, and now
-drops an untrusted maps URI. A raw place object never reaches state or storage.
+drops an untrusted OpenStreetMap URI. A raw provider object never reaches state
+or storage.
 
 Venue search input is normalized and capped at 120 characters, and the sport
 id is checked against `SPORTS` before it selects provider search terms.
@@ -334,11 +336,8 @@ cache, and no search on render, hover, marker click or map pan.
 | `.env` committed | no — only `.env.example`, with empty values |
 
 `VITE_*` values are **compiled into the client bundle and are not secret.**
-The Firebase web config is public by design. The Google Maps browser key is
-public by design and must be protected by restriction, not by hiding:
-HTTP referrer restrictions, API restrictions (Maps JavaScript API + Places API
-(New) only), and daily quotas. Never put a server credential in a `VITE_`
-variable.
+The Firebase web config is public by design. OpenStreetMap requires no browser
+API key in this project. Never put a server credential in a `VITE_` variable.
 
 Error messages were reviewed: services map failures to fixed user-safe strings
 (`AuthError`, `ChatError`, `PlanningError`, `VenueError`, `ActivityError`) and
@@ -366,18 +365,20 @@ be revisited when those tools publish compatible releases.
 `hosting` block, `vercel.json` or `netlify.toml`. Inventing one for a platform
 that is not in use would be configuration nobody deploys.
 
-Recommended when hosting is set up, to be tested against Maps and Firebase
-before shipping:
+Recommended when hosting is set up, to be tested against OpenStreetMap and
+Firebase before shipping:
 
 ```
 Content-Security-Policy:
   default-src 'self';
-  script-src 'self' https://maps.googleapis.com;
+  script-src 'self';
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: https://*.googleapis.com https://*.gstatic.com
           https://*.googleusercontent.com;
-  connect-src 'self' https://*.googleapis.com https://*.firebaseio.com
-              wss://*.firebaseio.com https://places.googleapis.com;
+  connect-src 'self' https://nominatim.openstreetmap.org
+              https://overpass-api.de https://overpass.kumi.systems
+              https://*.tile.openstreetmap.org https://*.firebaseio.com
+              wss://*.firebaseio.com;
   frame-ancestors 'none';
   base-uri 'self';
   object-src 'none'
@@ -397,7 +398,7 @@ browsers, was itself a vulnerability.
 
 | Severity | Area | Finding | Risk | Fix | Status |
 | --- | --- | --- | --- | --- | --- |
-| **High** | Venue / plan | `googleMapsUri` accepted as any string, stored in a shared plan and rendered into `href` | A participant could give the other a `javascript:` or phishing link behind "Open in Maps" | Trusted-host validation at the mapper, service, persistence guard and render | Fixed |
+| **High** | Venue / plan | `openStreetMapUrl` accepted as any string, stored in a shared plan and rendered into `href` | A participant could give the other a `javascript:` or phishing link behind "Open in Maps" | Trusted-host validation at the repository, service, persistence guard and render | Fixed |
 | **Medium** | Profile writes | `{ ...input }` spread into `setDoc`; no key allowlist in the rules | Arbitrary client fields persisted onto `users/{uid}` | Explicit field construction + `hasOnly` in the rules | Fixed |
 | **Medium** | Profile domain | Enum fields validated for presence only | An unknown `sportId` / `areaId` reached `publicProfiles` and the matching engine | Membership checks against the centralized datasets | Fixed |
 | **Medium** | Budget | No finite/range validation | `NaN` / `Infinity` / negative budgets persisted and scored | `isValidBudget` | Fixed |
@@ -446,13 +447,11 @@ liability:
 5. **Client-side validation is skippable, by design.** It exists for error
    messages. Everything that matters is re-checked in the rules — but any
    *future* rule that is not mirrored in `firestore.rules` protects nothing.
-6. **Google Maps key restrictions are a console setting**, not code. They
-   cannot be enforced or verified from this repository.
-7. **Not verified live:** the Firebase-mode paths have never run against a
-   real project (no credentials in this environment) and Places/Maps have
-   never run against Google (no API key). Rules are verified against the
-   emulator, which is the same rules engine, but the two-user runtime flows
-   are unexercised.
+6. **Not verified live:** the Firebase-mode paths have never run against a
+   real project (no credentials in this environment) and OpenStreetMap provider
+   requests have not been exercised against the live service. Rules are
+   verified against the emulator, which is the same rules engine, but the
+   two-user runtime flows are unexercised.
 8. **Account deletion is still absent.** Deleting an auth user would leave
    orphaned profile, connection, conversation and activity documents. Required
    before production, and a privacy obligation as much as a security one.
@@ -481,7 +480,7 @@ New security suites:
 
 | File | Covers |
 | --- | --- |
-| `src/lib/safe-url.test.ts` | protocol allowlist, `javascript:` in several disguises, `data:`, `file:`, `vbscript:`, look-alike Google hosts, oversized URLs |
+| `src/lib/safe-url.test.ts` | protocol allowlist, `javascript:` in several disguises, `data:`, `file:`, `vbscript:`, look-alike OpenStreetMap hosts, oversized URLs |
 | `src/lib/sanitize.test.ts` | hostile payloads surviving as text; every language and emoji preserved; control, zero-width and bidi characters stripped; no silent truncation |
 | `src/lib/ids.test.ts` | slashes, `..`, `__reserved__`, empty, oversized, padded, control characters, pair-id shape |
 | `src/lib/storage.test.ts` | corrupt JSON, failed guards, `__proto__`/`constructor`/`prototype` stripping, per-entry array recovery |

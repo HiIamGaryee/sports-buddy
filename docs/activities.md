@@ -210,7 +210,7 @@ Reschedule or Rate action, because none of those exist.
 
 `/activities/:activityId` shows sport, date, time + duration, participants,
 budget, venue with its address, an optional map and **Open in Maps** (reusing
-STEP 11's `buildGoogleMapsUrl` — there is no second URL builder).
+STEP 11's `buildOpenStreetMapUrl` — there is no second URL builder).
 
 A missing activity and one belonging to other people render **identically**,
 so a guessed id never reveals whether somebody else's activity exists.

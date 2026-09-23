@@ -41,6 +41,8 @@ export interface PurchasesRepository {
   getOffering(): Promise<SubscriptionOffering | null>
   getEntitlements(): Promise<EntitlementSnapshot>
   purchasePackage(packageId: string): Promise<PurchaseResult>
+  /** Mock/browser-only subscription code redemption. */
+  redeemCode(code: string): Promise<PurchaseResult>
   restorePurchases(): Promise<EntitlementSnapshot>
   /**
    * The RevenueCat-hosted Paywall UI (designed in the dashboard, not this

@@ -1,11 +1,7 @@
-import { isValidCoordinate } from '@/lib/geo'
+import { buildOpenStreetMapUrl, isValidCoordinate } from '@/lib/geo'
 import { isTrustedMapsUrl } from '@/lib/safe-url'
 import type { Venue } from '@/types/venue'
 
-/**
- * The Places (New) fields the app asks for. Requesting a narrow field mask is
- * both a cost control and the reason a raw response never reaches the UI.
- */
 export const GOOGLE_PLACE_FIELD_MASK = [
   'places.id',
   'places.displayName',
@@ -19,7 +15,6 @@ export const GOOGLE_PLACE_FIELD_MASK = [
   'places.businessStatus',
 ].join(',')
 
-/** The shape we read, not the shape Google returns. */
 interface GooglePlace {
   id?: unknown
   displayName?: { text?: unknown }
@@ -39,15 +34,10 @@ const asString = (value: unknown): string | null =>
 const asNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null
 
-/**
- * Provider response → domain `Venue`, and the only place a malformed place is
- * rejected. `null` rather than a throw, so one bad entry cannot break a
- * result list. A place with no id, name or usable coordinates is not a venue.
- */
+/** Google response → the shared venue model. */
 export function mapGooglePlaceToVenue(raw: unknown): Venue | null {
   if (!raw || typeof raw !== 'object') return null
   const place = raw as GooglePlace
-
   const id = asString(place.id)
   const name = asString(place.displayName?.text)
   const lat = asNumber(place.location?.latitude)
@@ -62,16 +52,13 @@ export function mapGooglePlaceToVenue(raw: unknown): Venue | null {
     name,
     address: asString(place.formattedAddress) ?? '',
     location,
-    // Provider data is still external data. A URI that is not an https
-    // Google Maps link is dropped here rather than stored and later rendered
-    // into an `href`; callers fall back to a link built from the place id.
+    openStreetMapUrl: buildOpenStreetMapUrl({ location }),
     googleMapsUri: isTrustedMapsUrl(place.googleMapsUri)
       ? (place.googleMapsUri as string)
       : null,
     rating: asNumber(place.rating),
     ratingCount: asNumber(place.userRatingCount),
     primaryType: asString(place.primaryType),
-    // A broad band such as PRICE_LEVEL_MODERATE. Never turned into ringgit.
     priceLevel: asString(place.priceLevel),
     businessStatus: asString(place.businessStatus),
   }

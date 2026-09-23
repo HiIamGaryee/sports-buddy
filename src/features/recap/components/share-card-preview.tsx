@@ -17,7 +17,7 @@ import {
   type ShareCardStyle,
   type ShareCardTextColor,
 } from '@/lib/recap-share-card'
-import type { MonthlyExerciseRecap } from '@/types/exercise'
+import type { MonthlyRecap } from '@/types/recap'
 
 const EXPORT_FAILED = "We couldn't create your recap image. Please try again."
 
@@ -32,7 +32,7 @@ export function ShareCardPreview({
   recap,
   displayName,
 }: {
-  recap: MonthlyExerciseRecap
+  recap: MonthlyRecap
   displayName: string | null
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -77,14 +77,14 @@ export function ShareCardPreview({
       setShareMessage('')
       try {
         const blob = await canvasToPngBlob(canvas)
-        await handle(blob, buildRecapFilename(recap.label))
+        await handle(blob, buildRecapFilename(recap.monthLabel))
       } catch {
         setError(EXPORT_FAILED)
       } finally {
         setIsExporting(false)
       }
     },
-    [isExporting, recap.label],
+    [isExporting, recap.monthLabel],
   )
 
   const downloadBlob = (blob: Blob, filename: string) => {
@@ -112,8 +112,8 @@ export function ShareCardPreview({
       try {
         await navigator.share({
           files: [file],
-          title: `My Sports Buddy ${recap.label} Recap`,
-          text: `My ${recap.label} recap on Sports Buddy`,
+          title: `My Sports Buddy ${recap.monthLabel} Recap`,
+          text: `My ${recap.monthLabel} recap on Sports Buddy`,
         })
       } catch (shareError) {
         if (shareError instanceof DOMException && shareError.name === 'AbortError') return
@@ -135,7 +135,7 @@ export function ShareCardPreview({
           // at every width and the export is never upscaled.
           className="aspect-4/5 h-auto w-full rounded-2xl border border-border"
           role="img"
-          aria-label={`${recap.label} recap share card: ${recap.totalSessions} sessions across ${recap.activeDays} active days`}
+          aria-label={`${recap.monthLabel} recap share card: ${recap.totalSessions} sessions across ${recap.activeDays} active days`}
         />
       </div>
 

@@ -70,7 +70,8 @@ rather than guessing.
 | `calculateHaversineDistance` | great-circle metres |
 | `deriveVenueSearchRadius` | 5 km base, widening with area spread, clamped 3–12 km |
 | `formatDistance` | "800 m" / "2.1 km" |
-| `buildGoogleMapsUrl` | the one place a maps link is constructed |
+| `buildOpenStreetMapUrl` | the OpenStreetMap link builder |
+| `buildGoogleMapsUrl` | the preserved Google Maps link builder |
 
 The search radius is deliberately **not** the profile's `radiusKm`: that is a
 preference about which *people* to see, not a statement about geography.
@@ -78,7 +79,7 @@ preference about which *people* to see, not a statement about geography.
 ## 5. Venue model
 
 `Venue` (`src/types/venue.ts`) is a small subset of what a provider returns —
-id, name, address, location, maps uri, rating, rating count, primary type,
+id, name, address, location, provider URLs, rating, rating count, primary type,
 price level, business status. The raw response never reaches state or storage.
 
 ## 6. `VenueSelection` snapshot
@@ -86,7 +87,7 @@ price level, business status. The raw response never reaches state or storage.
 What a plan persists once a venue is proposed:
 
 ```ts
-VenueSelection { placeId, name, address, location, googleMapsUri }
+VenueSelection { placeId, name, address, location, openStreetMapUrl, googleMapsUri? }
 ```
 
 Ratings, categories and price bands are **deliberately dropped**: they go
@@ -98,34 +99,36 @@ provider is unavailable later, re-ranks its results, or the place changes.
 ## 7. `VenueRepository`
 
 ```
-UI → useVenueSearch → venueService → venueRepository → Google Places | Mock
+UI → useVenueSearch → venueService → venueRepository → Google | OpenStreetMap | Mock
 ```
 
 Two methods, both actually used: `searchVenues(params)` and
 `getVenueById(placeId)`. No component calls a provider.
 
-## 8. Google implementation
+## 8. Provider implementations
 
-`googleVenueRepository` uses the **Places API (New)** over REST
-(`places:searchText`), which supports CORS from a browser — so no SDK is
-loaded just to search.
+`openStreetMapVenueRepository` uses the existing OpenStreetMap search service
+(`src/services/openstreetmap/openstreetmap-service.ts`). It combines the
+provider's public search results with the app's sport and distance filtering;
+no browser API key is required for this path.
 
-- a narrow `X-Goog-FieldMask` (10 fields) is both a cost control and the
-  reason nothing extra can leak into the app
-- `maxResultCount` caps the response
-- `locationBias` (a circle around the midpoint) biases rather than hard-filters
-- `mapGooglePlaceToVenue()` is the only mapping boundary; a place with no id,
-  name or valid coordinates is dropped rather than shown
+`googleVenueRepository` remains available as the optional Google Places
+provider. It uses the Places REST API with a narrow field mask and requires
+`VITE_GOOGLE_MAPS_API_KEY`. Google results retain their Google Maps URI while
+also receiving an OpenStreetMap coordinate link for the shared venue model.
 
-The **Maps JavaScript API** is separate and loaded only when a map renders
-(`src/services/google/maps-loader.ts` — one cached promise, one script tag).
+`src/features/planning/components/venue-map.tsx` and the `/map` page both use
+the selected map path: the planner uses the preserved Google renderer when the
+Google provider is selected, otherwise it uses Leaflet with OpenStreetMap
+tiles. The venue repository and map renderer remain separate, so a tile
+failure does not turn into fake search results.
 
 ## 9. Mock implementation
 
 `mockVenueRepository` serves 12 real Klang Valley venues
 (`mock-venues.ts`) at approximate public coordinates, tagged with the sports
 they suit, filtered by sport and query and ordered by distance from the search
-centre — the same contract the Google repository fulfils.
+centre — the same contract the live providers fulfil.
 
 No photos and no prices: Places does not reliably return court pricing, and
 inventing it would be worse than omitting it.
@@ -222,40 +225,23 @@ The application also validates a snapshot before it is written
 (`venueService.isValidSelection`): a place id, a non-empty name and
 coordinates in range, or nothing is persisted.
 
-**No venue collection exists.** Google results are transient; duplicating a
+**No venue collection exists.** OpenStreetMap results are transient; duplicating a
 places catalogue into Firestore would only create stale records to
 synchronise.
 
 `npm run test:rules` covers venue proposals (70 tests total, 8 for venue).
 
-## 16. Google configuration
+## 16. Venue provider configuration
 
 ```dotenv
-VITE_VENUE_SOURCE=mock          # mock | google
-VITE_GOOGLE_MAPS_API_KEY=
+VITE_VENUE_SOURCE=openstreetmap  # google | openstreetmap | mock
+VITE_GOOGLE_MAPS_API_KEY=        # required only for google
 ```
 
 `VITE_VENUE_SOURCE` is **independent of `VITE_DATA_SOURCE`**, so Firebase plus
-mock venues is a normal development setup and Google billing is never a
-prerequisite for working on anything else. The provider is selected once, in
-`repositories.ts`; no component branches on it.
-
-Enable in Google Cloud: **Places API (New)** and **Maps JavaScript API**.
-
-## 17. API key restrictions
-
-A Maps browser key is public by design — it is restricted, not hidden. For
-production:
-
-- **Application restriction:** HTTP referrers, limited to your domains
-- **API restriction:** only Places API (New) and Maps JavaScript API
-- **Quotas:** a daily cap per API, so a mistake cannot become a bill
-- **Billing alerts** on the project
-
-The key is read only in `src/config/env.ts`, never interpolated into a message
-and never logged. A missing key produces `maps/not-configured`, which is shown
-as a developer setup message in development and a plain "venues unavailable"
-state in production. It never crashes the app, and mock mode is unaffected.
+mock venues is a normal development setup. The provider is selected once, in
+`repositories.ts`; OpenStreetMap is the current default and Google remains an
+explicit alternative.
 
 ## 18. Cost controls
 
@@ -265,10 +251,10 @@ state in production. It never crashes the app, and mock mode is unaffected.
 - **no automatic search on map movement**
 - identical searches are served from a small in-memory cache scoped to the
   screen; nothing persistent
-- a narrow field mask and a 16-result cap on every request
-- the Maps JavaScript API loads only when a map actually renders, once
-- no Places call is made until the plan is `ready`, so an unfinished plan
-  costs nothing
+- a 16-result cap after provider results are ranked
+- no map SDK is loaded for venue search
+- no venue call is made until the plan is `ready`, so an unfinished plan costs
+  nothing
 
 ## 19. Current limitations
 
@@ -283,9 +269,9 @@ state in production. It never crashes the app, and mock mode is unaffected.
 - **No custom/manual venue entry** — selections are provider-backed, so venue
   data stays consistent.
 - **No confirmed activity, calendar or notifications** — STEPS 12–14.
-- **Live Google verification is outstanding.** No API key exists in this
-  environment: the Places request shape, the Maps script load and marker
-  rendering are implemented and typed but have **not** been run against Google.
+- **Live OpenStreetMap verification is outstanding.** Provider requests and
+  marker rendering have not been exercised against the live service in this
+  environment.
 - **Live two-user Firebase verification is outstanding**, as in STEP 10.
 
 ## 20. STEP 12: confirming the activity

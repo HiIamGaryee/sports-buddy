@@ -7,7 +7,7 @@ import { safeLinkUrl } from '@/lib/safe-url'
 /**
  * THE outbound link. Every `href` in the app that leaves the app goes through
  * here, because every one of those URLs came from somewhere untrusted: a
- * Google Places response, or a plan document the other participant wrote.
+ * OpenStreetMap response, or a plan document the other participant wrote.
  *
  * Two protections, neither optional:
  *

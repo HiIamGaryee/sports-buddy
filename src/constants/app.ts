@@ -16,6 +16,9 @@ export const ONBOARDING_DRAFT_KEY = 'sports-buddy.onboarding-draft'
  */
 export const CHAT_READ_STATE_KEY = 'sports-buddy.chat-read-state'
 
+/** Mock-only account that opens the app with Buddy+ already active. */
+export const MOCK_PREMIUM_ACCOUNT_ID = 'user_demo_premium_001'
+
 /** Mock-mode development storage (never used when VITE_DATA_SOURCE=firebase). */
 export const MOCK_STORAGE_KEYS = {
   session: 'sports-buddy.mock-session',
@@ -29,4 +32,5 @@ export const MOCK_STORAGE_KEYS = {
   activityPosts: 'sports-buddy.mock-activity-posts',
   groupActivities: 'sports-buddy.mock-group-activities',
   attendanceRecords: 'sports-buddy.mock-attendance-records',
+  redeemedCodes: 'sports-buddy.mock-redeemed-codes',
 } as const

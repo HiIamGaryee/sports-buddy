@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
-import { AreaSelector } from '@/components/profile/area-selector'
 import { BudgetSelector } from '@/components/profile/budget-selector'
 import { SelectableCard } from '@/components/profile/selectable-card'
 import { ErrorState } from '@/components/common/error-state'
@@ -13,18 +12,21 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AppDropdown } from '@/components/ui/AppDropdown'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AREAS } from '@/constants/areas'
 import {
   JOIN_POLICY_OPTIONS,
   MAX_VENUE_NAME_LENGTH,
   VISIBILITY_OPTIONS,
 } from '@/constants/activity-posts'
 import { SPORTS } from '@/constants/sports'
+import { DiscoverVenuePicker } from '@/features/discover/components/discover-venue-picker'
 import { useAuth } from '@/hooks/use-auth'
 import { useConnections } from '@/hooks/use-connections'
 import { useProfile } from '@/hooks/use-profile'
 import { useSafety } from '@/hooks/use-safety'
 import { toDraftFromPost } from '@/lib/activity-post'
 import { validDocumentId } from '@/lib/ids'
+import { getAreaName } from '@/lib/profile-format'
 import { describeActivityForSharing } from '@/lib/share'
 import { activityPostService } from '@/services/activity-post/activity-post-service'
 import { chatService } from '@/services/chat/chat-service'
@@ -32,7 +34,7 @@ import { discoverService } from '@/services/discover/discover-service'
 import { shareService } from '@/services/share/share-service'
 import { activityPostPath, conversationPath, ROUTES } from '@/routes/routes'
 import type { ActivityPost, ActivityPostDraft } from '@/types/activity-post'
-import type { SportId } from '@/types/sports-profile'
+import type { AreaId, SportId } from '@/types/sports-profile'
 
 const STEPS = ['Sport', 'Time', 'Budget', 'Venue', 'Joining'] as const
 /** An invite has exactly one possible guest, so there is no joining step. */
@@ -345,14 +347,22 @@ export function PostActivityPage() {
 
               {step === 3 && (
                 <div className="flex flex-col gap-5">
-                  <div className="flex flex-col gap-3">
-                    <span className="text-label text-foreground">Area</span>
-                    <AreaSelector
-                      value={draft.areaId}
-                      onChange={(areaId) => update({ areaId })}
-                      inputId="post-area-search"
+                  <AppDropdown
+                    label="Area"
+                    value={draft.areaId ?? ''}
+                    onChange={(value) => update({ areaId: value as AreaId })}
+                    options={AREAS.map(({ id, name }) => ({ value: id, label: name }))}
+                    placeholder="Select an area"
+                  />
+                  {draft.areaId && (
+                    <DiscoverVenuePicker
+                      key={`${draft.sportId}-${draft.areaId}`}
+                      sportId={draft.sportId ?? SPORTS[0]?.id ?? 'badminton'}
+                      initialLocation={draft.venueName.trim() || getAreaName(draft.areaId)}
+                      value={draft.venueName}
+                      onSelectVenue={(venueName) => update({ venueName })}
                     />
-                  </div>
+                  )}
                   <FormField
                     id="post-venue"
                     label="Venue"
@@ -364,7 +374,7 @@ export function PostActivityPage() {
                       onChange={(event) =>
                         update({ venueName: event.target.value })
                       }
-                      placeholder="e.g. KL Sports City"
+                      placeholder="Choose from OpenStreetMap or enter a venue"
                     />
                   </FormField>
                 </div>

@@ -24,6 +24,7 @@ import { mockProfileRepository } from '@/repositories/profile/mock-profile-repos
 import { firebasePublicProfileRepository } from '@/repositories/public-profile/firebase-public-profile-repository'
 import { mockPublicProfileRepository } from '@/repositories/public-profile/mock-public-profile-repository'
 import { googleVenueRepository } from '@/repositories/venue/google-venue-repository'
+import { openStreetMapVenueRepository } from '@/repositories/venue/openstreetmap-venue-repository'
 import { mockVenueRepository } from '@/repositories/venue/mock-venue-repository'
 import { nativePurchasesRepository } from '@/repositories/purchases/native-purchases-repository'
 import { webPurchasesRepository } from '@/repositories/purchases/web-purchases-repository'
@@ -31,6 +32,8 @@ import { firebaseGroupActivityRepository } from '@/repositories/group-activity/f
 import { mockGroupActivityRepository } from '@/repositories/group-activity/mock-group-activity-repository'
 import { firebaseAttendanceRepository } from '@/repositories/attendance/firebase-attendance-repository'
 import { mockAttendanceRepository } from '@/repositories/attendance/mock-attendance-repository'
+import { firebaseRatingRepository } from '@/repositories/ratings/firebase-rating-repository'
+import { mockRatingRepository } from '@/repositories/ratings/mock-rating-repository'
 
 /** The single place the backend is chosen. Nothing else reads env.dataSource. */
 const useFirebase = env.dataSource === 'firebase'
@@ -92,13 +95,21 @@ export const attendanceRepository = useFirebase
   ? firebaseAttendanceRepository
   : mockAttendanceRepository
 
+export const ratingRepository = useFirebase
+  ? firebaseRatingRepository
+  : mockRatingRepository
+
 /**
  * Venue discovery, chosen from `env.venueSource` INDEPENDENTLY of the
  * backend — Firebase plus mock venues is a normal development setup. This is
  * the one place the provider is selected; no component branches on it.
  */
 export const venueRepository =
-  env.venueSource === 'google' ? googleVenueRepository : mockVenueRepository
+  env.venueSource === 'google'
+    ? googleVenueRepository
+    : env.venueSource === 'openstreetmap'
+      ? openStreetMapVenueRepository
+      : mockVenueRepository
 
 /**
  * Buddy+ purchases, chosen by PLATFORM rather than `env.dataSource` — a real

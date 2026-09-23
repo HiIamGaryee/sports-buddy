@@ -1,5 +1,5 @@
-import { MOCK_STORAGE_KEYS } from '@/constants/app'
-import { normalizeUserPreferences } from '@/lib/preferences'
+import { MOCK_PREMIUM_ACCOUNT_ID, MOCK_STORAGE_KEYS } from '@/constants/app'
+import { createDefaultUserPreferences, normalizeUserPreferences } from '@/lib/preferences'
 import { delay, readStoreArray, writeStore } from '@/repositories/mock-store'
 import {
   EMPTY_PROFILE_FIELDS,
@@ -23,12 +23,50 @@ const isStoredProfile = (value: unknown): value is SportsProfile =>
   typeof (value as SportsProfile).id === 'string' &&
   (value as SportsProfile).id.length > 0
 
-/** Corrupt entries are skipped; one bad record never empties the whole store. */
-const readProfiles = () =>
-  readStoreArray<SportsProfile>(MOCK_STORAGE_KEYS.users, isStoredProfile)
-
 const writeProfiles = (profiles: SportsProfile[]) =>
   writeStore(MOCK_STORAGE_KEYS.users, profiles)
+
+const PREMIUM_DEMO_PROFILE: SportsProfile = {
+  id: MOCK_PREMIUM_ACCOUNT_ID,
+  email: 'super-tai@gmail.com',
+  displayName: 'Super Tai',
+  photoUrl: null,
+  gender: 'male',
+  onboardingCompleted: true,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  bio: 'Always up for a good rally and a new sports buddy.',
+  instagramUsername: '',
+  linkedinUsername: '',
+  sports: [
+    { sportId: 'badminton', skillLevel: 'intermediate' },
+    { sportId: 'running', skillLevel: 'casual' },
+  ],
+  intents: ['casual', 'social'],
+  preferredIntensity: 'moderate',
+  availability: [
+    { day: 'saturday', periods: ['morning', 'afternoon'] },
+    { day: 'sunday', periods: ['morning'] },
+  ],
+  area: 'subang-jaya',
+  radiusKm: 20,
+  budget: { min: 10, max: 40 },
+  preferences: createDefaultUserPreferences({
+    sports: [
+      { sportId: 'badminton', skillLevel: 'intermediate' },
+      { sportId: 'running', skillLevel: 'casual' },
+    ],
+    intents: ['casual', 'social'],
+    radiusKm: 20,
+  }),
+}
+
+/** Corrupt entries are skipped; one bad record never empties the whole store. */
+const readProfiles = () => {
+  const stored = readStoreArray<SportsProfile>(MOCK_STORAGE_KEYS.users, isStoredProfile)
+  if (stored.some((profile) => profile.id === PREMIUM_DEMO_PROFILE.id)) return stored
+  return [PREMIUM_DEMO_PROFILE, ...stored]
+}
 
 /** Fills in fields that older stored documents may not have. */
 function normalize(profile: SportsProfile): SportsProfile {

@@ -1,10 +1,12 @@
 import { getAreaCenter } from '@/constants/areas'
+import { env } from '@/config/env'
 import {
   FALLBACK_VENUE_SEARCH,
   SPORT_VENUE_SEARCH,
   VENUE_RESULT_LIMIT,
 } from '@/constants/venues'
 import {
+  buildOpenStreetMapUrl,
   buildGoogleMapsUrl,
   calculateHaversineDistance,
   calculateMidpoint,
@@ -19,7 +21,7 @@ import {
 import { normalizeSingleLine } from '@/lib/sanitize'
 import { isSportId } from '@/services/profile/profile-schema'
 import { isValidDocumentId } from '@/lib/ids'
-import { isTrustedMapsUrl } from '@/lib/safe-url'
+import { isTrustedMapsUrl, isTrustedOpenStreetMapUrl } from '@/lib/safe-url'
 import {
   VENUE_FALLBACK_MESSAGES,
   VenueError,
@@ -114,18 +116,18 @@ export const venueService = {
     calculateHaversineDistance(area.center, venue.location),
 
   /**
-   * The link behind "Open in Maps". `googleMapsUri` reaches us from a provider
-   * response or from a plan document the OTHER participant wrote, so it is
-   * only used when it is an https Google host; otherwise the app builds its
-   * own link from the validated place id and coordinates.
+   * The link behind "Open in OpenStreetMap". A provider or plan URL is used
+   * only when it is an HTTPS OpenStreetMap URL; otherwise the app builds one
+   * from the validated coordinates.
    */
-  mapsUrl: (venue: Venue) =>
-    (isTrustedMapsUrl(venue.googleMapsUri) ? venue.googleMapsUri : null) ??
-    buildGoogleMapsUrl({
-      name: venue.name,
-      placeId: venue.id,
-      location: venue.location,
-    }),
+  mapsUrl: (venue: Pick<Venue, 'name' | 'location' | 'openStreetMapUrl' | 'googleMapsUri'> & { id?: string; placeId?: string }) => {
+    if (env.venueSource === 'google') {
+      return (isTrustedMapsUrl(venue.googleMapsUri) ? venue.googleMapsUri : null) ??
+        buildGoogleMapsUrl({ name: venue.name, placeId: venue.id ?? venue.placeId, location: venue.location })
+    }
+    return (isTrustedOpenStreetMapUrl(venue.openStreetMapUrl) ? venue.openStreetMapUrl : null) ??
+      buildOpenStreetMapUrl({ location: venue.location })
+  },
 
   /**
    * Venue → the minimal snapshot a plan stores. Ratings, categories and
@@ -142,7 +144,13 @@ export const venueService = {
       name: venue.name.trim(),
       address: venue.address.trim(),
       location: venue.location,
-      googleMapsUri: venueService.mapsUrl(venue),
+      openStreetMapUrl:
+        (isTrustedOpenStreetMapUrl(venue.openStreetMapUrl)
+          ? venue.openStreetMapUrl
+          : null) ?? buildOpenStreetMapUrl({ location: venue.location }),
+      ...(isTrustedMapsUrl(venue.googleMapsUri)
+        ? { googleMapsUri: venue.googleMapsUri }
+        : {}),
     }
   },
 
@@ -159,7 +167,10 @@ export const venueService = {
         (selection.address === null ||
           (typeof selection.address === 'string' &&
             selection.address.length <= MAX_VENUE_TEXT_LENGTH)) &&
-        (selection.googleMapsUri === null ||
+        (selection.openStreetMapUrl === null ||
+          isTrustedOpenStreetMapUrl(selection.openStreetMapUrl)) &&
+        (selection.googleMapsUri === undefined ||
+          selection.googleMapsUri === null ||
           isTrustedMapsUrl(selection.googleMapsUri)) &&
         isValidCoordinate(selection.location),
     )
