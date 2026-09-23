@@ -198,11 +198,61 @@ and `SHIPATON-SUBMISSION-CHECKLIST.md`.
 
 - [ ] Retest on the phone after `npm run build && npx cap sync android`
 
-### B6. Still NOT done in the app
+### B7. QR + layout + repo pass — done 2026-09-24 (branch `mobile-test`)
 
-- [ ] **Restore purchases** after a reinstall (last item of B3)
-- [ ] QR check-in tried with a real camera — see "How to test QR check-in"
-      below. Everything else in the app has now been seen on a device.
+- **Scanning should work now.** The decoder was handed the whole
+  multi-megapixel photo in one go, which mostly fails. It now retries the same
+  photo at several sizes plus a centre crop, attempts inverted codes, takes the
+  photo at full quality, and the organiser's QR is bigger, pixel-crisp and uses
+  the highest error correction.
+- **Check-in window**: open from the start time until **30 minutes after the
+  end** (or after an assumed 2 hours when no end time was given). Before this
+  there was no upper bound, so yesterday's session could still be "verified"
+  from home. Enforced in the pure rule, the UI and `firestore.rules`.
+- **🔴 `firestore.rules` changed — it must be deployed** before the live app
+  enforces the new window: `firebase deploy --only firestore:rules`
+- Discover's **refresh button can no longer be pushed off-screen** by the
+  title; **Manage or cancel Buddy+** fits its words on a phone.
+- Repo: `.claude/settings.local.json` and `/tmp` are gitignored,
+  `tmp/pdfs/shipaton-audit/` untracked and deleted, and the **README now leads
+  with the MIT licence badge, the demo link and the downloadable icon assets**
+  (`resources/icon-only.png` is the 1024×1024 one).
+- 555 unit tests, **216** emulator rules tests (3 new for the window), build OK.
+
+### B8. What "restore purchases" means
+
+Buddy+ is tied to your **account** (RevenueCat is configured with your Firebase
+uid as its App User ID), so signing in on a new device should already return
+your Buddy+ without touching anything. **Restore** is the store-side fallback:
+it asks the store "what has this Google account bought?" and re-applies the
+entitlement. It matters for someone who paid, reinstalled, and did not get
+their subscription back.
+
+To test it: buy Buddy+ → uninstall the app → reinstall → sign in. You should
+already be Buddy+. If not, Settings → **Restore purchases**. On the RevenueCat
+**Test Store** this can be a no-op, which is expected and not a bug. It is
+**not required** for the Shipaton submission.
+
+### B6. Still NOT done in the app — the honest list
+
+**Nothing here blocks the submission.** Judged on "meaningful progress toward a
+working app", the app is well past that bar. This is the gap list so nobody
+claims something that is not there.
+
+| Missing | Why it is acceptable now |
+| --- | --- |
+| QR check-in on **1-to-1** activities (group activities only) | Group check-in demonstrates the feature; adding it to 1-to-1 needs new Firestore rules + tests |
+| Push notifications (the notification toggles save a preference but nothing is ever delivered) | No FCM/OneSignal account; out of scope |
+| In-app account deletion | A Play Store requirement, not a Shipaton one |
+| Native Google sign-in in the Android app | Hidden there; email/password works |
+| Reliability as a Discover filter | Needs a decision on putting a score in `publicProfiles` |
+| Advanced recap trends / analytics | Claim removed from the paywall, so nothing is oversold |
+| Sentry, Codemagic CI, Vercel, Android App Links | All optional extras |
+
+Still to *verify* by hand:
+
+- [ ] QR check-in with a real camera — see §3b
+- [ ] Restore purchases after a reinstall (optional, see B8)
 
 ### C. Make the repo public + add a license — 15 min
 
@@ -212,7 +262,8 @@ owner) must do the visibility step**.
 Already checked: no `.env`, keystore or other secret has ever been committed,
 so making it public is safe.
 
-- [ ] Add a `LICENSE` file at the repo root (MIT is the simple choice) and push to `main`
+- [x] `LICENSE` (MIT) at the repo root, and the README leads with the licence
+      badge plus the downloadable icon assets
 - [ ] Repo owner: GitHub → Settings → General → Danger Zone → **Change visibility → Public**
 - [ ] README top section says what the app is and how to run it (short is fine)
 
@@ -237,7 +288,8 @@ Suggested script (~1:50), recorded on the Android phone/emulator:
 
 ### E. Assets — 30 min
 
-- [ ] App icon 1024×1024 — **already exists**: `resources/icon-only.png`
+- [x] App icon 1024×1024 — `resources/icon-only.png`, linked from the README
+      so anyone can download it
 - [ ] At least one screenshot **1179×2556, no device frame** — take phone
       screenshots, then resize/pad to exactly 1179×2556
 
