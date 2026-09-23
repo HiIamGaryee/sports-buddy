@@ -1,7 +1,20 @@
 # Sports Buddy
 
-Mobile-first sports social app. React + TypeScript + Vite + Tailwind v4 +
-shadcn/ui, packaged for mobile with Capacitor, Firebase planned as backend.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+Find sports partners who match your sport, level, availability, area and
+budget — then connect, chat, plan a session with a venue, confirm it, and check
+in at the venue with a QR code to build a verified show-up record.
+
+Mobile-first: React 19 + TypeScript + Vite + Tailwind v4 + shadcn/ui, packaged
+for Android with Capacitor, Firebase (Auth + Firestore) as the backend, and
+RevenueCat for the **Buddy+** subscription.
+
+- **Licence: [MIT](LICENSE)** — free to read, use and modify.
+- **Web demo:** <https://sportbuddy-4d596.web.app>
+- **App icon (1024×1024):** [`resources/icon-only.png`](resources/icon-only.png)
+  — also `icon-foreground.png`, `icon-background.png` and the splash images in
+  [`resources/`](resources/), all free to download from this repository.
 
 ## Commands
 
@@ -161,3 +174,9 @@ These Buddy+ credentials and codes are mock-only, stored locally in the browser,
 and must not be used as production payment credentials. There is currently no
 Firebase-backed premium tester account: production subscription status comes
 from RevenueCat, and web purchases remain intentionally unconnected.
+
+## License
+
+MIT — see [LICENSE](LICENSE). You may read, use, modify and redistribute this
+code, including commercially, as long as the copyright notice and licence text
+are kept.

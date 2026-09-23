@@ -1,4 +1,8 @@
-import { CHECK_IN_PAYLOAD_PREFIX } from '@/constants/attendance'
+import {
+  CHECK_IN_ASSUMED_DURATION_MINUTES,
+  CHECK_IN_GRACE_MINUTES,
+  CHECK_IN_PAYLOAD_PREFIX,
+} from '@/constants/attendance'
 import { isValidDocumentId } from '@/lib/ids'
 import type { AttendanceRecord, CheckInPayload } from '@/types/attendance'
 import type { GroupActivity } from '@/types/group-activity'
@@ -31,10 +35,40 @@ export function parseCheckInPayload(raw: string): CheckInPayload | null {
   return { activityId, code }
 }
 
-/** Only a participant or the organizer, and only once the activity has actually started. */
+const MINUTE_MS = 60_000
+
+/**
+ * When check-in opens and closes: from the start time until
+ * `CHECK_IN_GRACE_MINUTES` after the end. With no end time given, the
+ * activity is assumed to run for `CHECK_IN_ASSUMED_DURATION_MINUTES`.
+ *
+ * The Firestore rules enforce the same window independently, so a client
+ * cannot record a check-in outside it.
+ */
+export function getCheckInWindow(activity: GroupActivity): {
+  opensAt: number
+  closesAt: number
+} {
+  const opensAt = new Date(activity.startAt).getTime()
+  const endsAt = activity.endAt
+    ? new Date(activity.endAt).getTime()
+    : opensAt + CHECK_IN_ASSUMED_DURATION_MINUTES * MINUTE_MS
+  return { opensAt, closesAt: endsAt + CHECK_IN_GRACE_MINUTES * MINUTE_MS }
+}
+
+/** Whether check-in is open right now, whoever is asking. */
+export function isCheckInOpen(activity: GroupActivity, now: Date): boolean {
+  const { opensAt, closesAt } = getCheckInWindow(activity)
+  return opensAt <= now.getTime() && now.getTime() <= closesAt
+}
+
+/**
+ * Only a participant or the organizer, and only while check-in is open —
+ * from the start time until shortly after the activity ends.
+ */
 export function canCheckIn(activity: GroupActivity, viewerId: string, now: Date): boolean {
   const isInvolved = activity.organizerId === viewerId || activity.participantIds.includes(viewerId)
-  return isInvolved && new Date(activity.startAt).getTime() <= now.getTime()
+  return isInvolved && isCheckInOpen(activity, now)
 }
 
 /**

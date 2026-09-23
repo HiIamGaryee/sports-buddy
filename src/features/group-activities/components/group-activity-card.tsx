@@ -11,6 +11,8 @@ import { CheckInQrDialog } from '@/features/group-activities/components/check-in
 import { ScanCheckInButton } from '@/features/group-activities/components/scan-check-in-button'
 import { ShareGroupActivityActions } from '@/features/group-activities/components/share-group-activity-actions'
 import { useGroupActivityActions } from '@/features/group-activities/use-group-activity-actions'
+import { CHECK_IN_GRACE_MINUTES } from '@/constants/attendance'
+import { isCheckInOpen } from '@/lib/attendance'
 import { formatActivityDate, formatActivityTime } from '@/lib/activity-format'
 import {
   getGroupActivityViewerState,
@@ -70,6 +72,9 @@ export function GroupActivityCard({
   // upcoming) — also exactly when QR check-in becomes available.
   const isPast = new Date(activity.startAt).getTime() <= now.getTime()
   const hasStarted = isPast
+  // Check-in runs from the start time until shortly after the end, so an
+  // old activity no longer offers a code or a scanner.
+  const checkInOpen = isCheckInOpen(activity, now)
   // Genuinely finished, for the "reads as history" surface treatment — a
   // session in progress still looks live, matching the Activities page's
   // Planned/Past split (`hasGroupActivityEnded`).
@@ -246,7 +251,7 @@ export function GroupActivityCard({
                 </div>
               )}
 
-              {hasStarted && (
+              {checkInOpen && (
                 <Button variant="outline" onClick={() => setIsQrOpen(true)}>
                   <QrCode className="size-4" />
                   Show check-in code
@@ -284,12 +289,16 @@ export function GroupActivityCard({
                   <StatusPill tone="success" icon={ShieldCheck}>
                     Checked in
                   </StatusPill>
-                ) : (
+                ) : checkInOpen ? (
                   <ScanCheckInButton
                     activityId={activity.id}
                     userId={viewerId}
                     onCheckedIn={() => setCheckedIn(true)}
                   />
+                ) : (
+                  <span className="text-caption text-muted-foreground">
+                    Check-in closed {CHECK_IN_GRACE_MINUTES} minutes after this session ended.
+                  </span>
                 )
               )}
             </>

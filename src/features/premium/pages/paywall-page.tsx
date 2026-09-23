@@ -453,9 +453,17 @@ export function PaywallPage() {
                     <StatusPill tone="success" icon={Check}>
                       Your current plan
                     </StatusPill>
-                    <Button variant="outline" size="lg" className="h-[60px] rounded-2xl" disabled={isManaging} onClick={() => void openCustomerCenter()}>
-                      <Settings2 className="size-4" />
-                      {isManaging ? 'Opening…' : 'Manage or cancel subscription'}
+                    {/* `h-auto` + wrapping text: a fixed-height button with
+                        nowrap text clipped this label on a phone. */}
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="h-auto min-h-[60px] rounded-2xl px-4 py-3 text-center whitespace-normal"
+                      disabled={isManaging}
+                      onClick={() => void openCustomerCenter()}
+                    >
+                      <Settings2 className="size-4 shrink-0" />
+                      {isManaging ? 'Opening…' : 'Manage or cancel Buddy+'}
                     </Button>
                     <p className="text-caption text-muted-foreground">
                       Cancelling keeps Buddy+ until the period you paid for ends.

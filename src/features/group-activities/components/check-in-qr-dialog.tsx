@@ -75,6 +75,7 @@ export function CheckInQrDialog({
           <DialogTitle>Check-in code</DialogTitle>
           <DialogDescription>
             Show this to players at the venue. Each of them scans it once to check in.
+            Turn your screen brightness up if someone is photographing it.
           </DialogDescription>
         </DialogHeader>
 
@@ -83,12 +84,16 @@ export function CheckInQrDialog({
             <img
               src={buildQrDataUrl(buildCheckInPayload(activityId, code))}
               alt="Check-in QR code"
-              className="size-56 rounded-lg border border-border bg-white p-2"
+              /* Rendered large, and `pixelated` so scaling the generated
+                 image up keeps hard edges instead of blurring them — a blurry
+                 QR is the main reason a photo fails to decode. */
+              style={{ imageRendering: 'pixelated' }}
+              className="size-72 max-w-full rounded-lg border border-border bg-white p-3"
             />
           ) : error ? (
             <QrCode aria-hidden className="size-16 text-muted-foreground" />
           ) : (
-            <Skeleton className="size-56 rounded-lg" />
+            <Skeleton className="size-72 rounded-lg" />
           )}
 
           {error && (

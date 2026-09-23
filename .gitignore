@@ -34,3 +34,9 @@ dist-ssr
 
 # Firebase CLI hosting deploy cache
 .firebase/
+
+# local Claude Code settings (machine-specific, may contain local paths)
+.claude/settings.local.json
+
+# scratch PDF/page renders used while auditing docs
+/tmp

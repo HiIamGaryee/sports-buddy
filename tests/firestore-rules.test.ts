@@ -2824,7 +2824,7 @@ describe('joining group activities', () => {
 describe('QR check-in codes', () => {
   const activityPath = 'groupActivities/activity_1'
   const codePath = `${activityPath}/checkIn/current`
-  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+  const minutesFromNow = (minutes: number) => new Date(Date.now() + minutes * 60 * 1000)
 
   async function seedActivity(overrides: Record<string, unknown> = {}) {
     await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -2834,7 +2834,9 @@ describe('QR check-in codes', () => {
         sportId: 'badminton',
         title: 'Saturday Badminton Meetup',
         description: '',
-        startAt: inDays(-1),
+        // Inside the check-in window: started 30 minutes ago, no end time, so
+        // the window runs 2h30 from the start (see checkInClosesAt in the rules).
+        startAt: minutesFromNow(-30),
         endAt: null,
         timeZone: 'Asia/Kuala_Lumpur',
         areaId: 'subang-jaya',
@@ -2893,6 +2895,7 @@ describe('attendance records', () => {
   const activityPath = 'groupActivities/activity_1'
   const codePath = `${activityPath}/checkIn/current`
   const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+  const minutesFromNow = (minutes: number) => new Date(Date.now() + minutes * 60 * 1000)
   const CODE = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
   const recordPath = (userId: string) => `attendanceRecords/activity_1__${userId}`
 
@@ -2904,7 +2907,9 @@ describe('attendance records', () => {
         sportId: 'badminton',
         title: 'Saturday Badminton Meetup',
         description: '',
-        startAt: inDays(-1),
+        // Inside the check-in window: started 30 minutes ago, no end time, so
+        // the window runs 2h30 from the start (checkInClosesAt in the rules).
+        startAt: minutesFromNow(-30),
         endAt: null,
         timeZone: 'Asia/Kuala_Lumpur',
         areaId: 'subang-jaya',
@@ -2957,6 +2962,23 @@ describe('attendance records', () => {
 
   it('refuses checking in before the activity has started', async () => {
     await seedActivity({ startAt: inDays(1) })
+    await assertFails(setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA)))
+  })
+
+  it('refuses checking in once the window has closed', async () => {
+    // Yesterday's session: a check-in is evidence you were there, so it
+    // cannot be recorded from home a day later.
+    await seedActivity({ startAt: inDays(-1) })
+    await assertFails(setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA)))
+  })
+
+  it('still accepts a check-in shortly after the activity ended', async () => {
+    await seedActivity({ startAt: minutesFromNow(-90), endAt: minutesFromNow(-10) })
+    await assertSucceeds(setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA)))
+  })
+
+  it('refuses a check-in well after the end time', async () => {
+    await seedActivity({ startAt: minutesFromNow(-180), endAt: minutesFromNow(-120) })
     await assertFails(setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA)))
   })
 

@@ -87,7 +87,9 @@ export function AppHeader({
           </div>
         </div>
         {action && (
-          <div className="flex items-center py-3 md:py-6">{action}</div>
+          /* `shrink-0` so a long title can never push the page actions (the
+             refresh button on Discover) past the right edge of the screen. */
+          <div className="flex shrink-0 items-center py-3 md:py-6">{action}</div>
         )}
       </div>
     </header>

@@ -569,6 +569,23 @@ service cloud.firestore {
         return get(/databases/$(database)/documents/groupActivities/$(id)/checkIn/current).data.code;
       }
 
+      /**
+       * When check-in stops being accepted: 30 minutes after the activity
+       * ends, or after an assumed 2 hours when the organizer gave no end
+       * time. Mirrors `getCheckInWindow()` in `src/lib/attendance.ts` — a
+       * check-in is evidence you were there, so it cannot be recorded days
+       * later from home.
+       */
+      function checkInClosesAt(id) {
+        let data = checkedInActivity(id).data;
+        // `endAt` is optional AND nullable, so it is only used when it really
+        // is a timestamp; otherwise the session is assumed to run 2 hours.
+        let endsAt = data.keys().hasAny(['endAt']) && data.endAt is timestamp
+          ? data.endAt
+          : data.startAt + duration.value(120, 'm');
+        return endsAt + duration.value(30, 'm');
+      }
+
       /** Involved: a joined participant, or the organizer checking themselves in. */
       function isInvolvedInActivity(id) {
         return request.auth.uid in checkedInActivity(id).data.participantIds
@@ -594,8 +611,9 @@ service cloud.firestore {
         // Only the attendee may record their OWN check-in — never someone else's.
         && request.resource.data.userId == request.auth.uid
         && isInvolvedInActivity(request.resource.data.activityId)
-        // The activity has actually started.
+        // The activity has actually started, and check-in has not closed.
         && checkedInActivity(request.resource.data.activityId).data.startAt <= request.time
+        && request.time <= checkInClosesAt(request.resource.data.activityId)
         // The scanned code matches the organizer's CURRENT code — a stale
         // screenshot stops working the moment the organizer regenerates it.
         && request.resource.data.code == currentCheckInCode(request.resource.data.activityId)

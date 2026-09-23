@@ -196,9 +196,9 @@ export function SettingsPage() {
                 variant="outline"
                 disabled={isManaging}
                 onClick={() => void handleManageSubscription()}
-                className="justify-start"
+                className="h-auto justify-start py-3 text-left whitespace-normal"
               >
-                {isManaging ? 'Opening…' : 'Manage or cancel subscription'}
+                {isManaging ? 'Opening…' : 'Manage or cancel Buddy+'}
               </Button>
             )}
             <Button
