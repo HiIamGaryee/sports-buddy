@@ -171,46 +171,58 @@ export function ActivitiesPage() {
     [myGroups.hostedPlanned, myGroups.joinedPlanned, myPosts.invitations, myPosts.openPlanned, myPosts.waitingPlanned, myPosts.confirmedPlanned, upcoming.items, viewerId, myPosts.people],
   )
 
+  /**
+   * Created holds only what is still to come, soonest first. Anything whose
+   * time has gone moves to Past, so this tab answers "what have I got coming
+   * up that I organised" rather than mixing it with history.
+   */
   const created = useMemo(() => {
     const mySessions = upcoming.items.filter(
       ({ activity }) => activity.createdBy === viewerId,
     )
     return {
-      group: [
-        ...soonestFirst(
-          myGroups.hostedPlanned.map((activity) =>
-            fromGroupActivity(activity, { label: 'Hosting', tone: 'active' }),
-          ),
+      group: soonestFirst(
+        myGroups.hostedPlanned.map((activity) =>
+          fromGroupActivity(activity, { label: 'Hosting', tone: 'active' }),
         ),
-        ...latestFirst(
-          myGroups.hostedPast.map((activity) =>
-            fromGroupActivity(activity, { label: 'Past', tone: 'neutral' }),
-          ),
-        ),
-      ],
-      solo: [
-        ...soonestFirst([
-          ...myPosts.createdPlanned.map((post) => fromActivityPost(post, viewerId, myPosts.people)),
-          ...mySessions.map(fromSession),
-        ]),
-        ...latestFirst(
-          myPosts.createdPast.map((post) =>
-            fromActivityPost(post, viewerId, myPosts.people, { label: 'Past', tone: 'neutral' }),
-          ),
-        ),
-      ],
+      ),
+      solo: soonestFirst([
+        ...myPosts.createdPlanned.map((post) => fromActivityPost(post, viewerId, myPosts.people)),
+        ...mySessions.map(fromSession),
+      ]),
     }
-  }, [myGroups.hostedPlanned, myGroups.hostedPast, myPosts.createdPlanned, myPosts.createdPast, upcoming.items, viewerId, myPosts.people])
+  }, [myGroups.hostedPlanned, myPosts.createdPlanned, upcoming.items, viewerId, myPosts.people])
 
+  /**
+   * Past is EVERYTHING whose time has gone, newest first — hosted as well as
+   * joined, so a session never disappears from both tabs at once. "Past" means
+   * the end time passed and nothing more; it does not claim anyone turned up.
+   */
   const pastEvents = useMemo(
     () => ({
-      group: latestFirst(myGroups.joinedPast.map((activity) => fromGroupActivity(activity))),
+      group: latestFirst([
+        ...myGroups.hostedPast.map((activity) =>
+          fromGroupActivity(activity, { label: 'You hosted', tone: 'neutral' }),
+        ),
+        ...myGroups.joinedPast.map((activity) => fromGroupActivity(activity)),
+      ]),
       solo: latestFirst([
+        ...myPosts.createdPast.map((post) =>
+          fromActivityPost(post, viewerId, myPosts.people, { label: 'You posted', tone: 'neutral' }),
+        ),
         ...myPosts.joinedPast.map((post) => fromActivityPost(post, viewerId, myPosts.people)),
         ...past.items.map(fromSession),
       ]),
     }),
-    [myGroups.joinedPast, myPosts.joinedPast, past.items, viewerId, myPosts.people],
+    [
+      myGroups.hostedPast,
+      myGroups.joinedPast,
+      myPosts.createdPast,
+      myPosts.joinedPast,
+      past.items,
+      viewerId,
+      myPosts.people,
+    ],
   )
 
   return (

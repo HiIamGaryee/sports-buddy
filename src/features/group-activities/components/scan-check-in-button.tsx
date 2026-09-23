@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { buildCheckInPayload } from '@/lib/attendance'
+import { buildCheckInPayload, normalizeCheckInCode } from '@/lib/attendance'
 import { decodeQrFromImageData } from '@/lib/qr'
 import { attendanceService } from '@/services/attendance/attendance-service'
 import type { AttendanceRecord, CheckInSubjectKind } from '@/types/attendance'
@@ -137,7 +137,9 @@ export function ScanCheckInButton({
   }
 
   const submitTypedCode = async () => {
-    const code = typedCode.trim().toUpperCase()
+    // Normalized the same way the host's code was stored, so case and stray
+    // spaces never decide whether somebody can check in.
+    const code = normalizeCheckInCode(typedCode)
     if (code.length === 0) return
     setIsSubmittingCode(true)
     setError('')
@@ -161,18 +163,13 @@ export function ScanCheckInButton({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Button variant="outline" disabled={isScanning} onClick={() => void scan()}>
-        <ScanLine className="size-4" />
-        {isScanning ? 'Scanning…' : 'Scan check-in code'}
-      </Button>
       {/*
-        Typing the code does exactly what scanning does — the photo is only a
-        way of reading it. A camera that cannot focus on a bright screen, or a
-        phone with no usable camera, must not be the end of checking in.
+        Typing the code is the primary path: the host reads it out to everyone
+        at once, and it cannot be defeated by glare, focus or a phone with no
+        usable camera. Scanning is the same check-in by another route — the QR
+        only carries this code.
       */}
       <Button
-        variant="ghost"
-        size="sm"
         onClick={() => {
           setTypedCode('')
           setError('')
@@ -180,7 +177,11 @@ export function ScanCheckInButton({
         }}
       >
         <Keyboard className="size-4" />
-        Enter the code instead
+        Enter check-in code
+      </Button>
+      <Button variant="ghost" size="sm" disabled={isScanning} onClick={() => void scan()}>
+        <ScanLine className="size-4" />
+        {isScanning ? 'Scanning…' : 'Scan a QR instead'}
       </Button>
       {error && (
         <p role="alert" className="text-body-small text-destructive">
@@ -193,7 +194,7 @@ export function ScanCheckInButton({
           <DialogHeader>
             <DialogTitle>Enter the check-in code</DialogTitle>
             <DialogDescription>
-              Ask the host to read out the code shown under their QR.
+              Ask the host for the code — they can read it out at the venue.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -209,7 +210,7 @@ export function ScanCheckInButton({
                 setTypedCode(event.target.value.toUpperCase())
                 setError('')
               }}
-              placeholder="ABCDEFGH…"
+              placeholder="COURT7"
               autoComplete="off"
               autoCapitalize="characters"
               spellCheck={false}

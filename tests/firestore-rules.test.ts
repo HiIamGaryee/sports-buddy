@@ -2882,6 +2882,13 @@ describe('QR check-in codes', () => {
   it('rejects malformed fields and extra keys', async () => {
     await seedActivity()
     await assertFails(setDoc(doc(asUser(GARY), codePath), code({ code: '' })))
+    // A host may choose their own code, but not one that is trivially
+    // guessable or full of characters nobody can read out.
+    await assertFails(setDoc(doc(asUser(GARY), codePath), code({ code: 'AB1' })))
+    await assertFails(setDoc(doc(asUser(GARY), codePath), code({ code: 'court 7' })))
+    await assertFails(setDoc(doc(asUser(GARY), codePath), code({ code: 'COURT-7' })))
+    await assertFails(setDoc(doc(asUser(GARY), codePath), code({ code: 'A'.repeat(25) })))
+    await assertSucceeds(setDoc(doc(asUser(GARY), codePath), code({ code: 'COURT7' })))
     await assertFails(setDoc(doc(asUser(GARY), codePath), code({ extra: true })))
   })
 

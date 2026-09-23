@@ -2,6 +2,8 @@ import {
   CHECK_IN_ASSUMED_DURATION_MINUTES,
   CHECK_IN_GRACE_MINUTES,
   CHECK_IN_PAYLOAD_PREFIX,
+  MAX_CHECK_IN_CODE_LENGTH,
+  MIN_CHECK_IN_CODE_LENGTH,
 } from '@/constants/attendance'
 import { isValidDocumentId } from '@/lib/ids'
 import type { ActivityPost } from '@/types/activity-post'
@@ -22,6 +24,28 @@ export function generateCheckInCode(length: number): string {
   const bytes = new Uint8Array(length)
   crypto.getRandomValues(bytes)
   return Array.from(bytes, (byte) => CODE_CHARS[byte % CODE_CHARS.length]).join('')
+}
+
+/**
+ * One spelling of a code, so "abc 123" typed by an attendee matches "ABC123"
+ * set by the host. Case and spaces are noise, not part of the secret.
+ */
+export const normalizeCheckInCode = (raw: string) =>
+  raw.trim().toUpperCase().replace(/\s+/g, '')
+
+/** Why a host-chosen code is unusable, or `null` when it is fine. */
+export function getCheckInCodeError(raw: string): string | null {
+  const code = normalizeCheckInCode(raw)
+  if (code.length < MIN_CHECK_IN_CODE_LENGTH) {
+    return `Use at least ${MIN_CHECK_IN_CODE_LENGTH} characters.`
+  }
+  if (code.length > MAX_CHECK_IN_CODE_LENGTH) {
+    return `Use at most ${MAX_CHECK_IN_CODE_LENGTH} characters.`
+  }
+  // Letters and digits only: a code gets said out loud and typed on a phone
+  // keyboard, and the payload itself is colon-separated.
+  if (!/^[A-Z0-9]+$/.test(code)) return 'Use letters and numbers only.'
+  return null
 }
 
 export const buildCheckInPayload = (activityId: string, code: string) =>

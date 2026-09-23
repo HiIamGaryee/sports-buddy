@@ -148,7 +148,9 @@
 
   /* Breakpoint-aware navigation chrome. */
   --navigation-rail-width: 5rem;
-  --desktop-sidebar-width: 15.75rem;
+  /* Wide enough for the longest label ("Activities") plus its icon and a
+     little breathing room — the rest of the width belongs to the page. */
+  --desktop-sidebar-width: 12.5rem;
 
   /* Content widths. `content` is the phone column kept for chrome that is
      still phone-shaped; pages choose a semantic size instead. */

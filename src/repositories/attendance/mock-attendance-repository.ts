@@ -42,6 +42,11 @@ export const mockAttendanceRepository: AttendanceRepository = {
     return delay(code)
   },
 
+  async setCheckInCode(_kind, activityId, _hostId, code) {
+    writeCodes({ ...readCodes(), [activityId]: code })
+    return delay(code)
+  },
+
   async checkIn(activityId, userId, code) {
     const id = `${activityId}__${userId}`
     const records = readRecords()

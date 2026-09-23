@@ -251,6 +251,24 @@ Check-in is no longer group-only.
 **🔴 Deploy the rules before testing this on the phone:**
 `firebase deploy --only firestore:rules`
 
+### B10. Typed check-in codes + Activities/sidebar polish — 2026-09-24
+
+- **Check-in is now a typed code, and the host sets it.** "Show check-in code"
+  lets the host save their own (e.g. `COURT7`, 4–24 letters/digits) and read it
+  out; everyone in the session taps **Enter check-in code** and types it. The
+  QR is still there behind "Show QR to scan" and carries the same code, so
+  scanning is just another route. Saving a new code kills the old one.
+  Validated in the form, the service AND the rules.
+- **Activities**: Created shows only what is still to come, soonest first;
+  everything whose time has passed is in Past (hosted and joined alike, newest
+  first), and both tabs keep the Group | 1-to-1 switch.
+- **Desktop sidebar narrowed** from 252px to 200px, so the page gets the space.
+- Map removed from the rail/sidebar (the map view is not finished).
+- 558 unit tests, 224 emulator rules tests, lint and build pass.
+
+**🔴 Deploy the rules — the code-shape check is new:**
+`firebase deploy --only firestore:rules`
+
 ### B6. Still NOT done in the app — the honest list
 
 **Nothing here blocks the submission.** Judged on "meaningful progress toward a

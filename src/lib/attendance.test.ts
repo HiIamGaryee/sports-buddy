@@ -7,7 +7,9 @@ import {
   calculateReliability,
   canCheckIn,
   generateCheckInCode,
+  getCheckInCodeError,
   isCheckInOpen,
+  normalizeCheckInCode,
   parseCheckInPayload,
   toCheckInSubject,
 } from '@/lib/attendance'
@@ -68,6 +70,25 @@ describe('canCheckIn', () => {
     const notStarted = activity({ startAt: '2026-09-20T00:00:00.000Z' })
     expect(canCheckIn(toCheckInSubject(notStarted), 'alex', NOW)).toBe(false)
     expect(canCheckIn(toCheckInSubject(activity()), 'stranger', NOW)).toBe(false)
+  })
+})
+
+describe('a host-chosen check-in code', () => {
+  it('ignores case and spaces, so a typed code still matches', () => {
+    expect(normalizeCheckInCode('  court 7 ')).toBe('COURT7')
+    expect(normalizeCheckInCode('cOuRt7')).toBe('COURT7')
+  })
+
+  it('accepts something sayable', () => {
+    expect(getCheckInCodeError('COURT7')).toBeNull()
+    expect(getCheckInCodeError('court 7')).toBeNull()
+  })
+
+  it('refuses codes that are too short, too long or not letters and digits', () => {
+    expect(getCheckInCodeError('AB1')).not.toBeNull()
+    expect(getCheckInCodeError('A'.repeat(25))).not.toBeNull()
+    expect(getCheckInCodeError('COURT-7')).not.toBeNull()
+    expect(getCheckInCodeError('')).not.toBeNull()
   })
 })
 

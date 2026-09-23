@@ -388,8 +388,12 @@ service cloud.firestore {
           && request.resource.data.keys().hasAll(['organizerId', 'code', 'updatedAt'])
           && request.resource.data.organizerId == request.auth.uid
           && request.resource.data.code is string
-          && request.resource.data.code.size() > 0
-          && request.resource.data.code.size() <= 64
+          // A host may choose their own code, so its SHAPE is checked here as
+          // well as in the form: letters and digits, long enough not to be
+          // guessed by someone who merely knows the activity exists.
+          && request.resource.data.code.size() >= 4
+          && request.resource.data.code.size() <= 24
+          && request.resource.data.code.matches('^[A-Z0-9]+$')
           && request.resource.data.updatedAt == request.time;
         allow delete: if false;
       }
@@ -572,8 +576,12 @@ service cloud.firestore {
           && request.resource.data.keys().hasAll(['organizerId', 'code', 'updatedAt'])
           && request.resource.data.organizerId == request.auth.uid
           && request.resource.data.code is string
-          && request.resource.data.code.size() > 0
-          && request.resource.data.code.size() <= 64
+          // A host may choose their own code, so its SHAPE is checked here as
+          // well as in the form: letters and digits, long enough not to be
+          // guessed by someone who merely knows the activity exists.
+          && request.resource.data.code.size() >= 4
+          && request.resource.data.code.size() <= 24
+          && request.resource.data.code.matches('^[A-Z0-9]+$')
           && request.resource.data.updatedAt == request.time;
         allow delete: if false;
       }

@@ -40,8 +40,9 @@ async function writeCode(
   kind: CheckInSubjectKind,
   activityId: string,
   hostId: string,
+  chosen?: string,
 ): Promise<string> {
-  const code = generateCheckInCode(CHECK_IN_CODE_LENGTH)
+  const code = chosen ?? generateCheckInCode(CHECK_IN_CODE_LENGTH)
   // `organizerId` is the stored field name for both kinds: it is the host, and
   // renaming it would migrate every existing group activity's code document.
   await setDoc(checkInRef(kind, activityId), {
@@ -63,6 +64,10 @@ export const firebaseAttendanceRepository: AttendanceRepository = {
 
   regenerateCheckInCode(kind, activityId, hostId) {
     return writeCode(kind, activityId, hostId)
+  },
+
+  setCheckInCode(kind, activityId, hostId, code) {
+    return writeCode(kind, activityId, hostId, code)
   },
 
   async checkIn(activityId, userId, code) {

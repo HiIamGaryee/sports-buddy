@@ -2,7 +2,9 @@ import { RELIABILITY_HISTORY_LIMIT } from '@/constants/attendance'
 import {
   calculateReliability,
   canCheckIn,
+  getCheckInCodeError,
   getCheckInWindow,
+  normalizeCheckInCode,
   parseCheckInPayload,
   toCheckInSubject,
   toCheckInSubjectFromPost,
@@ -72,6 +74,34 @@ export const attendanceService = {
     }
     try {
       return await attendanceRepository.regenerateCheckInCode(kind, activityId, hostId)
+    } catch {
+      throw new Error(SHOW_CODE_FAILED)
+    }
+  },
+
+  /**
+   * The host chooses their own code — something they can read out at the
+   * venue. Validated here as well as in the form, because a programmatic
+   * caller skips the UI, and the rules check its size again server-side.
+   */
+  async setCheckInCode(
+    kind: CheckInSubjectKind,
+    activityId: string,
+    hostId: string,
+    rawCode: string,
+  ): Promise<string> {
+    if (!isValidDocumentId(activityId) || !isValidDocumentId(hostId)) {
+      throw new Error(SHOW_CODE_FAILED)
+    }
+    const problem = getCheckInCodeError(rawCode)
+    if (problem) throw new Error(problem)
+    try {
+      return await attendanceRepository.setCheckInCode(
+        kind,
+        activityId,
+        hostId,
+        normalizeCheckInCode(rawCode),
+      )
     } catch {
       throw new Error(SHOW_CODE_FAILED)
     }
