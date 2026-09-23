@@ -89,9 +89,9 @@ In the app:
    within a few seconds.
 3. Check the RevenueCat dashboard → Customers: your account should now appear.
 
-- [ ] App runs on phone/emulator
-- [ ] Test Store purchase unlocks Buddy+
-- [ ] Customer visible in RevenueCat dashboard
+- [done] App runs on phone/emulator
+- [done-using teststore/entitlement id] Test Store purchase unlocks Buddy+
+- [done] Customer visible in RevenueCat dashboard
 
 If no plans show up → the offering is missing. If it buys but nothing unlocks →
 sandbox access (above). First Gradle build is slow (5–15 min); keep the
@@ -124,8 +124,8 @@ toolkit copy to describe the filters that really unlock. No new features.
 On a **free** account first, check each limit shows, then buy, then check it
 lifts — no app restart:
 
-- [ ] Free: can't add more sports than the free limit → Buddy+: can
-- [ ] Free: 4th group activity join / 3rd host is refused with an upgrade prompt → Buddy+: allowed
+- [done] Free: can't add more sports than the free limit → Buddy+: can
+- [done] Free: 4th group activity join / 3rd host is refused with an upgrade prompt → Buddy+: allowed
 - [ ] Free: Discover filters locked → Buddy+: filter sheet opens and filters work
 - [ ] Settings shows Buddy+ active + "Manage subscription" opens Customer Center
 - [ ] Restore Purchases works after reinstalling the app
