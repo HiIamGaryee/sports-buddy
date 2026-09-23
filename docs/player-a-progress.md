@@ -113,11 +113,30 @@ anything after purchase. A judge who buys Buddy+ will look for each one.
 | Reliability-based discovery | ❌ No — `canUseReliabilityFilter` is never used |
 | Advanced recap trends | ❌ No — recap is the same for everyone (`canUseAdvancedAnalytics` never used) |
 
-Fix: keep only the ✅ rows on the paywall, and change the premium filter
-toolkit copy to describe the filters that really unlock. No new features.
+**Done 2026-09-23** (commit "Make Buddy+ honest"). What changed:
 
-- [ ] Paywall list trimmed to real benefits
-- [ ] Premium filter toolkit copy matches the real filters
+- `/buddy-plus` is now a **Free vs Buddy+ comparison table** — every row shows
+  ✓ / 🔒 for both plans, and only real benefits are listed (sports on profile,
+  group activities hosted/joined, advanced Discover filters). The four fake
+  rows are gone.
+- Both the paywall and Settings say **"Your plan: Free / Buddy+"**, and both
+  offer **Manage or cancel subscription** and **Restore purchases**. If the
+  Customer Center is unavailable (the Test Store has none), the app says where
+  a real subscription is cancelled instead of showing an error.
+- **Creating a group activity now checks the free host limit up front** — a
+  member at the cap sees "You're hosting the maximum for a free plan" with a
+  Buddy+ link, instead of filling in five steps and being refused at save.
+- **Google sign-in is hidden inside the Android app** (the Firebase web popup
+  cannot complete in a WebView) — email/password only there.
+- Premium filter copy now names the filters that really unlock (sport, skill,
+  intent, area, shared availability).
+
+`tsc`, oxlint, 551 unit tests and `npm run build` all pass.
+
+- [x] Paywall list trimmed to real benefits
+- [x] Premium filter toolkit copy matches the real filters
+- [x] Current plan visible, cancel + restore available
+- [x] Host limit shown before the form, not after
 
 ### B3. Free → Buddy+ test on the phone (do right after B)
 
@@ -126,9 +145,14 @@ lifts — no app restart:
 
 - [done] Free: can't add more sports than the free limit → Buddy+: can
 - [done] Free: 4th group activity join / 3rd host is refused with an upgrade prompt → Buddy+: allowed
-- [ ] Free: Discover filters locked → Buddy+: filter sheet opens and filters work
-- [ ] Settings shows Buddy+ active + "Manage subscription" opens Customer Center
-- [ ] Restore Purchases works after reinstalling the app
+- [ ] Free: Discover filters locked → Buddy+: Discover → **More filters** →
+      **Filters** opens the sheet and narrows the list (retest on the new build)
+- [ ] Settings → Buddy+ shows "Your plan: Buddy+" + **Manage or cancel
+      subscription**. On the Test Store the Customer Center may not open; the
+      honest fallback message is expected, not a bug
+- [ ] Restore purchases (Settings or paywall). Note: Buddy+ is tied to your
+      account uid, so after a reinstall you should already be Buddy+ without
+      restoring
 
 ### C. Make the repo public + add a license — 15 min
 
