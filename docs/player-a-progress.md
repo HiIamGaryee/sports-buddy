@@ -182,6 +182,28 @@ list with a **Confirmed** pill.
       Buddy+ and Activities; bottom bar stays put; the Group/1-to-1 switches
       show the right events
 
+### B5. Clarity pass — done 2026-09-23 (branch `mobile-test`, not pushed)
+
+- **Every row of the Buddy+ comparison table now explains itself.** A bare
+  "2" never said what was being counted or when the slot frees up again.
+- **A 1-to-1 activity is named after the sport and the person** — "Badminton
+  with Aina" — the same way a confirmed session is named. Until somebody has
+  the spot there is no name to use, so it shows the sport alone.
+- **Profile's Edit and Preview buttons now carry their words**, not just an
+  icon.
+- `tsc`, oxlint, 551 tests and the build pass.
+
+Also picked up in this commit (you had added them): the root `LICENSE` (MIT)
+and `SHIPATON-SUBMISSION-CHECKLIST.md`.
+
+- [ ] Retest on the phone after `npm run build && npx cap sync android`
+
+### B6. Still NOT done in the app
+
+- [ ] **Restore purchases** after a reinstall (last item of B3)
+- [ ] QR check-in tried with a real camera — see "How to test QR check-in"
+      below. Everything else in the app has now been seen on a device.
+
 ### C. Make the repo public + add a license — 15 min
 
 The repo is `github.com/HiIamGaryee/sports-buddy`, so **Gary (the repo
@@ -247,8 +269,50 @@ Say "not in this submission" if anyone asks.
   the claims instead (task B2)
 - Designing a RevenueCat hosted paywall (the built-in fallback list works)
 
-**QR check-in:** only test it if you have two phones and spare time. If not,
-leave it out of the video.
+---
+
+## 3b. How to test QR check-in (verified attendance)
+
+You do **not** need two phones. The QR is generated offline in the page, so
+the organiser's code can be shown on a **laptop browser** while the phone app
+scans it.
+
+What the rules require, so the test has to respect it:
+
+- the activity must have **already started** (`startAt` in the past),
+- the scanner must be **joined** to it (or be the organiser),
+- the code scanned must be the **current** one (it can be regenerated), and
+- each person can check in **once** — the record is immutable.
+
+The controls live on the **group activity detail page** (open the activity
+from Discover or Activities, not from the list row's own buttons).
+
+**Setup (about 15 min):**
+
+1. Two accounts: A (organiser) and B (the one checking in). Sign in as A in a
+   **laptop browser** (the web demo or `npm run dev`), and as B in the
+   **Android app** on your phone.
+2. As A, create a group activity starting in about 2 minutes, at any venue.
+3. As B, open it (Discover → Groups, or the share link) and **Join**.
+4. Wait for the start time to pass. Refresh both.
+5. As A, open the activity → **Show check-in code**. A QR appears on the
+   laptop screen.
+6. As B on the phone, open the same activity → **Scan check-in code** → allow
+   the camera → take ONE photo of the laptop screen, framing the QR.
+7. B should now read as checked in. Open B's **Profile** → the reliability
+   card shows "1 Verified Session" and a show-up rate.
+
+**Things worth showing in the demo video:** tap **Regenerate code** as A, then
+try scanning the OLD photo as B — it is refused, because the code rotates. That
+is the anti-screenshot protection, and it demonstrates the feature is real.
+
+**If the scan fails:** the photo needs the whole QR in frame and reasonably
+sharp; screen glare is the usual cause. Raise the laptop's brightness, or open
+the QR full-screen. "We couldn't read a code in that photo" means decoding
+failed, not that check-in was rejected.
+
+**Emulator note:** an emulator's fake camera shows a synthetic scene, so it
+cannot photograph a real QR. Use a physical phone for the scanning side.
 
 ---
 
