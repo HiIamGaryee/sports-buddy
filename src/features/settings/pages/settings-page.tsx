@@ -81,9 +81,44 @@ export function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const { user, signOut } = useAuth()
   const { profile } = useProfile()
-  const { isBuddyPlus } = useSubscription()
+  const { isBuddyPlus, presentCustomerCenter, restore } = useSubscription()
   const { save, isSaving, error } = usePreferenceUpdate()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isManaging, setIsManaging] = useState(false)
+  const [isRestoring, setIsRestoring] = useState(false)
+  const [subscriptionNotice, setSubscriptionNotice] = useState('')
+  const [subscriptionError, setSubscriptionError] = useState('')
+
+  async function handleManageSubscription() {
+    setIsManaging(true)
+    setSubscriptionError('')
+    setSubscriptionNotice('')
+    try {
+      await presentCustomerCenter()
+    } catch {
+      // The Customer Center is store-backed, so it is not available on every
+      // build (the RevenueCat Test Store has no subscription management UI).
+      setSubscriptionError(
+        'Subscription management is only available in the store build. On a real purchase, cancel from the Play Store subscriptions page.',
+      )
+    } finally {
+      setIsManaging(false)
+    }
+  }
+
+  async function handleRestore() {
+    setIsRestoring(true)
+    setSubscriptionError('')
+    setSubscriptionNotice('')
+    try {
+      await restore()
+      setSubscriptionNotice('Purchases restored.')
+    } catch {
+      setSubscriptionError("We couldn't restore your purchases. Please try again.")
+    } finally {
+      setIsRestoring(false)
+    }
+  }
 
   const preferences = profile?.preferences
 
@@ -137,11 +172,11 @@ export function SettingsPage() {
               <Sparkles aria-hidden className="size-4.5" />
             </span>
             <SettingsRow
-              label={isBuddyPlus ? 'Buddy+ active' : 'Get Buddy+'}
+              label={isBuddyPlus ? 'Your plan: Buddy+' : 'Your plan: Free'}
               description={
                 isBuddyPlus
-                  ? 'Unlimited activities, advanced filters and analytics.'
-                  : 'Advanced filters, unlimited activities, deeper insights.'
+                  ? 'Unlimited group activities, more sports and the advanced Discover filters.'
+                  : 'Compare Free and Buddy+, and upgrade when you want more.'
               }
               trailing={
                 <ChevronRight
@@ -152,6 +187,39 @@ export function SettingsPage() {
               className="flex-1"
             />
           </Link>
+
+          <Separator />
+
+          <div className="flex flex-col gap-3">
+            {isBuddyPlus && (
+              <Button
+                variant="outline"
+                disabled={isManaging}
+                onClick={() => void handleManageSubscription()}
+                className="justify-start"
+              >
+                {isManaging ? 'Opening…' : 'Manage or cancel subscription'}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              disabled={isRestoring}
+              onClick={() => void handleRestore()}
+              className="justify-start"
+            >
+              {isRestoring ? 'Restoring…' : 'Restore purchases'}
+            </Button>
+            {subscriptionNotice && (
+              <p role="status" className="text-body-small text-muted-foreground">
+                {subscriptionNotice}
+              </p>
+            )}
+            {subscriptionError && (
+              <p role="alert" className="text-body-small text-destructive">
+                {subscriptionError}
+              </p>
+            )}
+          </div>
         </SettingsSection>
 
         <SettingsSection id="preferences" title="Preferences">

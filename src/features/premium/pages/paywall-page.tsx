@@ -22,7 +22,12 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusPill } from '@/components/ui/status-pill'
 import diamondIcon from '@/assets/svg/diamond-search-svgrepo-com.svg'
-import { isMockRedeemCodeFormat, normalizeMockRedeemCode } from '@/constants/entitlements'
+import {
+  FREE_MAX_HOSTED_GROUP_ACTIVITIES,
+  FREE_MAX_JOINED_GROUP_ACTIVITIES,
+  isMockRedeemCodeFormat,
+  normalizeMockRedeemCode,
+} from '@/constants/entitlements'
 import { MAX_BUDDY_PLUS_SPORTS } from '@/constants/sports'
 import general from '@/data/general.json'
 import { useSubscription } from '@/hooks/use-subscription'
@@ -30,72 +35,114 @@ import type { SubscriptionPackage } from '@/types/subscription'
 
 const PREMIUM_FILTER_COPY = general.discover.premiumFilters
 
+/**
+ * Every row here must be something Buddy+ REALLY changes in the app today.
+ * A locked row on a paywall is a promise, and a member who pays will go
+ * looking for it — so nothing aspirational belongs in this list.
+ */
 const PLAN_FEATURES = [
   {
     label: 'Sports on your profile',
-    free: 'Up to 5 sports',
-    buddyPlus: `Up to ${MAX_BUDDY_PLUS_SPORTS} sports`,
+    free: 'Up to 5',
+    buddyPlus: `Up to ${MAX_BUDDY_PLUS_SPORTS}`,
   },
   {
-    label: 'Active plans per Buddy',
-    free: '1 active plan',
-    buddyPlus: 'Multiple active plans',
+    label: 'Group activities you host at once',
+    free: `${FREE_MAX_HOSTED_GROUP_ACTIVITIES}`,
+    buddyPlus: 'Unlimited',
   },
   {
-    label: general.notifications.activityReminders.label,
-    free: null,
-    buddyPlus: 'Before planned sessions',
+    label: 'Group activities you join at once',
+    free: `${FREE_MAX_JOINED_GROUP_ACTIVITIES}`,
+    buddyPlus: 'Unlimited',
   },
   {
     label: PREMIUM_FILTER_COPY.title,
-    free: 'Basic filters',
-    buddyPlus: `Date, popularity and ${PREMIUM_FILTER_COPY.items.length - 2} more filters`,
-  },
-  {
-    label: 'Reliability-based discovery',
     free: null,
-    buddyPlus: 'Prioritise reliable Buddies',
+    buddyPlus: `All ${PREMIUM_FILTER_COPY.items.length} filters`,
   },
   {
-    label: 'Group activities',
-    free: 'Core access',
-    buddyPlus: 'Unlimited access',
+    label: 'Discover, chat and planning',
+    free: 'Included',
+    buddyPlus: 'Included',
   },
   {
-    label: 'Sports insights',
-    free: 'Basic recap',
-    buddyPlus: 'Advanced trends',
+    label: 'QR check-in, reliability and recap',
+    free: 'Included',
+    buddyPlus: 'Included',
   },
 ] as const
 
-function PlanFeatures({ isBuddyPlus }: { isBuddyPlus: boolean }) {
+function PlanCell({ value }: { value: string | null }) {
   return (
-    <ul className="flex flex-col gap-[18px]">
-      {PLAN_FEATURES.map(({ label, free, buddyPlus }) => {
-        const value = isBuddyPlus ? buddyPlus : free
-        const isIncluded = value !== null
+    <span className="flex flex-col items-center gap-1 text-center">
+      <span
+        className={`flex size-5 items-center justify-center rounded-full ${value === null ? 'pricing-lock' : 'pricing-check'}`}
+      >
+        {value === null ? (
+          <LockKeyhole aria-hidden className="size-3" />
+        ) : (
+          <Check aria-hidden className="size-3.5" />
+        )}
+      </span>
+      <span className="text-caption text-muted-foreground">{value ?? 'Not included'}</span>
+    </span>
+  )
+}
 
-        return (
-          <li key={label} className="flex items-start gap-4">
-            <span
-              className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full ${isIncluded ? 'pricing-check' : 'pricing-lock'}`}
-            >
-              {isIncluded ? (
-                <Check aria-hidden className="size-3.5" />
-              ) : (
-                <LockKeyhole aria-hidden className="size-3" />
-              )}
-            </span>
-            <span className="flex min-w-0 flex-col gap-1">
-              <span className="text-body font-semibold text-card-foreground">{label}</span>
-              <span className="text-caption text-muted-foreground">
-                {value ?? 'Buddy+ only'}
-              </span>
-            </span>
-          </li>
-        )
-      })}
-    </ul>
+/**
+ * The side-by-side comparison: one row per feature, both columns always
+ * visible, so a member can see what Free does and does not include without
+ * switching anything. The column they are on is marked.
+ */
+function PlanComparison({ isBuddyPlus }: { isBuddyPlus: boolean }) {
+  return (
+    <section className="flex flex-col gap-4">
+      <h3 className="text-heading-3 font-bold text-foreground">Compare plans</h3>
+      <Card variant="subtle">
+        <CardContent className="p-0">
+          <table className="w-full table-fixed border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                <th scope="col" className="w-[44%] px-4 py-3 text-left text-label text-muted-foreground">
+                  Feature
+                </th>
+                <th scope="col" className="px-2 py-3 text-center text-label text-card-foreground">
+                  Free
+                  {!isBuddyPlus && (
+                    <span className="block text-caption font-normal text-primary">Your plan</span>
+                  )}
+                </th>
+                <th scope="col" className="px-2 py-3 text-center text-label text-card-foreground">
+                  Buddy+
+                  {isBuddyPlus && (
+                    <span className="block text-caption font-normal text-primary">Your plan</span>
+                  )}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {PLAN_FEATURES.map(({ label, free, buddyPlus }) => (
+                <tr key={label} className="border-b border-border last:border-b-0">
+                  <th
+                    scope="row"
+                    className="px-4 py-3 text-left text-body-small font-semibold text-card-foreground"
+                  >
+                    {label}
+                  </th>
+                  <td className="px-2 py-3 align-top">
+                    <PlanCell value={free} />
+                  </td>
+                  <td className="px-2 py-3 align-top">
+                    <PlanCell value={buddyPlus} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </section>
   )
 }
 
@@ -262,11 +309,11 @@ export function PaywallPage() {
     setError('')
     try {
       await presentCustomerCenter()
-    } catch (manageError) {
+    } catch {
+      // Store-backed screen: the RevenueCat Test Store has no Customer Center,
+      // so say where a real subscription is cancelled instead of an error code.
       setError(
-        manageError instanceof Error
-          ? manageError.message
-          : "We couldn't open subscription management.",
+        'Subscription management is only available in the store build. On a real purchase, cancel from the Play Store subscriptions page.',
       )
     } finally {
       setIsManaging(false)
@@ -292,11 +339,9 @@ export function PaywallPage() {
               Start free. Upgrade when you&apos;re ready to discover more, plan more and play more.
             </p>
           </div>
-          {isBuddyPlus && (
-            <StatusPill tone="success" icon={Check}>
-              Buddy+ active
-            </StatusPill>
-          )}
+          <StatusPill tone={isBuddyPlus ? 'success' : 'neutral'} icon={isBuddyPlus ? Check : undefined}>
+            {isBuddyPlus ? 'Your plan: Buddy+' : 'Your plan: Free'}
+          </StatusPill>
         </section>
 
         <section className="grid items-stretch gap-6 md:grid-cols-2">
@@ -315,12 +360,18 @@ export function PaywallPage() {
                   <span className="pb-1 text-body-small text-muted-foreground">forever</span>
                 </div>
                 <Button variant="outline" size="lg" disabled className="rounded-2xl">
-                  Current plan
+                  {isBuddyPlus ? 'Included in Buddy+' : 'Your current plan'}
                 </Button>
               </div>
-              <div className="flex flex-col gap-4 px-1 pb-1">
+              <div className="flex flex-col gap-2 px-1 pb-1">
                 <span className="text-heading-3 font-bold text-card-foreground">What&apos;s included</span>
-                <PlanFeatures isBuddyPlus={false} />
+                <p className="text-body-small text-muted-foreground">
+                  The whole app: Discover, chat, planning, confirmed sessions, QR check-in and
+                  your monthly recap. Free members can host{' '}
+                  {FREE_MAX_HOSTED_GROUP_ACTIVITIES} and join{' '}
+                  {FREE_MAX_JOINED_GROUP_ACTIVITIES} group activities at a time, and keep up to
+                  5 sports on their profile.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -361,10 +412,18 @@ export function PaywallPage() {
                   )}
                 </div>
                 {isBuddyPlus ? (
-                  <Button variant="outline" size="lg" className="h-[60px] rounded-2xl" disabled={isManaging} onClick={() => void openCustomerCenter()}>
-                    <Settings2 className="size-4" />
-                    {isManaging ? 'Opening…' : 'Manage subscription'}
-                  </Button>
+                  <>
+                    <StatusPill tone="success" icon={Check}>
+                      Your current plan
+                    </StatusPill>
+                    <Button variant="outline" size="lg" className="h-[60px] rounded-2xl" disabled={isManaging} onClick={() => void openCustomerCenter()}>
+                      <Settings2 className="size-4" />
+                      {isManaging ? 'Opening…' : 'Manage or cancel subscription'}
+                    </Button>
+                    <p className="text-caption text-muted-foreground">
+                      Cancelling keeps Buddy+ until the period you paid for ends.
+                    </p>
+                  </>
                 ) : (
                   <Button size="lg" className="pricing-premium-cta pricing-cta-motion h-[60px] rounded-2xl font-bold text-primary-foreground" disabled={isPresentingPaywall} onClick={() => void openPaywall()}>
                     {isPresentingPaywall ? 'Opening…' : 'Upgrade to Buddy+'}
@@ -386,7 +445,11 @@ export function PaywallPage() {
 
               <div className="flex flex-col gap-4 px-1 pb-1">
                 <span className="text-heading-3 font-bold text-card-foreground">Everything in Free, plus</span>
-                <PlanFeatures isBuddyPlus />
+                <p className="text-body-small text-muted-foreground">
+                  Unlimited group activities to host and join, up to{' '}
+                  {MAX_BUDDY_PLUS_SPORTS} sports on your profile, and the{' '}
+                  {PREMIUM_FILTER_COPY.items.length} advanced Discover filters.
+                </p>
 
                 {feedback && (
                   <p role="status" className="text-body-small text-muted-foreground">
@@ -452,15 +515,15 @@ export function PaywallPage() {
                   </div>
                 )}
 
-                {!isBuddyPlus && (
-                  <Button variant="ghost" disabled={isRestoring} onClick={() => void doRestore()}>
-                    {isRestoring ? 'Restoring…' : 'Restore purchases'}
-                  </Button>
-                )}
+                <Button variant="ghost" disabled={isRestoring} onClick={() => void doRestore()}>
+                  {isRestoring ? 'Restoring…' : 'Restore purchases'}
+                </Button>
               </div>
             </CardContent>
           </Card>
         </section>
+
+        <PlanComparison isBuddyPlus={isBuddyPlus} />
       </PageContainer>
 
       <Dialog

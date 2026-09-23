@@ -15,6 +15,7 @@ import {
 } from '@/features/auth/validation'
 import { useAuth } from '@/hooks/use-auth'
 import { MOCK_LOGIN_DEFAULTS } from '@/repositories/auth/mock-auth-repository'
+import { isNativeApp } from '@/lib/platform'
 import { ROUTES } from '@/routes/routes'
 
 interface LoginForm {
@@ -107,15 +108,21 @@ export function LoginPage() {
           {pending === 'email' ? 'Signing in…' : 'Sign In'}
         </Button>
 
-        <AuthDivider />
+        {/* Google sign-in is the Firebase web popup flow, which cannot
+            complete inside the Android WebView, so it is not offered there. */}
+        {!isNativeApp() && (
+          <>
+            <AuthDivider />
 
-        <GoogleSignInButton
-          onClick={() => void run('google', signInWithGoogle)}
-          disabled={pending !== null}
-          label={
-            pending === 'google' ? 'Opening Google…' : 'Continue with Google'
-          }
-        />
+            <GoogleSignInButton
+              onClick={() => void run('google', signInWithGoogle)}
+              disabled={pending !== null}
+              label={
+                pending === 'google' ? 'Opening Google…' : 'Continue with Google'
+              }
+            />
+          </>
+        )}
       </form>
 
       <p className="text-body-small text-muted-foreground">

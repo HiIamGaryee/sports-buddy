@@ -12,14 +12,12 @@ import { CORE_PLAN_STEPS, PLAN_STEPS } from '@/constants/planning'
 import { BudgetStep } from '@/features/planning/components/budget-step'
 import { PlanProgress } from '@/features/planning/components/plan-progress'
 import { PlanSummary } from '@/features/planning/components/plan-summary'
-import { PremiumPlanLimitCard } from '@/features/planning/components/premium-plan-limit-card'
 import { ProposalStatus } from '@/features/planning/components/proposal-status'
 import { SportStep } from '@/features/planning/components/sport-step'
 import { TimeStep } from '@/features/planning/components/time-step'
 import { VenueStep } from '@/features/planning/components/venue-step'
 import { useActivityPlan } from '@/features/planning/use-activity-plan'
 import { useVenueSearch } from '@/features/planning/use-venue-search'
-import { useSubscription } from '@/hooks/use-subscription'
 import { formatPlannedTime, formatSessionBudget } from '@/lib/plan-format'
 import { getProposal, isPlanReady, isProposalAgreed } from '@/lib/planning'
 import { getSportName } from '@/lib/profile-format'
@@ -74,7 +72,6 @@ export function PlanPage() {
     canConfirm,
     isConfirmed,
   } = useActivityPlan(conversationId)
-  const { isBuddyPlus } = useSubscription()
 
   // `null` means "follow the plan"; a click pins the step the user chose.
   const [pinnedStep, setPinnedStep] = useState<ProposalKind | null>(null)
@@ -169,7 +166,6 @@ export function PlanPage() {
               />
             )}
 
-            {!isConfirmed && !isBuddyPlus && <PremiumPlanLimitCard />}
 
             {isConfirmed && (
               <Card className="border-primary/30">
