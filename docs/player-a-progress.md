@@ -154,6 +154,34 @@ lifts — no app restart:
       account uid, so after a reinstall you should already be Buddy+ without
       restoring
 
+### B4. Mobile pass — done 2026-09-23 (branch `mobile-test`, not pushed)
+
+- **Sideways scrolling fixed.** `html, body` now use `overflow-x: clip`, so no
+  single wide element can drag the page — and with it the fixed bottom
+  navigation — to the right. The real culprit on Discover was the three-way
+  view toggle: its labels ("Sports buddies / Open activities / Group
+  activities") do not wrap and were wider than a 390px phone. They are now
+  **Buddies / 1-to-1 / Groups**, and the row wraps.
+- **Post an activity now asks 1-to-1 or Group first**, so creating a group
+  activity no longer means knowing to switch Discover's view.
+- **Activities rebuilt as a Luma-style list**: one row per event, title first,
+  date and time under it, month/day block on the left, sorted by time. Each of
+  **Planned / Created / Past** has a **Group | 1-to-1** switch, so the six
+  stacked sections are gone. A 1-to-1 post reads as "1-to-1 badminton".
+- **Joined people link to their profile** on both card types.
+- **Buddy+ billing options** now explain how monthly / yearly / lifetime
+  differ (no hardcoded prices — those still come from RevenueCat).
+
+"Sessions you confirmed" (the old heading) meant: a session where you and one
+buddy agreed the sport, time, budget and venue in Plan Together and one of you
+pressed Confirm — or a 1-to-1 post whose single spot got taken. It does NOT
+mean anything was booked or paid. That heading is gone; those now appear in the
+list with a **Confirmed** pill.
+
+- [ ] Rebuild and retest on the phone: no sideways scroll on Discover,
+      Buddy+ and Activities; bottom bar stays put; the Group/1-to-1 switches
+      show the right events
+
 ### C. Make the repo public + add a license — 15 min
 
 The repo is `github.com/HiIamGaryee/sports-buddy`, so **Gary (the repo
