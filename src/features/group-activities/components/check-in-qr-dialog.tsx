@@ -101,6 +101,22 @@ export function CheckInQrDialog({
             <Skeleton className="size-72 rounded-lg" />
           )}
 
+          {/*
+            The same code in words, so it can be read out when a camera cannot
+            read the QR off a screen. It is no more secret than the QR itself,
+            and "Regenerate" invalidates both at once.
+          */}
+          {code && (
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-caption text-muted-foreground">
+                Or read this out to them
+              </span>
+              <span className="rounded-lg bg-surface-subtle px-3 py-2 text-center font-mono text-body-small break-all text-card-foreground select-all">
+                {code}
+              </span>
+            </div>
+          )}
+
           {error && (
             <p role="alert" className="text-body-small text-destructive">
               {error}

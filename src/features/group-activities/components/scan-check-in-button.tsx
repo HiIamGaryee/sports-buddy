@@ -1,8 +1,18 @@
 import { useState } from 'react'
 import { Camera } from '@capacitor/camera'
-import { ScanLine } from 'lucide-react'
+import { Keyboard, ScanLine } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { buildCheckInPayload } from '@/lib/attendance'
 import { decodeQrFromImageData } from '@/lib/qr'
 import { attendanceService } from '@/services/attendance/attendance-service'
 import type { AttendanceRecord, CheckInSubjectKind } from '@/types/attendance'
@@ -23,8 +33,10 @@ const NO_CODE_FOUND =
 const DECODE_ATTEMPTS = [
   { maxSize: 1000, crop: 1 },
   { maxSize: 1600, crop: 1 },
-  { maxSize: 1000, crop: 0.6 },
-  { maxSize: 600, crop: 1 },
+  { maxSize: 700, crop: 1 },
+  { maxSize: 1000, crop: 0.7 },
+  { maxSize: 700, crop: 0.5 },
+  { maxSize: 2000, crop: 1 },
 ] as const
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -96,6 +108,9 @@ export function ScanCheckInButton({
 }) {
   const [isScanning, setIsScanning] = useState(false)
   const [error, setError] = useState('')
+  const [isTypingOpen, setIsTypingOpen] = useState(false)
+  const [typedCode, setTypedCode] = useState('')
+  const [isSubmittingCode, setIsSubmittingCode] = useState(false)
 
   const scan = async () => {
     setIsScanning(true)
@@ -121,17 +136,100 @@ export function ScanCheckInButton({
     }
   }
 
+  const submitTypedCode = async () => {
+    const code = typedCode.trim().toUpperCase()
+    if (code.length === 0) return
+    setIsSubmittingCode(true)
+    setError('')
+    try {
+      const record = await attendanceService.checkInFromScan(
+        kind,
+        buildCheckInPayload(activityId, code),
+        activityId,
+        userId,
+        new Date(),
+      )
+      setIsTypingOpen(false)
+      setTypedCode('')
+      onCheckedIn(record)
+    } catch (codeError) {
+      setError(codeError instanceof Error ? codeError.message : CAMERA_FAILED)
+    } finally {
+      setIsSubmittingCode(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       <Button variant="outline" disabled={isScanning} onClick={() => void scan()}>
         <ScanLine className="size-4" />
         {isScanning ? 'Scanning…' : 'Scan check-in code'}
       </Button>
+      {/*
+        Typing the code does exactly what scanning does — the photo is only a
+        way of reading it. A camera that cannot focus on a bright screen, or a
+        phone with no usable camera, must not be the end of checking in.
+      */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setTypedCode('')
+          setError('')
+          setIsTypingOpen(true)
+        }}
+      >
+        <Keyboard className="size-4" />
+        Enter the code instead
+      </Button>
       {error && (
         <p role="alert" className="text-body-small text-destructive">
           {error}
         </p>
       )}
+
+      <Dialog open={isTypingOpen} onOpenChange={setIsTypingOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enter the check-in code</DialogTitle>
+            <DialogDescription>
+              Ask the host to read out the code shown under their QR.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void submitTypedCode()
+            }}
+          >
+            <Input
+              value={typedCode}
+              onChange={(event) => {
+                setTypedCode(event.target.value.toUpperCase())
+                setError('')
+              }}
+              placeholder="ABCDEFGH…"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+            />
+            {error && (
+              <p role="alert" className="text-body-small text-destructive">
+                {error}
+              </p>
+            )}
+            <DialogFooter className="-mx-4 -mb-4">
+              <Button type="button" variant="outline" onClick={() => setIsTypingOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmittingCode || typedCode.trim().length === 0}>
+                {isSubmittingCode ? 'Checking in…' : 'Check in'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

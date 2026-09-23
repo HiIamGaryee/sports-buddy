@@ -465,8 +465,19 @@ export function PaywallPage() {
                       <Settings2 className="size-4 shrink-0" />
                       {isManaging ? 'Opening…' : 'Manage or cancel Buddy+'}
                     </Button>
+                    {/*
+                      Shown up front, not only when the Customer Center fails:
+                      a subscription is cancelled at the STORE, and RevenueCat's
+                      Test Store has no cancel screen at all. Saying so beats
+                      opening a panel with no cancel button in it.
+                    */}
                     <p className="text-caption text-muted-foreground">
-                      Cancelling keeps Buddy+ until the period you paid for ends.
+                      Buddy+ renews through the store that sold it. To cancel a real
+                      purchase: Play Store → your avatar → Payments &amp; subscriptions →
+                      Subscriptions → Sports Buddy → Cancel. Buddy+ stays active until the
+                      period you already paid for ends. A Test Store purchase (used while
+                      the app is in development) has no cancel screen — it expires by
+                      itself.
                     </p>
                   </>
                 ) : (

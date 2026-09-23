@@ -80,7 +80,9 @@ export function AppHeader({
               {title}
             </h1>
             {subtitle && (
-              <p className="truncate text-body-small text-muted-foreground md:text-body">
+              /* Wraps to two lines rather than being clipped: a cut-off
+                 sentence reads as a layout bug, and there is room for it. */
+              <p className="line-clamp-2 text-body-small text-muted-foreground md:line-clamp-none md:text-body">
                 {subtitle}
               </p>
             )}

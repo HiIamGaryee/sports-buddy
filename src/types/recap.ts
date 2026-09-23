@@ -31,8 +31,11 @@ export interface MonthlyRecap {
   /** Only populated when a confirmed activity carries a venue snapshot. */
   venues: VenueRecapEntry[] | null
   /**
-   * QR-verified group activities only — 1-to-1 confirmed activities have no
-   * check-in mechanism, so they can never count toward this number.
+   * QR-verified GROUP activities only. 1-to-1 activity posts also support
+   * check-in now (see `docs/attendance.md`), but the recap is not yet given
+   * them, so this number stays group-only — deliberately under-counting
+   * rather than guessing. Sessions confirmed through Plan Together have no
+   * check-in at all and can never count here.
    */
   verifiedSessions: number
   /** `null`, never `0%`, when nothing started that month yet. */
