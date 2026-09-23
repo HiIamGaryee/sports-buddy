@@ -5,7 +5,7 @@ import { ScanLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { decodeQrFromImageData } from '@/lib/qr'
 import { attendanceService } from '@/services/attendance/attendance-service'
-import type { AttendanceRecord } from '@/types/attendance'
+import type { AttendanceRecord, CheckInSubjectKind } from '@/types/attendance'
 
 const CAMERA_FAILED = "We couldn't open the camera. Please try again."
 const NO_CODE_FOUND =
@@ -84,10 +84,12 @@ async function readQrFromPhotoUrl(url: string): Promise<string | null> {
  * prompt identically on native Android and in a plain browser.
  */
 export function ScanCheckInButton({
+  kind,
   activityId,
   userId,
   onCheckedIn,
 }: {
+  kind: CheckInSubjectKind
   activityId: string
   userId: string
   onCheckedIn: (record: AttendanceRecord) => void
@@ -108,7 +110,7 @@ export function ScanCheckInButton({
       const payload = await readQrFromPhotoUrl(source)
       if (!payload) throw new Error(NO_CODE_FOUND)
 
-      const record = await attendanceService.checkInFromScan(payload, activityId, userId, new Date())
+      const record = await attendanceService.checkInFromScan(kind, payload, activityId, userId, new Date())
       onCheckedIn(record)
     } catch (scanError) {
       // A user closing the camera sheet is not a failure worth a red banner.

@@ -2891,6 +2891,112 @@ describe('QR check-in codes', () => {
   })
 })
 
+describe('1-to-1 activity check-in', () => {
+  const postPath = 'activityPosts/post_1'
+  const codePath = `${postPath}/checkIn/current`
+  const minutesFromNow = (minutes: number) => new Date(Date.now() + minutes * 60 * 1000)
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+  const CODE = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const recordPath = (userId: string) => `attendanceRecords/post_1__${userId}`
+
+  async function seedStartedPost(overrides: Record<string, unknown> = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), postPath), {
+        id: 'post_1',
+        authorId: GARY,
+        sportId: 'badminton',
+        // Started 30 minutes ago: a 1-to-1 has no end time, so the window
+        // runs the assumed 2 hours plus the 30-minute grace.
+        startAt: minutesFromNow(-30),
+        timeZone: 'Asia/Kuala_Lumpur',
+        areaId: 'subang-jaya',
+        venueName: 'KL Sports City',
+        budget: { min: 10, max: 20 },
+        joinPolicy: 'open',
+        visibility: 'public',
+        invitedId: null,
+        capacity: 1,
+        joinedIds: [AINA],
+        pendingIds: [],
+        createdAt: new Date(),
+        ...overrides,
+      })
+      await setDoc(doc(modular(context), codePath), {
+        organizerId: GARY,
+        code: CODE,
+        updatedAt: new Date(),
+      })
+    })
+  }
+
+  const record = (userId: string, overrides: Record<string, unknown> = {}) => ({
+    id: `post_1__${userId}`,
+    activityId: 'post_1',
+    userId,
+    code: CODE,
+    checkedInAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  it('lets the author hold a check-in code, and nobody else read it', async () => {
+    await seedStartedPost()
+    await assertSucceeds(getDoc(doc(asUser(GARY), codePath)))
+    await assertFails(getDoc(doc(asUser(AINA), codePath)))
+    await assertFails(getDoc(doc(asUser(STRANGER), codePath)))
+  })
+
+  it('refuses a code written by anyone but the author', async () => {
+    await seedStartedPost()
+    await assertFails(
+      setDoc(doc(asUser(AINA), codePath), {
+        organizerId: AINA,
+        code: 'NEWCODE',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('lets the joined buddy check in with the current code', async () => {
+    await seedStartedPost()
+    await assertSucceeds(setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA)))
+  })
+
+  it('lets the author check themselves in too', async () => {
+    await seedStartedPost()
+    await assertSucceeds(setDoc(doc(asUser(GARY), recordPath(GARY)), record(GARY)))
+  })
+
+  it('refuses somebody who never took the spot', async () => {
+    await seedStartedPost()
+    await assertFails(setDoc(doc(asUser(STRANGER), recordPath(STRANGER)), record(STRANGER)))
+  })
+
+  it('refuses the wrong code', async () => {
+    await seedStartedPost()
+    await assertFails(
+      setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA, { code: 'WRONGCODE' })),
+    )
+  })
+
+  it('refuses before the activity starts and after the window closes', async () => {
+    await seedStartedPost({ startAt: inDays(1) })
+    await assertFails(setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA)))
+    await seedStartedPost({ startAt: inDays(-1) })
+    await assertFails(setDoc(doc(asUser(AINA), recordPath(AINA)), record(AINA)))
+  })
+
+  it('is immutable, and readable by the attendee or the author only', async () => {
+    await seedStartedPost()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(modular(context), recordPath(AINA)), record(AINA))
+    })
+    await assertSucceeds(getDoc(doc(asUser(AINA), recordPath(AINA))))
+    await assertSucceeds(getDoc(doc(asUser(GARY), recordPath(AINA))))
+    await assertFails(getDoc(doc(asUser(STRANGER), recordPath(AINA))))
+    await assertFails(deleteDoc(doc(asUser(AINA), recordPath(AINA))))
+  })
+})
+
 describe('attendance records', () => {
   const activityPath = 'groupActivities/activity_1'
   const codePath = `${activityPath}/checkIn/current`

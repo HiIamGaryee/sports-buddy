@@ -20,33 +20,49 @@ import {
   CHECK_IN_SUBCOLLECTION,
   type AttendanceRepository,
 } from '@/repositories/attendance/attendance-repository'
+import { ACTIVITY_POSTS_COLLECTION } from '@/repositories/activity-post/activity-post-repository'
 import { GROUP_ACTIVITIES_COLLECTION } from '@/repositories/group-activity/group-activity-repository'
 import { attendanceError, ATTENDANCE_ERROR_CODES } from '@/services/attendance/attendance-error'
 import { getFirebaseDb } from '@/services/firebase/client'
+import type { CheckInSubjectKind } from '@/types/attendance'
 
-const checkInRef = (activityId: string) =>
-  doc(getFirebaseDb(), GROUP_ACTIVITIES_COLLECTION, activityId, CHECK_IN_SUBCOLLECTION, CHECK_IN_DOC_ID)
+/** The one place the two collection names are chosen — never a user value. */
+const collectionFor = (kind: CheckInSubjectKind) =>
+  kind === 'group' ? GROUP_ACTIVITIES_COLLECTION : ACTIVITY_POSTS_COLLECTION
+
+const checkInRef = (kind: CheckInSubjectKind, activityId: string) =>
+  doc(getFirebaseDb(), collectionFor(kind), activityId, CHECK_IN_SUBCOLLECTION, CHECK_IN_DOC_ID)
 
 const attendanceRef = (activityId: string, userId: string) =>
   doc(getFirebaseDb(), ATTENDANCE_COLLECTION, `${activityId}__${userId}`)
 
-async function writeCode(activityId: string, organizerId: string): Promise<string> {
+async function writeCode(
+  kind: CheckInSubjectKind,
+  activityId: string,
+  hostId: string,
+): Promise<string> {
   const code = generateCheckInCode(CHECK_IN_CODE_LENGTH)
-  await setDoc(checkInRef(activityId), { organizerId, code, updatedAt: serverTimestamp() })
+  // `organizerId` is the stored field name for both kinds: it is the host, and
+  // renaming it would migrate every existing group activity's code document.
+  await setDoc(checkInRef(kind, activityId), {
+    organizerId: hostId,
+    code,
+    updatedAt: serverTimestamp(),
+  })
   return code
 }
 
 export const firebaseAttendanceRepository: AttendanceRepository = {
-  async ensureCheckInCode(activityId, organizerId) {
-    const snapshot = await getDoc(checkInRef(activityId))
+  async ensureCheckInCode(kind, activityId, hostId) {
+    const snapshot = await getDoc(checkInRef(kind, activityId))
     const existing = snapshot.exists() ? snapshot.data().code : null
     return typeof existing === 'string' && existing.length > 0
       ? existing
-      : writeCode(activityId, organizerId)
+      : writeCode(kind, activityId, hostId)
   },
 
-  regenerateCheckInCode(activityId, organizerId) {
-    return writeCode(activityId, organizerId)
+  regenerateCheckInCode(kind, activityId, hostId) {
+    return writeCode(kind, activityId, hostId)
   },
 
   async checkIn(activityId, userId, code) {

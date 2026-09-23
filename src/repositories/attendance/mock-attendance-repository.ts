@@ -28,7 +28,7 @@ const writeCodes = (codes: Record<string, string>) => writeStore(CHECK_IN_CODES_
 
 /** localStorage-backed, with the same shape and rules as Firestore. */
 export const mockAttendanceRepository: AttendanceRepository = {
-  async ensureCheckInCode(activityId) {
+  async ensureCheckInCode(_kind, activityId) {
     const codes = readCodes()
     if (codes[activityId]) return delay(codes[activityId])
     const code = generateCheckInCode(CHECK_IN_CODE_LENGTH)
@@ -36,7 +36,7 @@ export const mockAttendanceRepository: AttendanceRepository = {
     return delay(code)
   },
 
-  async regenerateCheckInCode(activityId) {
+  async regenerateCheckInCode(_kind, activityId) {
     const code = generateCheckInCode(CHECK_IN_CODE_LENGTH)
     writeCodes({ ...readCodes(), [activityId]: code })
     return delay(code)

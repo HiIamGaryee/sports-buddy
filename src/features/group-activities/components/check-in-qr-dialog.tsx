@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { buildCheckInPayload } from '@/lib/attendance'
 import { buildQrDataUrl } from '@/lib/qr'
 import { attendanceService } from '@/services/attendance/attendance-service'
+import type { CheckInSubjectKind } from '@/types/attendance'
 
 /**
  * The organizer's check-in QR, shown at the venue. Generated fully offline —
@@ -21,12 +22,16 @@ import { attendanceService } from '@/services/attendance/attendance-service'
  * code immediately (the old one stops working the moment this saves).
  */
 export function CheckInQrDialog({
+  kind,
   activityId,
-  organizerId,
+  hostId,
   onClose,
 }: {
+  /** Which collection the code lives under — a group activity or a 1-to-1 post. */
+  kind: CheckInSubjectKind
   activityId: string
-  organizerId: string
+  /** The organizer of a group activity, or the author of a 1-to-1 post. */
+  hostId: string
   onClose: () => void
 }) {
   const [code, setCode] = useState<string | null>(null)
@@ -36,7 +41,7 @@ export function CheckInQrDialog({
   useEffect(() => {
     let active = true
     attendanceService
-      .getCheckInCode(activityId, organizerId)
+      .getCheckInCode(kind, activityId, hostId)
       .then((loaded) => {
         if (active) setCode(loaded)
       })
@@ -50,13 +55,13 @@ export function CheckInQrDialog({
     return () => {
       active = false
     }
-  }, [activityId, organizerId])
+  }, [kind, activityId, hostId])
 
   const regenerate = async () => {
     setIsRegenerating(true)
     setError('')
     try {
-      setCode(await attendanceService.regenerateCheckInCode(activityId, organizerId))
+      setCode(await attendanceService.regenerateCheckInCode(kind, activityId, hostId))
     } catch (regenerateError) {
       setError(
         regenerateError instanceof Error

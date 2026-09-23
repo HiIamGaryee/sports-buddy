@@ -233,6 +233,24 @@ already be Buddy+. If not, Settings → **Restore purchases**. On the RevenueCat
 **Test Store** this can be a no-op, which is expected and not a bug. It is
 **not required** for the Shipaton submission.
 
+### B9. QR check-in on 1-to-1 activities — done 2026-09-24
+
+Check-in is no longer group-only.
+
+- A 1-to-1 post has its own code at `activityPosts/{postId}/checkIn/current`,
+  readable only by the post's author. The author sees **Show check-in code**;
+  whoever took the spot sees **Scan check-in code**.
+- Both kinds now share ONE rule through `CheckInSubject`, so the window and the
+  involvement check cannot drift apart. A 1-to-1 has no end time, so its window
+  is the assumed 2 hours plus the 30-minute grace.
+- A 1-to-1 only opens for check-in once somebody actually took the spot.
+- The Reliability Profile now counts 1-to-1 sessions too.
+- 8 new emulator rules tests (**224** total), 555 unit tests, build OK.
+- Full detail: `docs/attendance.md`.
+
+**🔴 Deploy the rules before testing this on the phone:**
+`firebase deploy --only firestore:rules`
+
 ### B6. Still NOT done in the app — the honest list
 
 **Nothing here blocks the submission.** Judged on "meaningful progress toward a
@@ -241,7 +259,6 @@ claims something that is not there.
 
 | Missing | Why it is acceptable now |
 | --- | --- |
-| QR check-in on **1-to-1** activities (group activities only) | Group check-in demonstrates the feature; adding it to 1-to-1 needs new Firestore rules + tests |
 | Push notifications (the notification toggles save a preference but nothing is ever delivered) | No FCM/OneSignal account; out of scope |
 | In-app account deletion | A Play Store requirement, not a Shipaton one |
 | Native Google sign-in in the Android app | Hidden there; email/password works |

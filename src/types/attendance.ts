@@ -28,3 +28,23 @@ export interface ReliabilityStats {
   /** `null` when there is nothing to divide by yet (no started joined activities). */
   showUpRatePercent: number | null
 }
+
+/** Which collection an activity being checked into lives in. */
+export type CheckInSubjectKind = 'group' | 'post'
+
+/**
+ * The minimum an activity must say for check-in to reason about it, so a
+ * public group activity and a 1-to-1 post share one set of rules. Built by
+ * `toCheckInSubject` / `toCheckInSubjectFromPost` in `src/lib/attendance.ts`.
+ */
+export interface CheckInSubject {
+  kind: CheckInSubjectKind
+  id: string
+  /** The organizer of a group activity, or the author of a 1-to-1 post. */
+  hostId: string
+  /** Everyone else who is in — participants, or whoever took the 1-to-1 spot. */
+  participantIds: readonly string[]
+  startAt: string
+  /** A group activity may declare an end; a 1-to-1 post never does. */
+  endAt: string | null
+}

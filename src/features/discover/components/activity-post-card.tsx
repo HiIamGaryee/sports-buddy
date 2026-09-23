@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarClock, Check, History, MapPin, UserCheck, Users, Wallet } from 'lucide-react'
+import { CalendarClock, Check, History, MapPin, QrCode, ShieldCheck, UserCheck, Users, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -21,6 +21,9 @@ import {
   getSportName,
 } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
+import { CheckInQrDialog } from '@/features/group-activities/components/check-in-qr-dialog'
+import { ScanCheckInButton } from '@/features/group-activities/components/scan-check-in-button'
+import { isCheckInOpen, toCheckInSubjectFromPost } from '@/lib/attendance'
 import { buddyProfilePath, editActivityPostPath } from '@/routes/routes'
 import type { ActivityPost } from '@/types/activity-post'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
@@ -96,6 +99,8 @@ export function ActivityPostCard({
   const { getConnectionState } = useConnections()
   const [busy, setBusy] = useState<Busy>('idle')
   const [error, setError] = useState('')
+  const [isQrOpen, setIsQrOpen] = useState(false)
+  const [checkedIn, setCheckedIn] = useState(false)
 
   const viewerState = viewerId ? getPostViewerState(post, viewerId, now) : 'past'
   const isAuthor = viewerState === 'author'
@@ -106,6 +111,11 @@ export function ActivityPostCard({
     : null
   const full = isPostFull(post)
   const isPast = new Date(post.startAt).getTime() <= now.getTime()
+  // QR check-in runs from the start time until shortly after the session ends,
+  // and only once somebody actually took the spot — the same rule as a group
+  // activity, through the same shared `CheckInSubject`.
+  const checkInOpen =
+    post.joinedIds.length > 0 && isCheckInOpen(toCheckInSubjectFromPost(post), now)
   const visibilityBadge = VISIBILITY_BADGE[post.visibility]
   const isInvite = post.visibility === 'invite'
   const canShare = !isInvite && !isPast && viewerState !== 'past'
@@ -324,6 +334,21 @@ export function ActivityPostCard({
                 </div>
               )}
 
+              {checkInOpen && (
+                <Button variant="outline" onClick={() => setIsQrOpen(true)}>
+                  <QrCode className="size-4" />
+                  Show check-in code
+                </Button>
+              )}
+              {isQrOpen && (
+                <CheckInQrDialog
+                  kind="post"
+                  activityId={post.id}
+                  hostId={post.authorId}
+                  onClose={() => setIsQrOpen(false)}
+                />
+              )}
+
               {!isPast && (
                 <div className="flex gap-2">
                   <Button variant="outline" className="flex-1" asChild>
@@ -361,6 +386,20 @@ export function ActivityPostCard({
                   </Button>
                 )}
               </div>
+              {viewerId && checkInOpen && (
+                checkedIn ? (
+                  <StatusPill tone="success" icon={ShieldCheck}>
+                    Checked in
+                  </StatusPill>
+                ) : (
+                  <ScanCheckInButton
+                    kind="post"
+                    activityId={post.id}
+                    userId={viewerId}
+                    onCheckedIn={() => setCheckedIn(true)}
+                  />
+                )
+              )}
               <ConnectAction
                 userId={post.authorId}
                 displayName={authorName}

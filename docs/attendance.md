@@ -11,6 +11,33 @@ Anyone's Profile page
   → attendanceService.getReliability → ReliabilityCard ("N Verified Sessions", "M% Show-up Rate")
 ```
 
+## QR check-in on 1-to-1 activities (added 2026-09-24)
+
+Check-in is no longer group-only. A 1-to-1 activity post carries its own code
+at `activityPosts/{postId}/checkIn/current`, readable and writable only by the
+post's AUTHOR, exactly like a group activity's.
+
+Both kinds reduce to one shape, `CheckInSubject`
+(`src/types/attendance.ts`), built by `toCheckInSubject()` for a group
+activity and `toCheckInSubjectFromPost()` for a post. Everything downstream —
+`getCheckInWindow`, `isCheckInOpen`, `canCheckIn` — takes a subject, so there
+is ONE rule, not two near-copies.
+
+- `attendanceRecords/{activityId}__{userId}` is unchanged and shared. Its rules
+  resolve the source document by checking `groupActivities` first and falling
+  back to `activityPosts`, and read the host as `organizerId` or `authorId`.
+- A 1-to-1 check-in only opens once somebody actually **took the spot**: a post
+  nobody joined was never a session to show up for.
+- A post has no end time, so its window is the assumed 2 hours plus the
+  30-minute grace (`CHECK_IN_GRACE_MINUTES`).
+- The Reliability Profile now counts started 1-to-1 activities with a joiner
+  alongside started group activities.
+- The stored field is still named `organizerId` in the code document for both
+  kinds: it means "the host", and renaming it would migrate every existing
+  group activity's code.
+- Covered by 8 new emulator rules tests (224 total).
+
+
 ## "Past is not completed" still holds
 
 `CLAUDE.md` STEP 13 established, for `Activity`, that an ended time means

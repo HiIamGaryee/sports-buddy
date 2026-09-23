@@ -12,7 +12,7 @@ import { ScanCheckInButton } from '@/features/group-activities/components/scan-c
 import { ShareGroupActivityActions } from '@/features/group-activities/components/share-group-activity-actions'
 import { useGroupActivityActions } from '@/features/group-activities/use-group-activity-actions'
 import { CHECK_IN_GRACE_MINUTES } from '@/constants/attendance'
-import { isCheckInOpen } from '@/lib/attendance'
+import { isCheckInOpen, toCheckInSubject } from '@/lib/attendance'
 import { formatActivityDate, formatActivityTime } from '@/lib/activity-format'
 import {
   getGroupActivityViewerState,
@@ -74,7 +74,7 @@ export function GroupActivityCard({
   const hasStarted = isPast
   // Check-in runs from the start time until shortly after the end, so an
   // old activity no longer offers a code or a scanner.
-  const checkInOpen = isCheckInOpen(activity, now)
+  const checkInOpen = isCheckInOpen(toCheckInSubject(activity), now)
   // Genuinely finished, for the "reads as history" surface treatment — a
   // session in progress still looks live, matching the Activities page's
   // Planned/Past split (`hasGroupActivityEnded`).
@@ -259,8 +259,9 @@ export function GroupActivityCard({
               )}
               {isQrOpen && (
                 <CheckInQrDialog
+                  kind="group"
                   activityId={activity.id}
-                  organizerId={activity.organizerId}
+                  hostId={activity.organizerId}
                   onClose={() => setIsQrOpen(false)}
                 />
               )}
@@ -291,6 +292,7 @@ export function GroupActivityCard({
                   </StatusPill>
                 ) : checkInOpen ? (
                   <ScanCheckInButton
+                    kind="group"
                     activityId={activity.id}
                     userId={viewerId}
                     onCheckedIn={() => setCheckedIn(true)}

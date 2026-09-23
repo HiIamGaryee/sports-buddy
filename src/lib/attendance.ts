@@ -4,7 +4,8 @@ import {
   CHECK_IN_PAYLOAD_PREFIX,
 } from '@/constants/attendance'
 import { isValidDocumentId } from '@/lib/ids'
-import type { AttendanceRecord, CheckInPayload } from '@/types/attendance'
+import type { ActivityPost } from '@/types/activity-post'
+import type { AttendanceRecord, CheckInPayload, CheckInSubject } from '@/types/attendance'
 import type { GroupActivity } from '@/types/group-activity'
 
 /**
@@ -38,6 +39,35 @@ export function parseCheckInPayload(raw: string): CheckInPayload | null {
 const MINUTE_MS = 60_000
 
 /**
+ * Both kinds of activity reduced to the only four things check-in cares about:
+ * who hosts it, who is in it, and when it runs. A group activity and a 1-to-1
+ * post then share ONE set of rules instead of two near-copies.
+ */
+export function toCheckInSubject(activity: GroupActivity): CheckInSubject {
+  return {
+    kind: 'group',
+    id: activity.id,
+    hostId: activity.organizerId,
+    participantIds: activity.participantIds,
+    startAt: activity.startAt,
+    endAt: activity.endAt,
+  }
+}
+
+/** A 1-to-1 post: its author hosts, and whoever took the spot is in it. */
+export function toCheckInSubjectFromPost(post: ActivityPost): CheckInSubject {
+  return {
+    kind: 'post',
+    id: post.id,
+    hostId: post.authorId,
+    participantIds: post.joinedIds,
+    startAt: post.startAt,
+    // A post has no end time, so the window falls back to the assumed length.
+    endAt: null,
+  }
+}
+
+/**
  * When check-in opens and closes: from the start time until
  * `CHECK_IN_GRACE_MINUTES` after the end. With no end time given, the
  * activity is assumed to run for `CHECK_IN_ASSUMED_DURATION_MINUTES`.
@@ -45,20 +75,20 @@ const MINUTE_MS = 60_000
  * The Firestore rules enforce the same window independently, so a client
  * cannot record a check-in outside it.
  */
-export function getCheckInWindow(activity: GroupActivity): {
+export function getCheckInWindow(subject: CheckInSubject): {
   opensAt: number
   closesAt: number
 } {
-  const opensAt = new Date(activity.startAt).getTime()
-  const endsAt = activity.endAt
-    ? new Date(activity.endAt).getTime()
+  const opensAt = new Date(subject.startAt).getTime()
+  const endsAt = subject.endAt
+    ? new Date(subject.endAt).getTime()
     : opensAt + CHECK_IN_ASSUMED_DURATION_MINUTES * MINUTE_MS
   return { opensAt, closesAt: endsAt + CHECK_IN_GRACE_MINUTES * MINUTE_MS }
 }
 
 /** Whether check-in is open right now, whoever is asking. */
-export function isCheckInOpen(activity: GroupActivity, now: Date): boolean {
-  const { opensAt, closesAt } = getCheckInWindow(activity)
+export function isCheckInOpen(subject: CheckInSubject, now: Date): boolean {
+  const { opensAt, closesAt } = getCheckInWindow(subject)
   return opensAt <= now.getTime() && now.getTime() <= closesAt
 }
 
@@ -66,9 +96,9 @@ export function isCheckInOpen(activity: GroupActivity, now: Date): boolean {
  * Only a participant or the organizer, and only while check-in is open —
  * from the start time until shortly after the activity ends.
  */
-export function canCheckIn(activity: GroupActivity, viewerId: string, now: Date): boolean {
-  const isInvolved = activity.organizerId === viewerId || activity.participantIds.includes(viewerId)
-  return isInvolved && isCheckInOpen(activity, now)
+export function canCheckIn(subject: CheckInSubject, viewerId: string, now: Date): boolean {
+  const isInvolved = subject.hostId === viewerId || subject.participantIds.includes(viewerId)
+  return isInvolved && isCheckInOpen(subject, now)
 }
 
 /**

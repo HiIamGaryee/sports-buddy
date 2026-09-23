@@ -9,6 +9,7 @@ import {
   generateCheckInCode,
   isCheckInOpen,
   parseCheckInPayload,
+  toCheckInSubject,
 } from '@/lib/attendance'
 import type { AttendanceRecord } from '@/types/attendance'
 import type { GroupActivity } from '@/types/group-activity'
@@ -59,14 +60,14 @@ describe('check-in payload', () => {
 describe('canCheckIn', () => {
   it('lets a participant or the organizer check in once it has started', () => {
     const started = activity()
-    expect(canCheckIn(started, 'alex', NOW)).toBe(true)
-    expect(canCheckIn(started, 'organizer', NOW)).toBe(true)
+    expect(canCheckIn(toCheckInSubject(started), 'alex', NOW)).toBe(true)
+    expect(canCheckIn(toCheckInSubject(started), 'organizer', NOW)).toBe(true)
   })
 
   it('refuses before it starts, and refuses a stranger', () => {
     const notStarted = activity({ startAt: '2026-09-20T00:00:00.000Z' })
-    expect(canCheckIn(notStarted, 'alex', NOW)).toBe(false)
-    expect(canCheckIn(activity(), 'stranger', NOW)).toBe(false)
+    expect(canCheckIn(toCheckInSubject(notStarted), 'alex', NOW)).toBe(false)
+    expect(canCheckIn(toCheckInSubject(activity()), 'stranger', NOW)).toBe(false)
   })
 })
 
@@ -77,25 +78,25 @@ describe('the check-in window', () => {
       startAt: '2026-09-14T01:00:00.000Z',
       endAt: '2026-09-14T02:00:00.000Z',
     })
-    expect(isCheckInOpen(session, new Date('2026-09-14T02:29:00.000Z'))).toBe(true)
-    expect(isCheckInOpen(session, new Date('2026-09-14T02:31:00.000Z'))).toBe(false)
+    expect(isCheckInOpen(toCheckInSubject(session), new Date('2026-09-14T02:29:00.000Z'))).toBe(true)
+    expect(isCheckInOpen(toCheckInSubject(session), new Date('2026-09-14T02:31:00.000Z'))).toBe(false)
   })
 
   it('assumes a two-hour session when no end time was given', () => {
     const session = activity({ startAt: '2026-09-14T01:00:00.000Z', endAt: null })
-    expect(isCheckInOpen(session, new Date('2026-09-14T03:29:00.000Z'))).toBe(true)
-    expect(isCheckInOpen(session, new Date('2026-09-14T03:31:00.000Z'))).toBe(false)
+    expect(isCheckInOpen(toCheckInSubject(session), new Date('2026-09-14T03:29:00.000Z'))).toBe(true)
+    expect(isCheckInOpen(toCheckInSubject(session), new Date('2026-09-14T03:31:00.000Z'))).toBe(false)
   })
 
   it('is shut before the start, however close', () => {
     const session = activity({ startAt: '2026-09-14T01:00:00.000Z' })
-    expect(isCheckInOpen(session, new Date('2026-09-14T00:59:00.000Z'))).toBe(false)
-    expect(isCheckInOpen(session, new Date('2026-09-14T01:00:00.000Z'))).toBe(true)
+    expect(isCheckInOpen(toCheckInSubject(session), new Date('2026-09-14T00:59:00.000Z'))).toBe(false)
+    expect(isCheckInOpen(toCheckInSubject(session), new Date('2026-09-14T01:00:00.000Z'))).toBe(true)
   })
 
   it('refuses a participant once the window has closed', () => {
     const yesterday = activity({ startAt: '2026-09-13T01:00:00.000Z' })
-    expect(canCheckIn(yesterday, 'alex', NOW)).toBe(false)
+    expect(canCheckIn(toCheckInSubject(yesterday), 'alex', NOW)).toBe(false)
   })
 })
 
