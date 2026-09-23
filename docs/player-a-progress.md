@@ -145,9 +145,9 @@ lifts — no app restart:
 
 - [done] Free: can't add more sports than the free limit → Buddy+: can
 - [done] Free: 4th group activity join / 3rd host is refused with an upgrade prompt → Buddy+: allowed
-- [ ] Free: Discover filters locked → Buddy+: Discover → **More filters** →
+- [done] Free: Discover filters locked → Buddy+: Discover → **More filters** →
       **Filters** opens the sheet and narrows the list (retest on the new build)
-- [ ] Settings → Buddy+ shows "Your plan: Buddy+" + **Manage or cancel
+- [done] Settings → Buddy+ shows "Your plan: Buddy+" + **Manage or cancel
       subscription**. On the Test Store the Customer Center may not open; the
       honest fallback message is expected, not a bug
 - [ ] Restore purchases (Settings or paywall). Note: Buddy+ is tied to your

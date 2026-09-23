@@ -47,10 +47,15 @@ const SKELETON_CARDS = [0, 1, 2, 3]
 
 type View = 'people' | 'activities' | 'groups'
 
+/*
+ * Short labels on purpose: the three segments sit on ONE line and their text
+ * does not wrap, so "Sports buddies / Open activities / Group activities" was
+ * wider than a 390px phone and pushed the whole page sideways.
+ */
 const VIEWS = [
-  { value: 'people', label: 'Sports buddies' },
-  { value: 'activities', label: 'Open activities' },
-  { value: 'groups', label: 'Group activities' },
+  { value: 'people', label: 'Buddies' },
+  { value: 'activities', label: '1-to-1' },
+  { value: 'groups', label: 'Groups' },
 ] as const satisfies readonly { value: View; label: string }[]
 
 function CardSkeletons() {
@@ -270,7 +275,9 @@ export function DiscoverPage() {
               ? 'Looking for matches…'
               : `${current.count} ${current.count === 1 ? 'match' : 'matches'}`}
           </span>
-          <div className="flex items-center gap-3">
+          {/* Wraps on a phone: the count, the post button and the three-way
+              toggle do not fit on one 390px line. */}
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
             {view === 'activities' && (
               <Button variant="outline" size="sm" asChild>
                 <Link to={ROUTES.postActivity}>Post an activity</Link>
@@ -285,7 +292,7 @@ export function DiscoverPage() {
               options={VIEWS}
               value={view}
               onChange={setView}
-              className="h-11 w-auto"
+              className="h-11 w-full sm:w-auto"
             />
           </div>
         </div>
