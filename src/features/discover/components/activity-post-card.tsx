@@ -21,7 +21,7 @@ import {
   getSportName,
 } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
-import { editActivityPostPath } from '@/routes/routes'
+import { buddyProfilePath, editActivityPostPath } from '@/routes/routes'
 import type { ActivityPost } from '@/types/activity-post'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
 
@@ -33,10 +33,15 @@ const VISIBILITY_BADGE = {
   invite: 'Private invite',
 } as const
 
+/**
+ * A person on a post. When their profile is known the row links to it, so
+ * anyone who asked to join or is already in can be looked up before you
+ * decide. Without a profile there is nothing to open, so it stays plain text.
+ */
 function Person({ profile }: { profile?: DiscoveryProfile }) {
   const name = profile?.displayName ?? 'Sports buddy'
-  return (
-    <span className="flex min-w-0 items-center gap-2">
+  const body = (
+    <>
       <Avatar className="size-8 shrink-0">
         {profile?.photoUrl && <AvatarImage src={profile.photoUrl} alt="" />}
         <AvatarFallback className="text-caption">{getInitials(name)}</AvatarFallback>
@@ -44,7 +49,20 @@ function Person({ profile }: { profile?: DiscoveryProfile }) {
       <span className="truncate text-body text-card-foreground">
         {name}
       </span>
-    </span>
+    </>
+  )
+
+  if (!profile) {
+    return <span className="flex min-w-0 items-center gap-2">{body}</span>
+  }
+
+  return (
+    <Link
+      to={buddyProfilePath(profile.userId)}
+      className="flex min-w-0 items-center gap-2 rounded-lg transition-ui hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+    >
+      {body}
+    </Link>
   )
 }
 

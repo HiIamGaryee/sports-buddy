@@ -146,6 +146,24 @@ function PlanComparison({ isBuddyPlus }: { isBuddyPlus: boolean }) {
   )
 }
 
+/**
+ * What makes one billing option different from the others, in our own words.
+ * The store's own `description` is often empty or identical across packages,
+ * which left three rows that looked the same apart from the price.
+ *
+ * Deliberately no numbers: prices and periods only ever come from RevenueCat's
+ * localized strings, so this can never contradict what the store charges.
+ */
+function describePackage(option: SubscriptionPackage): string {
+  const id = `${option.id} ${option.productId}`.toLowerCase()
+  if (id.includes('lifetime')) return 'One payment. Buddy+ stays on your account — nothing renews.'
+  if (id.includes('annual') || id.includes('year')) {
+    return 'Billed once a year. Cheaper per month than paying monthly, and one payment instead of twelve.'
+  }
+  if (id.includes('month')) return 'Billed every month. Cancel any time and keep it until the month ends.'
+  return option.description
+}
+
 function PackageOption({
   option,
   isBusy,
@@ -164,7 +182,9 @@ function PackageOption({
     >
       <span className="flex min-w-0 flex-col items-start gap-0.5">
         <span className="text-title text-foreground">{option.title}</span>
-        <span className="text-caption text-muted-foreground">{option.description}</span>
+        <span className="text-caption break-words whitespace-normal text-muted-foreground">
+          {describePackage(option)}
+        </span>
       </span>
       <span className="shrink-0 text-body-small font-semibold text-primary">
         {isBusy

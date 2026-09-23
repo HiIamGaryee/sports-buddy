@@ -21,7 +21,7 @@ import {
 import { getInitials } from '@/lib/initials'
 import { formatBudget, getAreaName, getSportName } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
-import { editGroupActivityPath, groupActivityDetailPath } from '@/routes/routes'
+import { buddyProfilePath, editGroupActivityPath, groupActivityDetailPath } from '@/routes/routes'
 import type { GroupActivity } from '@/types/group-activity'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
 
@@ -193,7 +193,12 @@ export function GroupActivityCard({
                     const name = people.get(id)?.displayName ?? 'Sports buddy'
                     return (
                       <div key={id} className="flex items-center justify-between gap-2">
-                        <span className="flex min-w-0 items-center gap-2">
+                        {/* Links to their profile: an organizer deciding who
+                            to keep should be able to look them up. */}
+                        <Link
+                          to={buddyProfilePath(id)}
+                          className="flex min-w-0 items-center gap-2 rounded-lg transition-ui hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                        >
                           <Avatar className="size-8 shrink-0">
                             {people.get(id)?.photoUrl && (
                               <AvatarImage src={people.get(id)?.photoUrl ?? undefined} alt="" />
@@ -203,7 +208,7 @@ export function GroupActivityCard({
                             </AvatarFallback>
                           </Avatar>
                           <span className="truncate text-body text-card-foreground">{name}</span>
-                        </span>
+                        </Link>
                         {!isPast && (
                           <Button
                             size="sm"
