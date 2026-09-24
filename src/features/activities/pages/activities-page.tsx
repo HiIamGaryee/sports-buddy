@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { History } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import clipboardIllustration from '@/assets/svg/clipboard-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
@@ -41,6 +41,17 @@ const KINDS = [
   { value: 'group', label: 'Group' },
   { value: 'solo', label: '1-to-1' },
 ] as const satisfies readonly { value: EventKind; label: string }[]
+
+/** The three tabs, as they appear in the URL. */
+const TABS = ['planned', 'created', 'past'] as const
+type TabValue = (typeof TABS)[number]
+
+/** An unknown or missing `?tab=` falls back rather than rendering nothing. */
+const asTab = (raw: string | null): TabValue =>
+  TABS.includes(raw as TabValue) ? (raw as TabValue) : 'planned'
+
+const asKind = (raw: string | null): EventKind =>
+  raw === 'solo' || raw === 'group' ? raw : 'group'
 
 type Tone = 'neutral' | 'pending' | 'success' | 'active'
 
@@ -134,9 +145,28 @@ export function ActivitiesPage() {
   const myPosts = useMyActivityPosts(now)
   const myGroups = useMyGroupActivities(now)
   const viewerId = user?.id ?? null
-  const [plannedKind, setPlannedKind] = useState<EventKind>('group')
-  const [createdKind, setCreatedKind] = useState<EventKind>('group')
-  const [pastKind, setPastKind] = useState<EventKind>('group')
+  /*
+   * Which tab and which kind are NAVIGATION state, so they belong to the
+   * router rather than to component state: opening an event and pressing back
+   * returns to the URL you left, which is the tab you were reading. Component
+   * state would be thrown away and reset to Planned / Group every time.
+   */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = asTab(searchParams.get('tab'))
+  const kind = asKind(searchParams.get('kind'))
+
+  const setTab = (next: string) => {
+    const params = new URLSearchParams(searchParams)
+    params.set('tab', next)
+    // `replace` so the tabs do not fill the back stack with every switch.
+    setSearchParams(params, { replace: true })
+  }
+
+  const setKind = (next: EventKind) => {
+    const params = new URLSearchParams(searchParams)
+    params.set('kind', next)
+    setSearchParams(params, { replace: true })
+  }
 
   const isLoadingPlanned = myGroups.isLoading || myPosts.isLoading || upcoming.isLoading
   const groupError = myGroups.error
@@ -233,7 +263,7 @@ export function ActivitiesPage() {
         size="wide"
       />
       <PageContainer size="wide">
-        <Tabs defaultValue="planned">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="planned" className="flex-1 sm:flex-none sm:px-6">
               Planned
@@ -247,15 +277,15 @@ export function ActivitiesPage() {
           </TabsList>
 
           <TabsContent value="planned" className="flex flex-col gap-5 pt-5">
-            <SegmentedToggle options={KINDS} value={plannedKind} onChange={setPlannedKind} />
+            <SegmentedToggle options={KINDS} value={kind} onChange={setKind} />
             <EventList
-              items={planned[plannedKind]}
+              items={planned[kind]}
               isLoading={isLoadingPlanned}
-              error={plannedKind === 'group' ? groupError : soloError}
-              onRetry={plannedKind === 'group' ? myGroups.refresh : myPosts.refresh}
+              error={kind === 'group' ? groupError : soloError}
+              onRetry={kind === 'group' ? myGroups.refresh : myPosts.refresh}
               emptyIllustration={clipboardIllustration}
               emptyTitle={
-                plannedKind === 'group'
+                kind === 'group'
                   ? 'No group activities planned.'
                   : 'No 1-to-1 activities planned.'
               }
@@ -269,15 +299,15 @@ export function ActivitiesPage() {
           </TabsContent>
 
           <TabsContent value="created" className="flex flex-col gap-5 pt-5">
-            <SegmentedToggle options={KINDS} value={createdKind} onChange={setCreatedKind} />
+            <SegmentedToggle options={KINDS} value={kind} onChange={setKind} />
             <EventList
-              items={created[createdKind]}
+              items={created[kind]}
               isLoading={isLoadingPlanned}
-              error={createdKind === 'group' ? groupError : soloError}
-              onRetry={createdKind === 'group' ? myGroups.refresh : myPosts.refresh}
+              error={kind === 'group' ? groupError : soloError}
+              onRetry={kind === 'group' ? myGroups.refresh : myPosts.refresh}
               emptyIllustration={clipboardIllustration}
               emptyTitle={
-                createdKind === 'group'
+                kind === 'group'
                   ? "You haven't created a group activity yet."
                   : "You haven't posted a 1-to-1 activity yet."
               }
@@ -291,21 +321,21 @@ export function ActivitiesPage() {
           </TabsContent>
 
           <TabsContent value="past" className="flex flex-col gap-5 pt-5">
-            <SegmentedToggle options={KINDS} value={pastKind} onChange={setPastKind} />
+            <SegmentedToggle options={KINDS} value={kind} onChange={setKind} />
             <EventList
-              items={pastEvents[pastKind]}
+              items={pastEvents[kind]}
               isLoading={past.isLoading || myGroups.isLoading || myPosts.isLoading}
-              error={pastKind === 'group' ? groupError : past.error || myPosts.error}
-              onRetry={pastKind === 'group' ? myGroups.refresh : past.refresh}
+              error={kind === 'group' ? groupError : past.error || myPosts.error}
+              onRetry={kind === 'group' ? myGroups.refresh : past.refresh}
               emptyIcon={History}
               emptyTitle={
-                pastKind === 'group' ? 'No past group activities.' : 'No past 1-to-1 activities.'
+                kind === 'group' ? 'No past group activities.' : 'No past 1-to-1 activities.'
               }
               /* Careful wording: an activity lands here because its end time
                  passed, which says nothing about whether anyone went. */
               emptyDescription="Activities appear here after their scheduled time."
             />
-            {pastKind === 'solo' && past.hasMore && (
+            {kind === 'solo' && past.hasMore && (
               <Button
                 variant="outline"
                 onClick={past.loadMore}
