@@ -269,6 +269,29 @@ Check-in is no longer group-only.
 **🔴 Deploy the rules — the code-shape check is new:**
 `firebase deploy --only firestore:rules`
 
+### B11. Tabs remember where you were + the Android install fix — 2026-09-24
+
+- **Activities tabs now survive navigation.** The tab and the Group | 1-to-1
+  choice live in the URL (`/activities?tab=past&kind=solo`), so opening an
+  event and pressing back returns to the tab you were reading instead of
+  resetting to Planned / Group.
+- **"Activity class … MainActivity does not exist" was a stale install**, not a
+  code problem. The app on the emulator was from **18 Sep** and its launcher
+  entry had gone bad. Fixed by uninstalling and installing today's APK:
+
+```bash
+adb uninstall com.sportsbuddy.app
+cd android && ./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+  (`adb` lives in `%LOCALAPPDATA%\Android\Sdk\platform-tools`.) Do this
+  whenever Android Studio refuses to launch after a signing or package change —
+  a debug-signed build cannot replace a release-signed one in place.
+- **The web login keeps "Continue with Google" on purpose.** It only fails
+  inside the Android WebView, so it is hidden there and kept on the web, where
+  it works.
+
 ### B6. Still NOT done in the app — the honest list
 
 **Nothing here blocks the submission.** Judged on "meaningful progress toward a
