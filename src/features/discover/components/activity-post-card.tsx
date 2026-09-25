@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils'
 import { CheckInQrDialog } from '@/features/group-activities/components/check-in-qr-dialog'
 import { ScanCheckInButton } from '@/features/group-activities/components/scan-check-in-button'
+import { markCheckedIn, useMyCheckIns } from '@/features/group-activities/use-my-check-ins'
 import { isCheckInOpen, toCheckInSubjectFromPost } from '@/lib/attendance'
 import { buddyProfilePath, editActivityPostPath } from '@/routes/routes'
 import type { ActivityPost } from '@/types/activity-post'
@@ -100,7 +101,9 @@ export function ActivityPostCard({
   const [busy, setBusy] = useState<Busy>('idle')
   const [error, setError] = useState('')
   const [isQrOpen, setIsQrOpen] = useState(false)
-  const [checkedIn, setCheckedIn] = useState(false)
+  const [justCheckedIn, setJustCheckedIn] = useState(false)
+  const { checkedInIds } = useMyCheckIns()
+  const checkedIn = justCheckedIn || checkedInIds.has(post.id)
 
   const viewerState = viewerId ? getPostViewerState(post, viewerId, now) : 'past'
   const isAuthor = viewerState === 'author'
@@ -399,7 +402,10 @@ export function ActivityPostCard({
                     kind="post"
                     activityId={post.id}
                     userId={viewerId}
-                    onCheckedIn={() => setCheckedIn(true)}
+                    onCheckedIn={() => {
+                      setJustCheckedIn(true)
+                      if (viewerId) markCheckedIn(viewerId, post.id)
+                    }}
                   />
                 )
               )}

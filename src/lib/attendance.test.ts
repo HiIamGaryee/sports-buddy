@@ -132,6 +132,7 @@ describe('calculateReliability', () => {
   it('is null, not zero, with nothing started yet', () => {
     expect(calculateReliability([], [], 'alex')).toEqual({
       verifiedSessions: 0,
+      eligibleSessions: 0,
       showUpRatePercent: null,
     })
   })
@@ -142,7 +143,7 @@ describe('calculateReliability', () => {
       [record('a', 'alex'), record('b', 'alex'), record('c', 'someone-else')],
       'alex',
     )
-    expect(result).toEqual({ verifiedSessions: 2, showUpRatePercent: 50 })
+    expect(result).toEqual({ verifiedSessions: 2, eligibleSessions: 4, showUpRatePercent: 50 })
   })
 
   it('rounds the percentage', () => {

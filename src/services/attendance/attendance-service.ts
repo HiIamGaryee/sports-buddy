@@ -146,6 +146,16 @@ export const attendanceService = {
     }
   },
 
+  /** The signed-in member's own check-ins, for "you already checked in". */
+  async listMine(userId: string): Promise<AttendanceRecord[]> {
+    if (!isValidDocumentId(userId)) throw new Error(LOAD_FAILED)
+    try {
+      return await attendanceRepository.listByUser(userId, RELIABILITY_HISTORY_LIMIT)
+    } catch {
+      throw new Error(LOAD_FAILED)
+    }
+  },
+
   /** Organizer only: who has checked in to one activity. */
   async listByActivity(activityId: string): Promise<AttendanceRecord[]> {
     if (!isValidDocumentId(activityId)) throw new Error(LOAD_FAILED)

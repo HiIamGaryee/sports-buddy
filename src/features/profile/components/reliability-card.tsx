@@ -40,19 +40,39 @@ export function ReliabilityCard() {
     )
   }
 
+  const missing = Math.max(0, stats.eligibleSessions - stats.verifiedSessions)
+
   return (
     <Card>
-      <CardContent className="flex items-center gap-6">
-        <div className="flex flex-col">
-          <span className="text-metric text-foreground">{stats.verifiedSessions}</span>
-          <span className="text-caption text-muted-foreground uppercase">Verified sessions</span>
-        </div>
-        {stats.showUpRatePercent !== null && (
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-6">
           <div className="flex flex-col">
-            <span className="text-metric text-foreground">{stats.showUpRatePercent}%</span>
-            <span className="text-caption text-muted-foreground uppercase">Show-up rate</span>
+            <span className="text-metric text-foreground">{stats.verifiedSessions}</span>
+            <span className="text-caption text-muted-foreground uppercase">Verified sessions</span>
           </div>
-        )}
+          {stats.showUpRatePercent !== null && (
+            <div className="flex flex-col">
+              <span className="text-metric text-foreground">{stats.showUpRatePercent}%</span>
+              <span className="text-caption text-muted-foreground uppercase">Show-up rate</span>
+            </div>
+          )}
+        </div>
+
+        {/*
+          The receipt: what the numbers are OUT OF, so "I did not flake" is
+          something a member can actually see. A missing check-in is stated as
+          exactly that — nobody is called a no-show for forgetting to scan.
+        */}
+        <p className="flex items-start gap-2 text-body-small text-muted-foreground">
+          <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+          <span>
+            You checked in to {stats.verifiedSessions} of your{' '}
+            {stats.eligibleSessions} started {stats.eligibleSessions === 1 ? 'session' : 'sessions'}
+            {missing === 0
+              ? ' — every one of them.'
+              : `. ${missing} ${missing === 1 ? 'has' : 'have'} no check-in recorded, which can simply mean nobody scanned the code.`}
+          </span>
+        </p>
       </CardContent>
     </Card>
   )

@@ -25,6 +25,12 @@ export interface CheckInPayload {
 /** Verified, evidence-based numbers — never an absolute claim like "never flakes". */
 export interface ReliabilityStats {
   verifiedSessions: number
+  /**
+   * Sessions that COULD have been checked into: started activities the member
+   * hosted or joined. The denominator behind the rate, so the card can say
+   * "8 of 8" rather than only a percentage.
+   */
+  eligibleSessions: number
   /** `null` when there is nothing to divide by yet (no started joined activities). */
   showUpRatePercent: number | null
 }

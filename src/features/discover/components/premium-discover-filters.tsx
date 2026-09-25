@@ -43,10 +43,12 @@ function PremiumFilterToolkit({ locked }: { locked: boolean }) {
           {FILTER_COPY.items.map(({ id, label, description }) => (
             <div
               key={id}
-              className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-subtle px-3 py-2"
+              /* `items-start`, because the text wraps to two or three lines on
+                 a phone — it used to be truncated mid-word instead. */
+              className="flex items-start gap-2.5 rounded-xl border border-border bg-surface-subtle px-3 py-2"
             >
               <span
-                className={`flex size-5 shrink-0 items-center justify-center rounded-full ${locked ? 'bg-muted text-muted-foreground' : 'bg-primary/14 text-primary'}`}
+                className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full ${locked ? 'bg-muted text-muted-foreground' : 'bg-primary/14 text-primary'}`}
               >
                 {locked ? (
                   <LockKeyhole className="size-3" aria-hidden />
@@ -54,9 +56,13 @@ function PremiumFilterToolkit({ locked }: { locked: boolean }) {
                   <Check className="size-3.5" aria-hidden />
                 )}
               </span>
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-body-small font-semibold text-card-foreground">{label}</span>
-                <span className="truncate text-caption text-muted-foreground">{description}</span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-body-small font-semibold break-words text-card-foreground">
+                  {label}
+                </span>
+                <span className="text-caption break-words text-muted-foreground">
+                  {description}
+                </span>
               </span>
             </div>
           ))}

@@ -137,6 +137,7 @@ export function calculateReliability(
   userId: string,
 ): {
   verifiedSessions: number
+  eligibleSessions: number
   showUpRatePercent: number | null
 } {
   const attended = new Set(
@@ -146,6 +147,7 @@ export function calculateReliability(
   const eligible = startedJoinedActivityIds.length
   return {
     verifiedSessions,
+    eligibleSessions: eligible,
     showUpRatePercent: eligible === 0 ? null : Math.round((verifiedSessions / eligible) * 100),
   }
 }

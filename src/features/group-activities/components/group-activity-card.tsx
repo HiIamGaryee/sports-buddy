@@ -11,6 +11,7 @@ import { CheckInQrDialog } from '@/features/group-activities/components/check-in
 import { ScanCheckInButton } from '@/features/group-activities/components/scan-check-in-button'
 import { ShareGroupActivityActions } from '@/features/group-activities/components/share-group-activity-actions'
 import { useGroupActivityActions } from '@/features/group-activities/use-group-activity-actions'
+import { markCheckedIn, useMyCheckIns } from '@/features/group-activities/use-my-check-ins'
 import { CHECK_IN_GRACE_MINUTES } from '@/constants/attendance'
 import { isCheckInOpen, toCheckInSubject } from '@/lib/attendance'
 import { formatActivityDate, formatActivityTime } from '@/lib/activity-format'
@@ -60,7 +61,10 @@ export function GroupActivityCard({
   const [busy, setBusy] = useState<Busy>('idle')
   const [error, setError] = useState('')
   const [isQrOpen, setIsQrOpen] = useState(false)
-  const [checkedIn, setCheckedIn] = useState(false)
+  const [justCheckedIn, setJustCheckedIn] = useState(false)
+  // Survives a reload: a check-in is a record, not a flash of UI state.
+  const { checkedInIds } = useMyCheckIns()
+  const checkedIn = justCheckedIn || checkedInIds.has(activity.id)
 
   const viewerState = viewerId ? getGroupActivityViewerState(activity, viewerId, now) : 'past'
   const isOrganizer = viewerState === 'organizer'
@@ -295,7 +299,10 @@ export function GroupActivityCard({
                     kind="group"
                     activityId={activity.id}
                     userId={viewerId}
-                    onCheckedIn={() => setCheckedIn(true)}
+                    onCheckedIn={() => {
+                      setJustCheckedIn(true)
+                      if (viewerId) markCheckedIn(viewerId, activity.id)
+                    }}
                   />
                 ) : (
                   <span className="text-caption text-muted-foreground">
