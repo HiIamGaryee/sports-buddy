@@ -46,11 +46,19 @@ export const recapService = {
   async getMonthlyRecap(userId: string, monthKey: string, now: Date): Promise<MonthlyRecap> {
     if (!isValidDocumentId(userId)) throw new Error(LOAD_FAILED)
     try {
+      /*
+       * Each source is allowed to fail on its own. A recap is assembled from
+       * four independent reads, and one of them being refused (a Firestore
+       * index still building, say) used to throw the WHOLE recap away — the
+       * member saw "we couldn't load your recap" even though three quarters of
+       * it was sitting right there. A partial recap is honest and useful; an
+       * empty error screen is neither.
+       */
       const [confirmedActivities, hosted, joined, attendanceRecords] = await Promise.all([
-        fetchConfirmedActivitiesForMonth(userId, monthKey, now),
-        groupActivityRepository.listByOrganizer(userId, RECAP_ACTIVITY_LIMIT),
-        groupActivityRepository.listJoinedBy(userId, RECAP_ACTIVITY_LIMIT),
-        attendanceRepository.listByUser(userId, RECAP_ACTIVITY_LIMIT),
+        fetchConfirmedActivitiesForMonth(userId, monthKey, now).catch(() => []),
+        groupActivityRepository.listByOrganizer(userId, RECAP_ACTIVITY_LIMIT).catch(() => []),
+        groupActivityRepository.listJoinedBy(userId, RECAP_ACTIVITY_LIMIT).catch(() => []),
+        attendanceRepository.listByUser(userId, RECAP_ACTIVITY_LIMIT).catch(() => []),
       ])
 
       return buildMonthlyRecap(
