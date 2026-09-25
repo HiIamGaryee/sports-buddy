@@ -212,10 +212,13 @@ export function ProfilePage() {
               {/* Not a SettingsSection: ReliabilityCard is already a Card, and
                   nesting one inside another draws a box in a box. */}
               <section id="track-record" className="flex scroll-mt-6 flex-col gap-3">
+                {/* Three different things, deliberately named apart: reviews
+                    are opinions, check-ins are machine-recorded facts, and the
+                    monthly recap is a summary of what you played. */}
                 <SectionHeader
                   level="group"
-                  title="Track record"
-                  description="What other sports buddies see about how reliably you turn up."
+                  title="Reliability"
+                  description="Reviews your buddies left, and the sessions you verified by checking in at the venue. Your month-by-month summary is in Monthly recap."
                 />
                 <ReliabilityCard buddyId={profile.id} isSelf />
                 {/* The other half of turning up: what YOU verified at the

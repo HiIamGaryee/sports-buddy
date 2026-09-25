@@ -97,15 +97,6 @@ export function LoginPage() {
           id="login-password"
           label="Password"
           error={fieldErrors.password}
-          action={
-            <button
-              type="button"
-              onClick={() => setIsResetOpen(true)}
-              className="rounded text-label text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              Forgot password?
-            </button>
-          }
         >
           <PasswordInput
             id="login-password"
@@ -114,6 +105,14 @@ export function LoginPage() {
             autoComplete="current-password"
           />
         </FormField>
+
+        <button
+          type="button"
+          onClick={() => setIsResetOpen(true)}
+          className="-mt-2 self-start rounded text-label text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          Forgot password?
+        </button>
 
         <Button type="submit" size="lg" disabled={pending !== null}>
           {pending === 'email' ? 'Signing in…' : 'Sign In'}

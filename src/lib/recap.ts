@@ -4,11 +4,16 @@ import { isUpcomingGroupActivity } from '@/lib/group-activity'
 import type { Activity } from '@/types/activity'
 import type { GroupActivity } from '@/types/group-activity'
 import type { AttendanceRecord } from '@/types/attendance'
-import type { MonthlyRecap, SportRecapEntry, VenueRecapEntry } from '@/types/recap'
+import type {
+  BuddyRecapEntry,
+  MonthlyRecap,
+  SportRecapEntry,
+  VenueRecapEntry,
+} from '@/types/recap'
 import type { SportId } from '@/types/sports-profile'
 
 type ConfirmedRecapActivity = Pick<Activity, 'sportId' | 'endAt'> &
-  Partial<Pick<Activity, 'startAt' | 'venue'>>
+  Partial<Pick<Activity, 'startAt' | 'venue' | 'participants'>>
 
 /**
  * Pure monthly recap rules — no storage, no React, no clock. `now` is always
@@ -72,18 +77,27 @@ export function buildMonthlyRecap(
     (activity) => !isUpcomingGroupActivity(activity, now),
   )
 
-  const sessionsForSport: { sportId: SportId; endAt: string; date: string; venueName?: string }[] = [
+  const sessionsForSport: {
+    sportId: SportId
+    endAt: string
+    date: string
+    venueName?: string
+    /** Everyone who was there, the member included; filtered out below. */
+    people: readonly string[]
+  }[] = [
     ...confirmedActivities.map((activity) => ({
       sportId: activity.sportId,
       endAt: activity.endAt,
       date: activity.startAt ?? activity.endAt,
       venueName: activity.venue?.name,
+      people: activity.participants ?? [],
     })),
     ...startedGroupActivities.map((activity) => ({
       sportId: activity.sportId,
       endAt: activity.endAt ?? activity.startAt,
       date: activity.startAt,
       venueName: activity.venueName,
+      people: [activity.organizerId, ...activity.participantIds],
     })),
   ]
 
@@ -127,6 +141,17 @@ export function buildMonthlyRecap(
     ? [...venueCounts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
     : null
 
+  const buddyCounts = new Map<string, number>()
+  for (const session of monthSessions) {
+    for (const personId of session.people) {
+      if (personId === userId) continue
+      buddyCounts.set(personId, (buddyCounts.get(personId) ?? 0) + 1)
+    }
+  }
+  const buddies: BuddyRecapEntry[] = [...buddyCounts.entries()]
+    .map(([id, count]) => ({ userId: id, count }))
+    .sort((a, b) => b.count - a.count || a.userId.localeCompare(b.userId))
+
   const eligibleGroupActivityIds = startedGroupActivities
     .filter((activity) => monthKeyOf(new Date(activity.startAt)) === monthKey)
     .map((activity) => activity.id)
@@ -145,6 +170,7 @@ export function buildMonthlyRecap(
     activeDays,
     totalDurationMinutes: null,
     venues,
+    buddies,
     verifiedSessions,
     showUpRatePercent,
   }
