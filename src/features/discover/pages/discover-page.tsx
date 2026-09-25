@@ -278,16 +278,9 @@ export function DiscoverPage() {
           {/* Wraps on a phone: the count, the post button and the three-way
               toggle do not fit on one 390px line. */}
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            {view === 'activities' && (
-              <Button variant="outline" size="sm" asChild>
-                <Link to={ROUTES.postActivity}>Post an activity</Link>
-              </Button>
-            )}
-            {view === 'groups' && (
-              <Button variant="outline" size="sm" asChild>
-                <Link to={ROUTES.createGroupActivity}>Create activity</Link>
-              </Button>
-            )}
+            {/* No posting buttons here: the header action opens the one
+                chooser (1-to-1 or group), so this row is just the filter
+                summary and the view switch. */}
             <SegmentedToggle
               options={VIEWS}
               value={view}

@@ -158,8 +158,11 @@ export function ActivityPostCard({
             </AvatarFallback>
           </Avatar>
           <div className="flex min-w-0 flex-1 flex-col">
+            {/* Named the same way the Activities list names it, so one
+                activity reads identically wherever it appears. */}
             <span className="truncate text-heading-3 text-card-foreground">
-              {isAuthor ? 'You' : authorName}
+              {getSportName(post.sportId)}
+              {isAuthor ? ' (yours)' : ` with ${authorName}`}
             </span>
             {isAuthor ? (
               <span className="text-caption text-muted-foreground uppercase">

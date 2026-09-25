@@ -3100,6 +3100,16 @@ describe('attendance records', () => {
     await assertFails(setDoc(doc(asUser(AINA), recordPath(GARY)), record(GARY, { userId: AINA })))
   })
 
+  it('lets a member read their OWN record before it exists (the idempotency pre-read)', async () => {
+    // `checkIn()` reads the record before writing it. On a document that does
+    // not exist there is no `resource.data`, so this has to be authorized from
+    // the id — otherwise a first-ever check-in fails on the READ.
+    await seedActivity()
+    await assertSucceeds(getDoc(doc(asUser(AINA), recordPath(AINA))))
+    // Still nobody else's to peek at.
+    await assertFails(getDoc(doc(asUser(STRANGER), recordPath(AINA))))
+  })
+
   it('is immutable once created', async () => {
     await seedActivity()
     await testEnv.withSecurityRulesDisabled(async (context) => {

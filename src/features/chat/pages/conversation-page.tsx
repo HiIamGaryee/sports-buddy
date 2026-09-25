@@ -109,7 +109,9 @@ export function ConversationPage() {
                 aria-label={`Invite ${buddyName} to play`}
               >
                 <CalendarPlus className="size-4" />
-                Invite
+                {/* Icon only on a phone: the buddy's name needs the width,
+                    and the aria-label already says what this does. */}
+                <span className="hidden sm:inline">Invite</span>
               </Link>
             </Button>
             <SafetyActions

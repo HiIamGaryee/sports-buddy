@@ -649,10 +649,22 @@ service cloud.firestore {
           || request.auth.uid in data.get('joinedIds', []);
       }
 
-      // The attendee themselves, or the activity's host (to see who came).
+      /**
+       * The attendee themselves, or the activity's host (to see who came).
+       *
+       * The `!exists(...)` branch matters: `checkIn()` READS this document
+       * before writing it, to stay idempotent. On a document that does not
+       * exist yet there is no `resource.data` to authorize from, so the rule
+       * could not be evaluated at all and the read was refused — which
+       * surfaced as "We couldn't check you in" before any write was tried.
+       * A record's id is `{activityId}__{userId}`, so the caller is
+       * authorized from the id, exactly as connections and plans do.
+       */
       allow get: if request.auth != null
-        && (request.auth.uid == resource.data.userId
-            || request.auth.uid == hostOf(resource.data.activityId));
+        && (!exists(/databases/$(database)/documents/attendanceRecords/$(recordId))
+            ? recordId.split('__')[recordId.split('__').size() - 1] == request.auth.uid
+            : (request.auth.uid == resource.data.userId
+               || request.auth.uid == hostOf(resource.data.activityId)));
 
       // Every query must prove itself: a member's own Reliability Profile
       // pins `userId ==`; the organizer's attendee list pins `activityId ==`.

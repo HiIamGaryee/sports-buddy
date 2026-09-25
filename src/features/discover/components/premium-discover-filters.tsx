@@ -18,8 +18,10 @@ function PremiumFilterToolkit({ locked }: { locked: boolean }) {
   return (
     <Card variant="subtle" size="sm">
       <CardContent className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
+        {/* Wraps: the title, its description and the count pill do not fit on
+            one line at 360px. */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary">
               <Sparkles className="size-4" aria-hidden />
             </span>
@@ -37,7 +39,7 @@ function PremiumFilterToolkit({ locked }: { locked: boolean }) {
           </span>
         </div>
 
-        <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid min-w-0 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
           {FILTER_COPY.items.map(({ id, label, description }) => (
             <div
               key={id}

@@ -19,14 +19,12 @@ import {
   VISIBILITY_OPTIONS,
 } from '@/constants/activity-posts'
 import { SPORTS } from '@/constants/sports'
-import { DiscoverVenuePicker } from '@/features/discover/components/discover-venue-picker'
 import { useAuth } from '@/hooks/use-auth'
 import { useConnections } from '@/hooks/use-connections'
 import { useProfile } from '@/hooks/use-profile'
 import { useSafety } from '@/hooks/use-safety'
 import { toDraftFromPost } from '@/lib/activity-post'
 import { validDocumentId } from '@/lib/ids'
-import { getAreaName } from '@/lib/profile-format'
 import { describeActivityForSharing } from '@/lib/share'
 import { activityPostService } from '@/services/activity-post/activity-post-service'
 import { chatService } from '@/services/chat/chat-service'
@@ -388,15 +386,6 @@ export function PostActivityPage() {
                     options={AREAS.map(({ id, name }) => ({ value: id, label: name }))}
                     placeholder="Select an area"
                   />
-                  {draft.areaId && (
-                    <DiscoverVenuePicker
-                      key={`${draft.sportId}-${draft.areaId}`}
-                      sportId={draft.sportId ?? SPORTS[0]?.id ?? 'badminton'}
-                      initialLocation={draft.venueName.trim() || getAreaName(draft.areaId)}
-                      value={draft.venueName}
-                      onSelectVenue={(venueName) => update({ venueName })}
-                    />
-                  )}
                   <FormField
                     id="post-venue"
                     label="Venue"

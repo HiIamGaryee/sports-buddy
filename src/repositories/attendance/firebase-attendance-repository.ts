@@ -74,8 +74,11 @@ export const firebaseAttendanceRepository: AttendanceRepository = {
     const reference = attendanceRef(activityId, userId)
     // Idempotent: a second scan never re-writes an existing record, so the
     // rules' create-only restriction is never even hit on a repeat check-in.
-    const existing = await getDoc(reference)
-    if (existing.exists()) {
+    // A failed read must not stop a first-ever check-in: this lookup only
+    // exists to make a REPEAT scan a no-op, so treat any refusal as "no
+    // record yet" and let the write below be the thing that is authorized.
+    const existing = await getDoc(reference).catch(() => null)
+    if (existing?.exists()) {
       const record = toAttendanceRecordDocument(existing.id, existing.data())
       if (record) return record
     }

@@ -16,7 +16,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { AREAS } from '@/constants/areas'
 import { SPORTS } from '@/constants/sports'
-import { DiscoverVenuePicker } from '@/features/discover/components/discover-venue-picker'
 import { formatPlanDate } from '@/lib/plan-format'
 import type { ParticipantRule } from '@/types/discover-item'
 import type { SportId } from '@/types/sports-profile'
@@ -340,9 +339,6 @@ function BudgetStep({ draft, setField, error }: { draft: DiscoverDraftState; set
 }
 
 function LocationStep({ draft, setField, setLocation, error }: { draft: DiscoverDraftState; setField: (field: keyof DiscoverDraftState, value: string) => void; setLocation: (value: string) => void; error: string | null }) {
-  const selectedArea = LOCATION_OPTIONS.find(({ value }) => value === draft.location)
-  const searchLocation = draft.customLocation.trim() || selectedArea?.label || 'Puchong'
-
   return (
     <div className="flex flex-col gap-5">
       <AppDropdown
@@ -374,16 +370,9 @@ function LocationStep({ draft, setField, setLocation, error }: { draft: Discover
           />
         </FormField>
       )}
-      {draft.location && (
-        <DiscoverVenuePicker
-          key={`${draft.sportId}-${draft.location}`}
-          sportId={draft.sportId}
-          initialLocation={searchLocation}
-          value={draft.customLocation}
-          onSelectVenue={(venueName) => setField('customLocation', venueName)}
-        />
-      )}
-      <p className="text-body-small text-muted-foreground">Choose an area, then search OpenStreetMap for a venue people can find.</p>
+      <p className="text-body-small text-muted-foreground">
+        Choose an area, then type the venue people should go to.
+      </p>
       <FinalSummary draft={draft} />
     </div>
   )
