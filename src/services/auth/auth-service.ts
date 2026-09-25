@@ -1,3 +1,4 @@
+import { validateEmail } from '@/features/auth/validation'
 import { authRepository, profileRepository } from '@/repositories/repositories'
 import {
   isCancelledAuthError,
@@ -44,6 +45,22 @@ export const authService = {
         email: normalizeEmail(email),
         password,
       })
+    } catch (error) {
+      throw toAuthError(error)
+    }
+  },
+
+  /**
+   * Sends a password-reset email. It resolves the same way for an address that
+   * has no account: a different answer would tell anyone who asks which emails
+   * are registered here.
+   */
+  async sendPasswordReset(email: string): Promise<void> {
+    const normalized = normalizeEmail(email)
+    const problem = validateEmail(normalized)
+    if (problem) throw toAuthError(new Error(problem))
+    try {
+      await authRepository.sendPasswordReset(normalized)
     } catch (error) {
       throw toAuthError(error)
     }

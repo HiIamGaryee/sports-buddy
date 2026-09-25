@@ -26,6 +26,7 @@ import { AvailabilitySummary } from '@/features/profile/components/availability-
 import { ProfileHero } from '@/features/profile/components/profile-hero'
 import { GenderLabel } from '@/components/profile/gender-label'
 import { MonthlyRecapBanner } from '@/features/recap/components/monthly-recap-banner'
+import { VerifiedCheckInsCard } from '@/features/profile/components/verified-check-ins-card'
 import { ReliabilityCard } from '@/features/ratings/components/reliability-card'
 import { SportSkillList } from '@/features/profile/components/sport-skill-list'
 import { SettingsSection } from '@/features/settings/components/settings-section'
@@ -217,6 +218,9 @@ export function ProfilePage() {
                   description="What other sports buddies see about how reliably you turn up."
                 />
                 <ReliabilityCard buddyId={profile.id} isSelf />
+                {/* The other half of turning up: what YOU verified at the
+                    venue with a check-in code. A fact, beside the reviews. */}
+                <VerifiedCheckInsCard />
               </section>
 
               <SettingsSection id="sports" title="Sports & playing style">

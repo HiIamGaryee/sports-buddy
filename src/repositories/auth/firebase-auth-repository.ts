@@ -3,6 +3,7 @@ import {
   deleteUser,
   GoogleAuthProvider,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
@@ -53,6 +54,10 @@ export const firebaseAuthRepository: AuthRepository = {
 
   signOut() {
     return firebaseSignOut(getFirebaseAuth())
+  },
+
+  sendPasswordReset(email) {
+    return sendPasswordResetEmail(getFirebaseAuth(), email)
   },
 
   async deleteCurrentUser() {

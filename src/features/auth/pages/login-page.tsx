@@ -13,6 +13,7 @@ import {
   validateEmail,
   validateRequiredPassword,
 } from '@/features/auth/validation'
+import { ForgotPasswordDialog } from '@/features/auth/components/forgot-password-dialog'
 import { useAuth } from '@/hooks/use-auth'
 import { MOCK_LOGIN_DEFAULTS } from '@/repositories/auth/mock-auth-repository'
 import { isNativeApp } from '@/lib/platform'
@@ -36,6 +37,7 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState('')
   const [pending, setPending] = useState<Pending>(null)
+  const [isResetOpen, setIsResetOpen] = useState(false)
 
   const update = <K extends keyof LoginForm>(key: K, value: LoginForm[K]) =>
     setForm((previous) => ({ ...previous, [key]: value }))
@@ -95,6 +97,15 @@ export function LoginPage() {
           id="login-password"
           label="Password"
           error={fieldErrors.password}
+          action={
+            <button
+              type="button"
+              onClick={() => setIsResetOpen(true)}
+              className="rounded text-label text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              Forgot password?
+            </button>
+          }
         >
           <PasswordInput
             id="login-password"
@@ -124,6 +135,12 @@ export function LoginPage() {
           </>
         )}
       </form>
+
+      <ForgotPasswordDialog
+        open={isResetOpen}
+        initialEmail={form.email}
+        onOpenChange={setIsResetOpen}
+      />
 
       <p className="text-body-small text-muted-foreground">
         New here?{' '}

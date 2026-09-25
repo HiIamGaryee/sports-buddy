@@ -5,12 +5,15 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useReliability } from '@/features/profile/use-reliability'
 
 /**
- * Evidence, never a claim. "11 Verified Sessions" / "92% Show-up Rate" —
- * never "Never flakes" or any other absolute statement about a person.
- * Basic reliability stats are free for everyone; see `docs/monetization.md`
- * for what stays behind Buddy+ (deeper trend analytics, not this).
+ * QR CHECK-IN evidence: sessions this member verified by scanning (or typing)
+ * the host's code, and what that is out of.
+ *
+ * Distinct from `features/ratings/ReliabilityCard`, which is what OTHER people
+ * said about them. This one is a machine-recorded fact, not an opinion, and it
+ * is evidence rather than a claim: never "never flakes", and a session with no
+ * check-in is reported as exactly that.
  */
-export function ReliabilityCard() {
+export function VerifiedCheckInsCard() {
   const { stats, isLoading, error } = useReliability()
 
   if (isLoading) {

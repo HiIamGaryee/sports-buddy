@@ -13,6 +13,7 @@ export function FormField({
   optional = false,
   error,
   hint,
+  action,
   children,
 }: {
   id: string
@@ -22,14 +23,19 @@ export function FormField({
   error?: string
   /** Right-aligned supporting text under the control, e.g. a character count. */
   hint?: React.ReactNode
+  /** A control on the label's own line, e.g. "Forgot password?". */
+  action?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-label text-foreground">
-        {label}
-        {optional && <span className="text-muted-foreground"> (optional)</span>}
-      </label>
+      <div className="flex items-baseline justify-between gap-3">
+        <label htmlFor={id} className="text-label text-foreground">
+          {label}
+          {optional && <span className="text-muted-foreground"> (optional)</span>}
+        </label>
+        {action}
+      </div>
       {children}
       {error && (
         <p role="alert" className="text-body-small text-destructive">

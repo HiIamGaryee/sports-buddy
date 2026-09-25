@@ -103,18 +103,18 @@ export function ConversationPage() {
         conversation.buddyId && conversationId ? (
           <div className="flex items-center gap-2">
             {/* Decided to play after chatting? Set it up right here. */}
-            <Button size="sm" asChild>
+            <Button size="icon-sm" asChild>
               <Link
                 to={inviteActivityPath(conversation.buddyId)}
                 aria-label={`Invite ${buddyName} to play`}
               >
+                {/* Icon only: with Report and Block beside it, a labelled
+                    button left the buddy's name with no width at all. */}
                 <CalendarPlus className="size-4" />
-                {/* Icon only on a phone: the buddy's name needs the width,
-                    and the aria-label already says what this does. */}
-                <span className="hidden sm:inline">Invite</span>
               </Link>
             </Button>
             <SafetyActions
+              compact
               targetUserId={conversation.buddyId}
               displayName={buddyName}
               context={{ type: 'conversation', conversationId }}
