@@ -33,9 +33,27 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
     )
   }
 
-  // A recap is a bonus, not profile identity: if it fails it stays silent
-  // rather than putting an error banner under someone's profile.
-  if (error || !recap) return null
+  /*
+   * A failure used to render NOTHING here, which hid a real problem: if the
+   * recap query is refused (a missing Firestore index, say), the whole feature
+   * simply vanished from the app and looked like it had never been built. It
+   * now says so quietly, and still offers the way in.
+   */
+  if (error || !recap) {
+    return (
+      <Card variant="subtle">
+        <CardContent className="flex flex-col gap-3">
+          <span className="text-title text-card-foreground">Monthly recap</span>
+          <p className="text-body-small text-muted-foreground">
+            {error || "We couldn't build your recap just now."}
+          </p>
+          <Button variant="outline" asChild className="w-fit">
+            <Link to={ROUTES.recap}>Open monthly recap</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const month = recap.monthLabel.split(' ')[0]?.toUpperCase() ?? 'MONTHLY'
 

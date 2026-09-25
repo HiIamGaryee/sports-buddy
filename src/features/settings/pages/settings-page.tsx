@@ -224,6 +224,25 @@ export function SettingsPage() {
 
         <SettingsSection id="preferences" title="Preferences">
           <Link
+            to={ROUTES.recap}
+            className="-m-2 flex items-center gap-3 rounded-xl p-2 transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <SettingsRow
+              label="Monthly recap"
+              description="What you played each month, who you played with, and a card you can share."
+              trailing={
+                <ChevronRight
+                  aria-hidden
+                  className="mt-1 size-4 shrink-0 text-muted-foreground"
+                />
+              }
+              className="flex-1"
+            />
+          </Link>
+
+          <Separator />
+
+          <Link
             to={ROUTES.discoverySettings}
             className="-m-2 flex items-center gap-3 rounded-xl p-2 transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
