@@ -78,6 +78,11 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
                 Your most active sport was {getSportName(recap.topSport.sportId)}.
               </p>
             )}
+            {/* This banner always shows the month that has ENDED, so it is
+                final — built from the sessions already in your history. */}
+            <p className="text-caption text-muted-foreground">
+              Complete — built from your sessions once {recap.monthLabel} ended.
+            </p>
             <ul className="flex flex-wrap gap-x-5 gap-y-1">
               {recap.sports.slice(0, MAX_SPORTS_TEASED).map((sport) => (
                 <li key={sport.sportId} className="inline-flex items-baseline gap-1.5 text-body-small text-muted-foreground">
@@ -88,13 +93,19 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
             </ul>
           </div>
 
-          <Button
-            size="lg"
-            onClick={() => setIsOpen(true)}
-            className="w-full shrink-0 rounded-[1.25rem] px-8 font-semibold shadow-sm md:w-auto"
-          >
-            View &amp; share
-          </Button>
+          <div className="flex shrink-0 flex-col items-stretch gap-2 md:items-end">
+            <Button
+              size="lg"
+              onClick={() => setIsOpen(true)}
+              className="w-full rounded-[1.25rem] px-8 font-semibold shadow-sm md:w-auto"
+            >
+              View &amp; share
+            </Button>
+            {/* The full page is where every earlier month lives. */}
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={ROUTES.recap}>See every month</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

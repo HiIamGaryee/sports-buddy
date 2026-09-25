@@ -218,7 +218,7 @@ export function ProfilePage() {
                 <SectionHeader
                   level="group"
                   title="Reliability"
-                  description="Reviews your buddies left, and the sessions you verified by checking in at the venue. Your month-by-month summary is in Monthly recap."
+                  description="Sessions you verified by checking in at the venue. Buddy reviews will appear here too, once your buddies start leaving them."
                 />
                 <ReliabilityCard buddyId={profile.id} isSelf />
                 {/* The other half of turning up: what YOU verified at the

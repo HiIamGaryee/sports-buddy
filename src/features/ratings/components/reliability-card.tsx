@@ -24,6 +24,13 @@ export function ReliabilityCard({
   const { calculateReliability } = useBuddyRatings(buddyId)
   const stats = calculateReliability(buddyId)
 
+  /*
+   * Nothing to say yet → say nothing. Leaving reviews is not wired up to any
+   * screen yet, so this card would otherwise sit on every profile explaining
+   * its own emptiness. It reappears by itself the moment a review exists.
+   */
+  if (stats.totalReviewedActivities === 0) return null
+
   return (
     <Card>
       <CardContent className="flex flex-col gap-4">
