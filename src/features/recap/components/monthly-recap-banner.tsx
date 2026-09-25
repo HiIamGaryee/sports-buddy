@@ -33,9 +33,27 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
     )
   }
 
-  // A recap is a bonus, not profile identity: if it fails it stays silent
-  // rather than putting an error banner under someone's profile.
-  if (error || !recap) return null
+  /*
+   * A failure used to render NOTHING here, which hid a real problem: if the
+   * recap query is refused (a missing Firestore index, say), the whole feature
+   * simply vanished from the app and looked like it had never been built. It
+   * now says so quietly, and still offers the way in.
+   */
+  if (error || !recap) {
+    return (
+      <Card variant="subtle">
+        <CardContent className="flex flex-col gap-3">
+          <span className="text-title text-card-foreground">Monthly recap</span>
+          <p className="text-body-small text-muted-foreground">
+            {error || "We couldn't build your recap just now."}
+          </p>
+          <Button variant="outline" asChild className="w-fit">
+            <Link to={ROUTES.recap}>Open monthly recap</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const month = recap.monthLabel.split(' ')[0]?.toUpperCase() ?? 'MONTHLY'
 
@@ -78,6 +96,11 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
                 Your most active sport was {getSportName(recap.topSport.sportId)}.
               </p>
             )}
+            {/* This banner always shows the month that has ENDED, so it is
+                final — built from the sessions already in your history. */}
+            <p className="text-caption text-muted-foreground">
+              Complete — built from your sessions once {recap.monthLabel} ended.
+            </p>
             <ul className="flex flex-wrap gap-x-5 gap-y-1">
               {recap.sports.slice(0, MAX_SPORTS_TEASED).map((sport) => (
                 <li key={sport.sportId} className="inline-flex items-baseline gap-1.5 text-body-small text-muted-foreground">
@@ -88,13 +111,19 @@ export function MonthlyRecapBanner({ displayName }: { displayName: string | null
             </ul>
           </div>
 
-          <Button
-            size="lg"
-            onClick={() => setIsOpen(true)}
-            className="w-full shrink-0 rounded-[1.25rem] px-8 font-semibold shadow-sm md:w-auto"
-          >
-            View &amp; share
-          </Button>
+          <div className="flex shrink-0 flex-col items-stretch gap-2 md:items-end">
+            <Button
+              size="lg"
+              onClick={() => setIsOpen(true)}
+              className="w-full rounded-[1.25rem] px-8 font-semibold shadow-sm md:w-auto"
+            >
+              View &amp; share
+            </Button>
+            {/* The full page is where every earlier month lives. */}
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={ROUTES.recap}>See every month</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

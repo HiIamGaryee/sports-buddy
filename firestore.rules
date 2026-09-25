@@ -369,6 +369,34 @@ service cloud.firestore {
 
       allow delete: if request.auth != null
         && request.auth.uid == resource.data.authorId;
+
+      // QR CHECK-IN CODE for a 1-to-1 activity — the same shape as a group
+      // activity's, at `checkIn/current`, readable and writable only by the
+      // post's AUTHOR. `attendanceRecords` reads it via a privileged `get()`
+      // to verify a scan, so the person checking in never reads it directly.
+      match /checkIn/{checkInId} {
+        function isPostAuthor() {
+          return request.auth.uid
+            == get(/databases/$(database)/documents/activityPosts/$(postId)).data.authorId;
+        }
+
+        allow get: if request.auth != null && isPostAuthor();
+        allow list: if false;
+        allow create, update: if request.auth != null
+          && isPostAuthor()
+          && request.resource.data.keys().hasOnly(['organizerId', 'code', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['organizerId', 'code', 'updatedAt'])
+          && request.resource.data.organizerId == request.auth.uid
+          && request.resource.data.code is string
+          // A host may choose their own code, so its SHAPE is checked here as
+          // well as in the form: letters and digits, long enough not to be
+          // guessed by someone who merely knows the activity exists.
+          && request.resource.data.code.size() >= 4
+          && request.resource.data.code.size() <= 24
+          && request.resource.data.code.matches('^[A-Z0-9]+$')
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
     }
 
     // DISCOVER — PUBLIC GROUP activities ("Saturday Badminton Meetup, 8
@@ -548,8 +576,12 @@ service cloud.firestore {
           && request.resource.data.keys().hasAll(['organizerId', 'code', 'updatedAt'])
           && request.resource.data.organizerId == request.auth.uid
           && request.resource.data.code is string
-          && request.resource.data.code.size() > 0
-          && request.resource.data.code.size() <= 64
+          // A host may choose their own code, so its SHAPE is checked here as
+          // well as in the form: letters and digits, long enough not to be
+          // guessed by someone who merely knows the activity exists.
+          && request.resource.data.code.size() >= 4
+          && request.resource.data.code.size() <= 24
+          && request.resource.data.code.matches('^[A-Z0-9]+$')
           && request.resource.data.updatedAt == request.time;
         allow delete: if false;
       }
@@ -561,30 +593,84 @@ service cloud.firestore {
     // code"), never a status on the activity, and its absence is never read
     // as "did not attend". See `src/types/attendance.ts`.
     match /attendanceRecords/{recordId} {
-      function checkedInActivity(id) {
-        return get(/databases/$(database)/documents/groupActivities/$(id));
+      /**
+       * A check-in names an activity that is EITHER a public group activity or
+       * a 1-to-1 activity post, so every check below resolves the source
+       * document first. The two collections are named here and nowhere else —
+       * never derived from client data.
+       */
+      function isGroupActivity(id) {
+        return exists(/databases/$(database)/documents/groupActivities/$(id));
+      }
+
+      function sourceData(id) {
+        return isGroupActivity(id)
+          ? get(/databases/$(database)/documents/groupActivities/$(id)).data
+          : get(/databases/$(database)/documents/activityPosts/$(id)).data;
+      }
+
+      /** The organizer of a group activity, or the author of a 1-to-1 post. */
+      function hostOf(id) {
+        let data = sourceData(id);
+        return data.get('organizerId', data.get('authorId', ''));
       }
 
       function currentCheckInCode(id) {
-        return get(/databases/$(database)/documents/groupActivities/$(id)/checkIn/current).data.code;
+        return isGroupActivity(id)
+          ? get(/databases/$(database)/documents/groupActivities/$(id)/checkIn/current).data.code
+          : get(/databases/$(database)/documents/activityPosts/$(id)/checkIn/current).data.code;
       }
 
-      /** Involved: a joined participant, or the organizer checking themselves in. */
+      /**
+       * When check-in stops being accepted: 30 minutes after the activity
+       * ends, or after an assumed 2 hours when the organizer gave no end
+       * time. Mirrors `getCheckInWindow()` in `src/lib/attendance.ts` — a
+       * check-in is evidence you were there, so it cannot be recorded days
+       * later from home.
+       */
+      function checkInClosesAt(id) {
+        let data = sourceData(id);
+        // `endAt` is optional AND nullable, so it is only used when it really
+        // is a timestamp; otherwise the session is assumed to run 2 hours.
+        let endsAt = data.keys().hasAny(['endAt']) && data.endAt is timestamp
+          ? data.endAt
+          : data.startAt + duration.value(120, 'm');
+        return endsAt + duration.value(30, 'm');
+      }
+
+      /**
+       * Involved: the host checking themselves in, a joined participant of a
+       * group activity, or whoever took the spot on a 1-to-1 post.
+       */
       function isInvolvedInActivity(id) {
-        return request.auth.uid in checkedInActivity(id).data.participantIds
-          || request.auth.uid == checkedInActivity(id).data.organizerId;
+        let data = sourceData(id);
+        return request.auth.uid == hostOf(id)
+          || request.auth.uid in data.get('participantIds', [])
+          || request.auth.uid in data.get('joinedIds', []);
       }
 
-      // The attendee themselves, or the activity's organizer (to see who came).
+      /**
+       * The attendee themselves, or the activity's host (to see who came).
+       *
+       * The `!exists(...)` branch matters: `checkIn()` READS this document
+       * before writing it, to stay idempotent. On a document that does not
+       * exist yet there is no `resource.data` to authorize from, so the rule
+       * could not be evaluated at all and the read was refused — which
+       * surfaced as "We couldn't check you in" before any write was tried.
+       * A record's id is `{activityId}__{userId}`, so the caller is
+       * authorized from the id, exactly as connections and plans do.
+       */
       allow get: if request.auth != null
-        && (request.auth.uid == resource.data.userId
-            || request.auth.uid == checkedInActivity(resource.data.activityId).data.organizerId);
+        && (!exists(/databases/$(database)/documents/attendanceRecords/$(recordId))
+            ? recordId.split('__')[recordId.split('__').size() - 1] == request.auth.uid
+            : (request.auth.uid == resource.data.userId
+               || request.auth.uid == hostOf(resource.data.activityId)));
 
       // Every query must prove itself: a member's own Reliability Profile
       // pins `userId ==`; the organizer's attendee list pins `activityId ==`.
       allow list: if request.auth != null
         && (resource.data.userId == request.auth.uid
-            || request.auth.uid == checkedInActivity(resource.data.activityId).data.organizerId);
+            || request.auth.uid == hostOf(resource.data.activityId));
 
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly(['id', 'activityId', 'userId', 'code', 'checkedInAt'])
@@ -594,8 +680,9 @@ service cloud.firestore {
         // Only the attendee may record their OWN check-in — never someone else's.
         && request.resource.data.userId == request.auth.uid
         && isInvolvedInActivity(request.resource.data.activityId)
-        // The activity has actually started.
-        && checkedInActivity(request.resource.data.activityId).data.startAt <= request.time
+        // The activity has actually started, and check-in has not closed.
+        && sourceData(request.resource.data.activityId).startAt <= request.time
+        && request.time <= checkInClosesAt(request.resource.data.activityId)
         // The scanned code matches the organizer's CURRENT code — a stale
         // screenshot stops working the moment the organizer regenerates it.
         && request.resource.data.code == currentCheckInCode(request.resource.data.activityId)

@@ -13,8 +13,10 @@ import {
   validateEmail,
   validateRequiredPassword,
 } from '@/features/auth/validation'
+import { ForgotPasswordDialog } from '@/features/auth/components/forgot-password-dialog'
 import { useAuth } from '@/hooks/use-auth'
 import { MOCK_LOGIN_DEFAULTS } from '@/repositories/auth/mock-auth-repository'
+import { isNativeApp } from '@/lib/platform'
 import { ROUTES } from '@/routes/routes'
 
 interface LoginForm {
@@ -35,6 +37,7 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState('')
   const [pending, setPending] = useState<Pending>(null)
+  const [isResetOpen, setIsResetOpen] = useState(false)
 
   const update = <K extends keyof LoginForm>(key: K, value: LoginForm[K]) =>
     setForm((previous) => ({ ...previous, [key]: value }))
@@ -103,20 +106,40 @@ export function LoginPage() {
           />
         </FormField>
 
+        <button
+          type="button"
+          onClick={() => setIsResetOpen(true)}
+          className="-mt-2 self-start rounded text-label text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          Forgot password?
+        </button>
+
         <Button type="submit" size="lg" disabled={pending !== null}>
           {pending === 'email' ? 'Signing in…' : 'Sign In'}
         </Button>
 
-        <AuthDivider />
+        {/* Google sign-in is the Firebase web popup flow, which cannot
+            complete inside the Android WebView, so it is not offered there. */}
+        {!isNativeApp() && (
+          <>
+            <AuthDivider />
 
-        <GoogleSignInButton
-          onClick={() => void run('google', signInWithGoogle)}
-          disabled={pending !== null}
-          label={
-            pending === 'google' ? 'Opening Google…' : 'Continue with Google'
-          }
-        />
+            <GoogleSignInButton
+              onClick={() => void run('google', signInWithGoogle)}
+              disabled={pending !== null}
+              label={
+                pending === 'google' ? 'Opening Google…' : 'Continue with Google'
+              }
+            />
+          </>
+        )}
       </form>
+
+      <ForgotPasswordDialog
+        open={isResetOpen}
+        initialEmail={form.email}
+        onOpenChange={setIsResetOpen}
+      />
 
       <p className="text-body-small text-muted-foreground">
         New here?{' '}

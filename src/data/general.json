@@ -9,38 +9,33 @@
     "premiumFilters": {
       "enabled": true,
       "title": "Advanced buddy filters",
-      "description": "Unlock date, popularity and four more ways to narrow your search.",
+      "description": "Unlock five extra ways to narrow who shows up in Discover.",
       "upgradeLabel": "Unlock with Buddy+",
       "items": [
         {
-          "id": "date",
-          "label": "Search by date",
-          "description": "Find sessions happening on a specific date."
+          "id": "sport",
+          "label": "Sports",
+          "description": "Show only buddies who play the sports you pick."
         },
         {
-          "id": "popularity",
-          "label": "Most joined first",
-          "description": "Sort activities by how many people joined."
+          "id": "skill",
+          "label": "Skill level",
+          "description": "Match beginners with beginners, or push yourself."
         },
         {
-          "id": "venue",
-          "label": "Preferred venues",
-          "description": "Prioritise places you already like."
+          "id": "intent",
+          "label": "Why they play",
+          "description": "Casual, training or competitive."
         },
         {
-          "id": "time",
-          "label": "Time of day",
-          "description": "Focus on morning, afternoon or evening."
+          "id": "area",
+          "label": "Areas",
+          "description": "Narrow to the areas you actually travel to."
         },
         {
-          "id": "group-size",
-          "label": "Group size",
-          "description": "Find intimate games or bigger meetups."
-        },
-        {
-          "id": "budget",
-          "label": "Budget range",
-          "description": "Stay within your preferred spend."
+          "id": "availability",
+          "label": "Shared availability",
+          "description": "Only people free when you are free."
         }
       ]
     }

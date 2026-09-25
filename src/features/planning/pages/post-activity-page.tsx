@@ -78,6 +78,10 @@ export function PostActivityPage() {
   const inviteeId = validDocumentId(rawInviteeId)
   const [inviteeName, setInviteeName] = useState('')
 
+  /** Which kind of activity is being created; an edit or invite is 1v1 already. */
+  const [kind, setKind] = useState<'1v1' | null>(
+    isEdit || isInviteRoute ? '1v1' : null,
+  )
   const [step, setStep] = useState(0)
   const [draft, setDraft] = useState<ActivityPostDraft>(() => ({
     sportId: profile?.sports[0]?.sportId ?? SPORTS[0]?.id ?? null,
@@ -218,6 +222,36 @@ export function PostActivityPage() {
       showBack
     />
   )
+
+  /*
+   * Posting starts by asking WHAT you are posting. Before this, a 1v1 post and
+   * a group activity were two different entry points — the 1v1 form here, and
+   * a separate "Create activity" button inside Discover's group section — so
+   * choosing the other kind meant knowing to go somewhere else.
+   */
+  if (!isEdit && !isInviteRoute && kind === null) {
+    return (
+      <>
+        {header}
+        <PageContainer size="default">
+          <div className="flex flex-col gap-4">
+            <SelectableCard
+              title="1-to-1 activity"
+              description="One other person joins you. Good for a hit, a run or a climb with one buddy."
+              selected={false}
+              onClick={() => setKind('1v1')}
+            />
+            <SelectableCard
+              title="Group activity"
+              description="Up to 30 players, open for anyone to join. Good for a game or a session with a crowd."
+              selected={false}
+              onClick={() => navigate(ROUTES.createGroupActivity)}
+            />
+          </div>
+        </PageContainer>
+      </>
+    )
+  }
 
   if (isInviteRoute && isLoadingConnections) {
     return (

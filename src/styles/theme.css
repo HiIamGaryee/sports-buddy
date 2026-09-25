@@ -8,7 +8,7 @@
 
 /* ---------------------------------------------------------------- LIGHT */
 :root {
-  --background: #f6f7f8;
+  --background: #faf7f2;
   --foreground: #15171a;
 
   --surface: #ffffff;
@@ -22,9 +22,9 @@
    *   raised  — a card that sits above other cards (sheets, popovers, selected)
    *   overlay — translucent sticky chrome (headers, action bars, navigation)
    */
-  --surface-subtle: #f2f4f7;
+  --surface-subtle: #f6f1e8;
   --surface-raised: #ffffff;
-  --surface-overlay: rgb(246 247 248 / 0.85);
+  --surface-overlay: rgb(250 247 242 / 0.85);
 
   /*
    * The dimming layer behind a dialog or sheet. It is NOT `bg-black/10` in
@@ -40,7 +40,7 @@
   --popover-foreground: #15171a;
 
   /* Light mode follows the Sports Buddy mark: warm gold into energetic pink. */
-  --primary: #8a5d00;
+  --primary: #946508;
   --primary-foreground: #15171a;
 
   /* Both ends keep the near-black primary foreground legible. */
@@ -53,11 +53,11 @@
   --accent: #8a5d00;
   --accent-foreground: #ffffff;
 
-  --muted: #eceef1;
-  --muted-foreground: #5b6270;
+  --muted: #f2ebdf;
+  --muted-foreground: #6b6355;
 
-  --border: #e2e5ea;
-  --border-strong: #cfd4dc;
+  --border: #e9e1d4;
+  --border-strong: #d8cdb9;
   --input: #dde1e7;
   --ring: #8a5d00;
 
@@ -148,7 +148,9 @@
 
   /* Breakpoint-aware navigation chrome. */
   --navigation-rail-width: 5rem;
-  --desktop-sidebar-width: 15.75rem;
+  /* Wide enough for the longest label ("Activities") plus its icon and a
+     little breathing room — the rest of the width belongs to the page. */
+  --desktop-sidebar-width: 12.5rem;
 
   /* Content widths. `content` is the phone column kept for chrome that is
      still phone-shaped; pages choose a semantic size instead. */
@@ -194,8 +196,8 @@
     ),
     #f8f9fb;
   --pricing-card: rgb(255 255 255 / 0.82);
-  --pricing-card-border: #e4e6eb;
-  --pricing-card-muted: linear-gradient(145deg, #f5f6f8, #eef0f4);
+  --pricing-card-border: #e9e1d4;
+  --pricing-card-muted: linear-gradient(145deg, #f8f4ec, #f1ebe0);
   --pricing-premium-surface: linear-gradient(
     145deg,
     rgb(255 250 240 / 0.98),
@@ -227,8 +229,8 @@
   --pricing-cta-shadow: 0 10px 24px -12px rgb(231 100 131 / 0.6);
   --pricing-check: rgb(234 182 77 / 0.16);
   --pricing-check-foreground: #9a6900;
-  --pricing-lock: #eef0f4;
-  --pricing-lock-foreground: #7b8491;
+  --pricing-lock: #f1ebe0;
+  --pricing-lock-foreground: #7c7364;
   --pricing-card-shadow: 0 12px 32px -24px rgb(15 23 42 / 0.4);
   --pricing-premium-shadow: 0 18px 44px -24px rgb(231 100 131 / 0.42);
 }

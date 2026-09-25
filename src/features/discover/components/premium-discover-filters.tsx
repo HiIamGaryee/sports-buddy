@@ -18,8 +18,10 @@ function PremiumFilterToolkit({ locked }: { locked: boolean }) {
   return (
     <Card variant="subtle" size="sm">
       <CardContent className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
+        {/* Wraps: the title, its description and the count pill do not fit on
+            one line at 360px. */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary">
               <Sparkles className="size-4" aria-hidden />
             </span>
@@ -37,14 +39,16 @@ function PremiumFilterToolkit({ locked }: { locked: boolean }) {
           </span>
         </div>
 
-        <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid min-w-0 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
           {FILTER_COPY.items.map(({ id, label, description }) => (
             <div
               key={id}
-              className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-subtle px-3 py-2"
+              /* `items-start`, because the text wraps to two or three lines on
+                 a phone — it used to be truncated mid-word instead. */
+              className="flex items-start gap-2.5 rounded-xl border border-border bg-surface-subtle px-3 py-2"
             >
               <span
-                className={`flex size-5 shrink-0 items-center justify-center rounded-full ${locked ? 'bg-muted text-muted-foreground' : 'bg-primary/14 text-primary'}`}
+                className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full ${locked ? 'bg-muted text-muted-foreground' : 'bg-primary/14 text-primary'}`}
               >
                 {locked ? (
                   <LockKeyhole className="size-3" aria-hidden />
@@ -52,9 +56,13 @@ function PremiumFilterToolkit({ locked }: { locked: boolean }) {
                   <Check className="size-3.5" aria-hidden />
                 )}
               </span>
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-body-small font-semibold text-card-foreground">{label}</span>
-                <span className="truncate text-caption text-muted-foreground">{description}</span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-body-small font-semibold break-words text-card-foreground">
+                  {label}
+                </span>
+                <span className="text-caption break-words text-muted-foreground">
+                  {description}
+                </span>
               </span>
             </div>
           ))}

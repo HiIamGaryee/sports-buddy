@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarClock, Check, History, MapPin, UserCheck, Users, Wallet } from 'lucide-react'
+import { CalendarClock, Check, History, MapPin, QrCode, ShieldCheck, UserCheck, Users, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -21,7 +21,11 @@ import {
   getSportName,
 } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
-import { editActivityPostPath } from '@/routes/routes'
+import { CheckInQrDialog } from '@/features/group-activities/components/check-in-qr-dialog'
+import { ScanCheckInButton } from '@/features/group-activities/components/scan-check-in-button'
+import { markCheckedIn, useMyCheckIns } from '@/features/group-activities/use-my-check-ins'
+import { isCheckInOpen, toCheckInSubjectFromPost } from '@/lib/attendance'
+import { buddyProfilePath, editActivityPostPath } from '@/routes/routes'
 import type { ActivityPost } from '@/types/activity-post'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
 
@@ -33,10 +37,15 @@ const VISIBILITY_BADGE = {
   invite: 'Private invite',
 } as const
 
+/**
+ * A person on a post. When their profile is known the row links to it, so
+ * anyone who asked to join or is already in can be looked up before you
+ * decide. Without a profile there is nothing to open, so it stays plain text.
+ */
 function Person({ profile }: { profile?: DiscoveryProfile }) {
   const name = profile?.displayName ?? 'Sports buddy'
-  return (
-    <span className="flex min-w-0 items-center gap-2">
+  const body = (
+    <>
       <Avatar className="size-8 shrink-0">
         {profile?.photoUrl && <AvatarImage src={profile.photoUrl} alt="" />}
         <AvatarFallback className="text-caption">{getInitials(name)}</AvatarFallback>
@@ -44,7 +53,20 @@ function Person({ profile }: { profile?: DiscoveryProfile }) {
       <span className="truncate text-body text-card-foreground">
         {name}
       </span>
-    </span>
+    </>
+  )
+
+  if (!profile) {
+    return <span className="flex min-w-0 items-center gap-2">{body}</span>
+  }
+
+  return (
+    <Link
+      to={buddyProfilePath(profile.userId)}
+      className="flex min-w-0 items-center gap-2 rounded-lg transition-ui hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+    >
+      {body}
+    </Link>
   )
 }
 
@@ -78,6 +100,10 @@ export function ActivityPostCard({
   const { getConnectionState } = useConnections()
   const [busy, setBusy] = useState<Busy>('idle')
   const [error, setError] = useState('')
+  const [isQrOpen, setIsQrOpen] = useState(false)
+  const [justCheckedIn, setJustCheckedIn] = useState(false)
+  const { checkedInIds } = useMyCheckIns()
+  const checkedIn = justCheckedIn || checkedInIds.has(post.id)
 
   const viewerState = viewerId ? getPostViewerState(post, viewerId, now) : 'past'
   const isAuthor = viewerState === 'author'
@@ -88,6 +114,11 @@ export function ActivityPostCard({
     : null
   const full = isPostFull(post)
   const isPast = new Date(post.startAt).getTime() <= now.getTime()
+  // QR check-in runs from the start time until shortly after the session ends,
+  // and only once somebody actually took the spot — the same rule as a group
+  // activity, through the same shared `CheckInSubject`.
+  const checkInOpen =
+    post.joinedIds.length > 0 && isCheckInOpen(toCheckInSubjectFromPost(post), now)
   const visibilityBadge = VISIBILITY_BADGE[post.visibility]
   const isInvite = post.visibility === 'invite'
   const canShare = !isInvite && !isPast && viewerState !== 'past'
@@ -130,8 +161,11 @@ export function ActivityPostCard({
             </AvatarFallback>
           </Avatar>
           <div className="flex min-w-0 flex-1 flex-col">
+            {/* Named the same way the Activities list names it, so one
+                activity reads identically wherever it appears. */}
             <span className="truncate text-heading-3 text-card-foreground">
-              {isAuthor ? 'You' : authorName}
+              {getSportName(post.sportId)}
+              {isAuthor ? ' (yours)' : ` with ${authorName}`}
             </span>
             {isAuthor ? (
               <span className="text-caption text-muted-foreground uppercase">
@@ -306,6 +340,21 @@ export function ActivityPostCard({
                 </div>
               )}
 
+              {checkInOpen && (
+                <Button variant="outline" onClick={() => setIsQrOpen(true)}>
+                  <QrCode className="size-4" />
+                  Show check-in code
+                </Button>
+              )}
+              {isQrOpen && (
+                <CheckInQrDialog
+                  kind="post"
+                  activityId={post.id}
+                  hostId={post.authorId}
+                  onClose={() => setIsQrOpen(false)}
+                />
+              )}
+
               {!isPast && (
                 <div className="flex gap-2">
                   <Button variant="outline" className="flex-1" asChild>
@@ -343,6 +392,23 @@ export function ActivityPostCard({
                   </Button>
                 )}
               </div>
+              {viewerId && checkInOpen && (
+                checkedIn ? (
+                  <StatusPill tone="success" icon={ShieldCheck}>
+                    Checked in
+                  </StatusPill>
+                ) : (
+                  <ScanCheckInButton
+                    kind="post"
+                    activityId={post.id}
+                    userId={viewerId}
+                    onCheckedIn={() => {
+                      setJustCheckedIn(true)
+                      if (viewerId) markCheckedIn(viewerId, post.id)
+                    }}
+                  />
+                )
+              )}
               <ConnectAction
                 userId={post.authorId}
                 displayName={authorName}

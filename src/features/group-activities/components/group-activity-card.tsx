@@ -11,6 +11,9 @@ import { CheckInQrDialog } from '@/features/group-activities/components/check-in
 import { ScanCheckInButton } from '@/features/group-activities/components/scan-check-in-button'
 import { ShareGroupActivityActions } from '@/features/group-activities/components/share-group-activity-actions'
 import { useGroupActivityActions } from '@/features/group-activities/use-group-activity-actions'
+import { markCheckedIn, useMyCheckIns } from '@/features/group-activities/use-my-check-ins'
+import { CHECK_IN_GRACE_MINUTES } from '@/constants/attendance'
+import { isCheckInOpen, toCheckInSubject } from '@/lib/attendance'
 import { formatActivityDate, formatActivityTime } from '@/lib/activity-format'
 import {
   getGroupActivityViewerState,
@@ -21,7 +24,7 @@ import {
 import { getInitials } from '@/lib/initials'
 import { formatBudget, getAreaName, getSportName } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
-import { editGroupActivityPath, groupActivityDetailPath } from '@/routes/routes'
+import { buddyProfilePath, editGroupActivityPath, groupActivityDetailPath } from '@/routes/routes'
 import type { GroupActivity } from '@/types/group-activity'
 import type { DiscoveryProfile } from '@/types/discovery-profile'
 
@@ -58,7 +61,10 @@ export function GroupActivityCard({
   const [busy, setBusy] = useState<Busy>('idle')
   const [error, setError] = useState('')
   const [isQrOpen, setIsQrOpen] = useState(false)
-  const [checkedIn, setCheckedIn] = useState(false)
+  const [justCheckedIn, setJustCheckedIn] = useState(false)
+  // Survives a reload: a check-in is a record, not a flash of UI state.
+  const { checkedInIds } = useMyCheckIns()
+  const checkedIn = justCheckedIn || checkedInIds.has(activity.id)
 
   const viewerState = viewerId ? getGroupActivityViewerState(activity, viewerId, now) : 'past'
   const isOrganizer = viewerState === 'organizer'
@@ -70,6 +76,9 @@ export function GroupActivityCard({
   // upcoming) — also exactly when QR check-in becomes available.
   const isPast = new Date(activity.startAt).getTime() <= now.getTime()
   const hasStarted = isPast
+  // Check-in runs from the start time until shortly after the end, so an
+  // old activity no longer offers a code or a scanner.
+  const checkInOpen = isCheckInOpen(toCheckInSubject(activity), now)
   // Genuinely finished, for the "reads as history" surface treatment — a
   // session in progress still looks live, matching the Activities page's
   // Planned/Past split (`hasGroupActivityEnded`).
@@ -193,7 +202,12 @@ export function GroupActivityCard({
                     const name = people.get(id)?.displayName ?? 'Sports buddy'
                     return (
                       <div key={id} className="flex items-center justify-between gap-2">
-                        <span className="flex min-w-0 items-center gap-2">
+                        {/* Links to their profile: an organizer deciding who
+                            to keep should be able to look them up. */}
+                        <Link
+                          to={buddyProfilePath(id)}
+                          className="flex min-w-0 items-center gap-2 rounded-lg transition-ui hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                        >
                           <Avatar className="size-8 shrink-0">
                             {people.get(id)?.photoUrl && (
                               <AvatarImage src={people.get(id)?.photoUrl ?? undefined} alt="" />
@@ -203,7 +217,7 @@ export function GroupActivityCard({
                             </AvatarFallback>
                           </Avatar>
                           <span className="truncate text-body text-card-foreground">{name}</span>
-                        </span>
+                        </Link>
                         {!isPast && (
                           <Button
                             size="sm"
@@ -241,7 +255,7 @@ export function GroupActivityCard({
                 </div>
               )}
 
-              {hasStarted && (
+              {checkInOpen && (
                 <Button variant="outline" onClick={() => setIsQrOpen(true)}>
                   <QrCode className="size-4" />
                   Show check-in code
@@ -249,8 +263,9 @@ export function GroupActivityCard({
               )}
               {isQrOpen && (
                 <CheckInQrDialog
+                  kind="group"
                   activityId={activity.id}
-                  organizerId={activity.organizerId}
+                  hostId={activity.organizerId}
                   onClose={() => setIsQrOpen(false)}
                 />
               )}
@@ -279,12 +294,20 @@ export function GroupActivityCard({
                   <StatusPill tone="success" icon={ShieldCheck}>
                     Checked in
                   </StatusPill>
-                ) : (
+                ) : checkInOpen ? (
                   <ScanCheckInButton
+                    kind="group"
                     activityId={activity.id}
                     userId={viewerId}
-                    onCheckedIn={() => setCheckedIn(true)}
+                    onCheckedIn={() => {
+                      setJustCheckedIn(true)
+                      if (viewerId) markCheckedIn(viewerId, activity.id)
+                    }}
                   />
+                ) : (
+                  <span className="text-caption text-muted-foreground">
+                    Check-in closed {CHECK_IN_GRACE_MINUTES} minutes after this session ended.
+                  </span>
                 )
               )}
             </>

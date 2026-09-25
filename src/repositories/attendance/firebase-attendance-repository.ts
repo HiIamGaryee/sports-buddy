@@ -20,41 +20,65 @@ import {
   CHECK_IN_SUBCOLLECTION,
   type AttendanceRepository,
 } from '@/repositories/attendance/attendance-repository'
+import { ACTIVITY_POSTS_COLLECTION } from '@/repositories/activity-post/activity-post-repository'
 import { GROUP_ACTIVITIES_COLLECTION } from '@/repositories/group-activity/group-activity-repository'
 import { attendanceError, ATTENDANCE_ERROR_CODES } from '@/services/attendance/attendance-error'
 import { getFirebaseDb } from '@/services/firebase/client'
+import type { CheckInSubjectKind } from '@/types/attendance'
 
-const checkInRef = (activityId: string) =>
-  doc(getFirebaseDb(), GROUP_ACTIVITIES_COLLECTION, activityId, CHECK_IN_SUBCOLLECTION, CHECK_IN_DOC_ID)
+/** The one place the two collection names are chosen — never a user value. */
+const collectionFor = (kind: CheckInSubjectKind) =>
+  kind === 'group' ? GROUP_ACTIVITIES_COLLECTION : ACTIVITY_POSTS_COLLECTION
+
+const checkInRef = (kind: CheckInSubjectKind, activityId: string) =>
+  doc(getFirebaseDb(), collectionFor(kind), activityId, CHECK_IN_SUBCOLLECTION, CHECK_IN_DOC_ID)
 
 const attendanceRef = (activityId: string, userId: string) =>
   doc(getFirebaseDb(), ATTENDANCE_COLLECTION, `${activityId}__${userId}`)
 
-async function writeCode(activityId: string, organizerId: string): Promise<string> {
-  const code = generateCheckInCode(CHECK_IN_CODE_LENGTH)
-  await setDoc(checkInRef(activityId), { organizerId, code, updatedAt: serverTimestamp() })
+async function writeCode(
+  kind: CheckInSubjectKind,
+  activityId: string,
+  hostId: string,
+  chosen?: string,
+): Promise<string> {
+  const code = chosen ?? generateCheckInCode(CHECK_IN_CODE_LENGTH)
+  // `organizerId` is the stored field name for both kinds: it is the host, and
+  // renaming it would migrate every existing group activity's code document.
+  await setDoc(checkInRef(kind, activityId), {
+    organizerId: hostId,
+    code,
+    updatedAt: serverTimestamp(),
+  })
   return code
 }
 
 export const firebaseAttendanceRepository: AttendanceRepository = {
-  async ensureCheckInCode(activityId, organizerId) {
-    const snapshot = await getDoc(checkInRef(activityId))
+  async ensureCheckInCode(kind, activityId, hostId) {
+    const snapshot = await getDoc(checkInRef(kind, activityId))
     const existing = snapshot.exists() ? snapshot.data().code : null
     return typeof existing === 'string' && existing.length > 0
       ? existing
-      : writeCode(activityId, organizerId)
+      : writeCode(kind, activityId, hostId)
   },
 
-  regenerateCheckInCode(activityId, organizerId) {
-    return writeCode(activityId, organizerId)
+  regenerateCheckInCode(kind, activityId, hostId) {
+    return writeCode(kind, activityId, hostId)
+  },
+
+  setCheckInCode(kind, activityId, hostId, code) {
+    return writeCode(kind, activityId, hostId, code)
   },
 
   async checkIn(activityId, userId, code) {
     const reference = attendanceRef(activityId, userId)
     // Idempotent: a second scan never re-writes an existing record, so the
     // rules' create-only restriction is never even hit on a repeat check-in.
-    const existing = await getDoc(reference)
-    if (existing.exists()) {
+    // A failed read must not stop a first-ever check-in: this lookup only
+    // exists to make a REPEAT scan a no-op, so treat any refusal as "no
+    // record yet" and let the write below be the thing that is authorized.
+    const existing = await getDoc(reference).catch(() => null)
+    if (existing?.exists()) {
       const record = toAttendanceRecordDocument(existing.id, existing.data())
       if (record) return record
     }

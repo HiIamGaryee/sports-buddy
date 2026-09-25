@@ -383,7 +383,9 @@ function LocationStep({ draft, setField, setLocation, error }: { draft: Discover
           onSelectVenue={(venueName) => setField('customLocation', venueName)}
         />
       )}
-      <p className="text-body-small text-muted-foreground">Choose an area, then search OpenStreetMap for a venue people can find.</p>
+      <p className="text-body-small text-muted-foreground">
+        Choose an area, then search OpenStreetMap for a venue people can find.
+      </p>
       <FinalSummary draft={draft} />
     </div>
   )

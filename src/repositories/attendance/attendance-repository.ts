@@ -1,17 +1,32 @@
-import type { AttendanceRecord } from '@/types/attendance'
+import type { AttendanceRecord, CheckInSubjectKind } from '@/types/attendance'
 
 /**
- * `groupActivities/{activityId}/checkIn/current` — the organizer's current
+ * `groupActivities/{activityId}/checkIn/current` (or
+ * `activityPosts/{postId}/checkIn/current` for a 1-to-1) — the host's current
  * QR code, one document per activity, readable only by the organizer.
  * `attendanceRecords/{activityId}__{userId}` — one immutable record per
  * (activity, attendee) pair, created only by the attendee themselves and
  * only when their scanned code matches the current one.
  */
 export interface AttendanceRepository {
-  /** The organizer's current code, creating one on first use. Organizer only. */
-  ensureCheckInCode(activityId: string, organizerId: string): Promise<string>
-  /** Invalidates a leaked/screenshotted code by replacing it. Organizer only. */
-  regenerateCheckInCode(activityId: string, organizerId: string): Promise<string>
+  /**
+   * The host's current code, creating one on first use. Host only.
+   * `kind` picks the collection the code lives under — a group activity or a
+   * 1-to-1 post; `attendanceRecords` itself is shared by both.
+   */
+  ensureCheckInCode(kind: CheckInSubjectKind, activityId: string, hostId: string): Promise<string>
+  /** Invalidates a leaked/screenshotted code by replacing it. Host only. */
+  regenerateCheckInCode(kind: CheckInSubjectKind, activityId: string, hostId: string): Promise<string>
+  /**
+   * Replaces the code with one the HOST chose, so they can call it out at the
+   * venue. Host only, and it invalidates the previous code immediately.
+   */
+  setCheckInCode(
+    kind: CheckInSubjectKind,
+    activityId: string,
+    hostId: string,
+    code: string,
+  ): Promise<string>
   /** Verifies `code` against the current one and records the attendee. Idempotent. */
   checkIn(activityId: string, userId: string, code: string): Promise<AttendanceRecord>
   /** Everyone who has checked in to one activity. Organizer only. */

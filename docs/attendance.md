@@ -11,6 +11,57 @@ Anyone's Profile page
   → attendanceService.getReliability → ReliabilityCard ("N Verified Sessions", "M% Show-up Rate")
 ```
 
+## Typed codes, set by the host (changed 2026-09-24)
+
+**Typing the code is now the primary way to check in, and the host chooses the
+code.** Photographing a QR off a bright screen turned out to be the weak link;
+reading a code out to everyone at once is not.
+
+- The host opens **Show check-in code** and can set their own — letters and
+  digits, 4–24 characters (`MIN/MAX_CHECK_IN_CODE_LENGTH`), something sayable
+  like `COURT7`. "Generate a random one" still exists, and a fresh code is
+  generated automatically the first time the dialog opens.
+- Saving **invalidates the previous code immediately**, which is what keeps a
+  leaked or overheard code harmless.
+- `normalizeCheckInCode()` upper-cases and strips spaces on both sides, so what
+  the host set and what an attendee types always compare the same way.
+- `getCheckInCodeError()` is the one validation rule, used by the form AND the
+  service; `firestore.rules` checks the shape again
+  (`size() >= 4 && size() <= 24 && matches('^[A-Z0-9]+$')`), because a
+  programmatic caller skips the UI.
+- The QR still exists behind **Show QR to scan** and encodes the same code, so
+  scanning and typing are the same check-in by two routes. Neither bypasses the
+  rules: both end up at `attendanceRecords/{activityId}__{userId}` with the
+  current code.
+
+
+## QR check-in on 1-to-1 activities (added 2026-09-24)
+
+Check-in is no longer group-only. A 1-to-1 activity post carries its own code
+at `activityPosts/{postId}/checkIn/current`, readable and writable only by the
+post's AUTHOR, exactly like a group activity's.
+
+Both kinds reduce to one shape, `CheckInSubject`
+(`src/types/attendance.ts`), built by `toCheckInSubject()` for a group
+activity and `toCheckInSubjectFromPost()` for a post. Everything downstream —
+`getCheckInWindow`, `isCheckInOpen`, `canCheckIn` — takes a subject, so there
+is ONE rule, not two near-copies.
+
+- `attendanceRecords/{activityId}__{userId}` is unchanged and shared. Its rules
+  resolve the source document by checking `groupActivities` first and falling
+  back to `activityPosts`, and read the host as `organizerId` or `authorId`.
+- A 1-to-1 check-in only opens once somebody actually **took the spot**: a post
+  nobody joined was never a session to show up for.
+- A post has no end time, so its window is the assumed 2 hours plus the
+  30-minute grace (`CHECK_IN_GRACE_MINUTES`).
+- The Reliability Profile now counts started 1-to-1 activities with a joiner
+  alongside started group activities.
+- The stored field is still named `organizerId` in the code document for both
+  kinds: it means "the host", and renaming it would migrate every existing
+  group activity's code.
+- Covered by 8 new emulator rules tests (224 total).
+
+
 ## "Past is not completed" still holds
 
 `CLAUDE.md` STEP 13 established, for `Activity`, that an ended time means

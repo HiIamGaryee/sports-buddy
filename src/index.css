@@ -20,6 +20,29 @@
     overscroll-behavior-y: none;
   }
 
+  /*
+   * A phone must never scroll sideways. One over-wide element anywhere (a long
+   * unbroken word, a card that will not shrink) otherwise drags the WHOLE
+   * document right, which also slides the fixed bottom navigation out of view.
+   *
+   * `clip` rather than `hidden` on purpose: `overflow-x: hidden` turns these
+   * elements into scroll containers, which silently breaks every
+   * `position: sticky` page header in the app. `clip` does not.
+   */
+  html,
+  body {
+    overflow-x: clip;
+    max-width: 100%;
+  }
+
+  /* Long titles, venue names and pasted links break instead of pushing out. */
+  h1,
+  h2,
+  h3,
+  p {
+    overflow-wrap: break-word;
+  }
+
   .leaflet-container {
     @apply bg-surface-subtle font-sans;
   }

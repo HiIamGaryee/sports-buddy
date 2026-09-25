@@ -26,6 +26,7 @@ import { AvailabilitySummary } from '@/features/profile/components/availability-
 import { ProfileHero } from '@/features/profile/components/profile-hero'
 import { GenderLabel } from '@/components/profile/gender-label'
 import { MonthlyRecapBanner } from '@/features/recap/components/monthly-recap-banner'
+import { VerifiedCheckInsCard } from '@/features/profile/components/verified-check-ins-card'
 import { ReliabilityCard } from '@/features/ratings/components/reliability-card'
 import { SportSkillList } from '@/features/profile/components/sport-skill-list'
 import { SettingsSection } from '@/features/settings/components/settings-section'
@@ -166,14 +167,10 @@ export function ProfilePage() {
                   </>
                 )}
                 <Separator />
-                <div className="flex gap-3">
-                  <Button
-                    size="icon-lg"
-                    className="rounded-full"
-                    aria-label="Edit profile"
-                    title="Edit profile"
-                    asChild
-                  >
+                {/* Labelled buttons, not bare icons: an icon alone left people
+                    guessing which one edits and which one previews. */}
+                <div className="flex flex-wrap gap-3">
+                  <Button size="lg" className="rounded-full" asChild>
                     <Link to={ROUTES.profileEdit}>
                       <img
                         src={editIcon}
@@ -181,6 +178,7 @@ export function ProfilePage() {
                         aria-hidden
                         className="size-5 object-contain"
                       />
+                      Edit profile
                     </Link>
                   </Button>
                   <Dialog
@@ -188,19 +186,14 @@ export function ProfilePage() {
                     onOpenChange={setIsPreviewOpen}
                   >
                     <DialogTrigger asChild>
-                      <Button
-                        size="icon-lg"
-                        variant="outline"
-                        className="rounded-full"
-                        aria-label="Preview profile"
-                        title="Preview profile"
-                      >
+                      <Button size="lg" variant="outline" className="rounded-full">
                         <img
                           src={previewIcon}
                           alt=""
                           aria-hidden
                           className="size-5 object-contain"
                         />
+                        Preview profile
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-h-[85dvh] overflow-y-auto">
@@ -219,12 +212,18 @@ export function ProfilePage() {
               {/* Not a SettingsSection: ReliabilityCard is already a Card, and
                   nesting one inside another draws a box in a box. */}
               <section id="track-record" className="flex scroll-mt-6 flex-col gap-3">
+                {/* Three different things, deliberately named apart: reviews
+                    are opinions, check-ins are machine-recorded facts, and the
+                    monthly recap is a summary of what you played. */}
                 <SectionHeader
                   level="group"
-                  title="Track record"
-                  description="What other sports buddies see about how reliably you turn up."
+                  title="Reliability"
+                  description="Sessions you verified by checking in at the venue. Buddy reviews will appear here too, once your buddies start leaving them."
                 />
                 <ReliabilityCard buddyId={profile.id} isSelf />
+                {/* The other half of turning up: what YOU verified at the
+                    venue with a check-in code. A fact, beside the reviews. */}
+                <VerifiedCheckInsCard />
               </section>
 
               <SettingsSection id="sports" title="Sports & playing style">

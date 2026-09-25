@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Monitor, Moon, Sparkles, Sun } from 'lucide-react'
+import { ChevronRight, Monitor, Moon, Sparkles, Sun } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -81,9 +81,44 @@ export function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const { user, signOut } = useAuth()
   const { profile } = useProfile()
-  const { isBuddyPlus } = useSubscription()
+  const { isBuddyPlus, presentCustomerCenter, restore } = useSubscription()
   const { save, isSaving, error } = usePreferenceUpdate()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isManaging, setIsManaging] = useState(false)
+  const [isRestoring, setIsRestoring] = useState(false)
+  const [subscriptionNotice, setSubscriptionNotice] = useState('')
+  const [subscriptionError, setSubscriptionError] = useState('')
+
+  async function handleManageSubscription() {
+    setIsManaging(true)
+    setSubscriptionError('')
+    setSubscriptionNotice('')
+    try {
+      await presentCustomerCenter()
+    } catch {
+      // The Customer Center is store-backed, so it is not available on every
+      // build (the RevenueCat Test Store has no subscription management UI).
+      setSubscriptionError(
+        'Subscription management is only available in the store build. On a real purchase, cancel from the Play Store subscriptions page.',
+      )
+    } finally {
+      setIsManaging(false)
+    }
+  }
+
+  async function handleRestore() {
+    setIsRestoring(true)
+    setSubscriptionError('')
+    setSubscriptionNotice('')
+    try {
+      await restore()
+      setSubscriptionNotice('Purchases restored.')
+    } catch {
+      setSubscriptionError("We couldn't restore your purchases. Please try again.")
+    } finally {
+      setIsRestoring(false)
+    }
+  }
 
   const preferences = profile?.preferences
 
@@ -137,11 +172,11 @@ export function SettingsPage() {
               <Sparkles aria-hidden className="size-4.5" />
             </span>
             <SettingsRow
-              label={isBuddyPlus ? 'Buddy+ active' : 'Get Buddy+'}
+              label={isBuddyPlus ? 'Your plan: Buddy+' : 'Your plan: Free'}
               description={
                 isBuddyPlus
-                  ? 'Unlimited activities, advanced filters and analytics.'
-                  : 'Advanced filters, unlimited activities, deeper insights.'
+                  ? 'Unlimited group activities, more sports and the advanced Discover filters.'
+                  : 'Compare Free and Buddy+, and upgrade when you want more.'
               }
               trailing={
                 <ChevronRight
@@ -152,9 +187,61 @@ export function SettingsPage() {
               className="flex-1"
             />
           </Link>
+
+          <Separator />
+
+          <div className="flex flex-col gap-3">
+            {isBuddyPlus && (
+              <Button
+                variant="outline"
+                disabled={isManaging}
+                onClick={() => void handleManageSubscription()}
+                className="h-auto justify-start py-3 text-left whitespace-normal"
+              >
+                {isManaging ? 'Opening…' : 'Manage or cancel Buddy+'}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              disabled={isRestoring}
+              onClick={() => void handleRestore()}
+              className="justify-start"
+            >
+              {isRestoring ? 'Restoring…' : 'Restore purchases'}
+            </Button>
+            {subscriptionNotice && (
+              <p role="status" className="text-body-small text-muted-foreground">
+                {subscriptionNotice}
+              </p>
+            )}
+            {subscriptionError && (
+              <p role="alert" className="text-body-small text-destructive">
+                {subscriptionError}
+              </p>
+            )}
+          </div>
         </SettingsSection>
 
         <SettingsSection id="preferences" title="Preferences">
+          <Link
+            to={ROUTES.recap}
+            className="-m-2 flex items-center gap-3 rounded-xl p-2 transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <SettingsRow
+              label="Monthly recap"
+              description="What you played each month, who you played with, and a card you can share."
+              trailing={
+                <ChevronRight
+                  aria-hidden
+                  className="mt-1 size-4 shrink-0 text-muted-foreground"
+                />
+              }
+              className="flex-1"
+            />
+          </Link>
+
+          <Separator />
+
           <Link
             to={ROUTES.discoverySettings}
             className="-m-2 flex items-center gap-3 rounded-xl p-2 transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -370,23 +457,6 @@ export function SettingsPage() {
               {APP_VERSION}
             </span>
           </div>
-          <Separator />
-          <SettingsRow
-            label="Mock build"
-            description="Download the current Android debug APK."
-            trailing={
-              <Button variant="outline" size="sm" asChild>
-                <a
-                  href="/downloads/sports-buddy-mock.apk"
-                  download="sports-buddy-mock.apk"
-                  aria-label="Download Mock Build APK"
-                >
-                  <Download className="size-4" />
-                  Download
-                </a>
-              </Button>
-            }
-          />
         </SettingsSection>
           </div>
         </div>

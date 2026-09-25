@@ -22,7 +22,12 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusPill } from '@/components/ui/status-pill'
 import diamondIcon from '@/assets/svg/diamond-search-svgrepo-com.svg'
-import { isMockRedeemCodeFormat, normalizeMockRedeemCode } from '@/constants/entitlements'
+import {
+  FREE_MAX_HOSTED_GROUP_ACTIVITIES,
+  FREE_MAX_JOINED_GROUP_ACTIVITIES,
+  isMockRedeemCodeFormat,
+  normalizeMockRedeemCode,
+} from '@/constants/entitlements'
 import { MAX_BUDDY_PLUS_SPORTS } from '@/constants/sports'
 import general from '@/data/general.json'
 import { useSubscription } from '@/hooks/use-subscription'
@@ -30,73 +35,150 @@ import type { SubscriptionPackage } from '@/types/subscription'
 
 const PREMIUM_FILTER_COPY = general.discover.premiumFilters
 
+/**
+ * Every row here must be something Buddy+ REALLY changes in the app today.
+ * A locked row on a paywall is a promise, and a member who pays will go
+ * looking for it — so nothing aspirational belongs in this list.
+ */
 const PLAN_FEATURES = [
   {
     label: 'Sports on your profile',
-    free: 'Up to 5 sports',
-    buddyPlus: `Up to ${MAX_BUDDY_PLUS_SPORTS} sports`,
+    detail:
+      'How many sports you can list. More sports means you turn up in more people’s Discover results.',
+    free: 'Up to 5',
+    buddyPlus: `Up to ${MAX_BUDDY_PLUS_SPORTS}`,
   },
   {
-    label: 'Active plans per Buddy',
-    free: '1 active plan',
-    buddyPlus: 'Multiple active plans',
+    label: 'Group activities you host at once',
+    detail:
+      'Open sessions you organise and others join. The cap counts only sessions that have not happened yet — once one is over, the slot frees up.',
+    free: `${FREE_MAX_HOSTED_GROUP_ACTIVITIES}`,
+    buddyPlus: 'Unlimited',
   },
   {
-    label: general.notifications.activityReminders.label,
-    free: null,
-    buddyPlus: 'Before planned sessions',
+    label: 'Group activities you join at once',
+    detail:
+      'Other people’s sessions you have a place in. Same rule: finished sessions stop counting.',
+    free: `${FREE_MAX_JOINED_GROUP_ACTIVITIES}`,
+    buddyPlus: 'Unlimited',
   },
   {
     label: PREMIUM_FILTER_COPY.title,
-    free: 'Basic filters',
-    buddyPlus: `Date, popularity and ${PREMIUM_FILTER_COPY.items.length - 2} more filters`,
-  },
-  {
-    label: 'Reliability-based discovery',
+    detail: `Narrow Discover by ${PREMIUM_FILTER_COPY.items.map(({ label }) => label.toLowerCase()).join(', ')}. Free members browse with location and activity only.`,
     free: null,
-    buddyPlus: 'Prioritise reliable Buddies',
+    buddyPlus: `All ${PREMIUM_FILTER_COPY.items.length} filters`,
   },
   {
-    label: 'Group activities',
-    free: 'Core access',
-    buddyPlus: 'Unlimited access',
+    label: 'Discover, chat and planning',
+    detail:
+      'Compatibility matching, connecting, unlimited messages, and planning a session together down to the venue. Never limited.',
+    free: 'Included',
+    buddyPlus: 'Included',
   },
   {
-    label: 'Sports insights',
-    free: 'Basic recap',
-    buddyPlus: 'Advanced trends',
+    label: 'QR check-in, reliability and recap',
+    detail:
+      'Scan the organiser’s code at the venue to verify you turned up, build a show-up rate on your profile, and get your monthly recap. Free for everyone.',
+    free: 'Included',
+    buddyPlus: 'Included',
   },
 ] as const
 
-function PlanFeatures({ isBuddyPlus }: { isBuddyPlus: boolean }) {
+function PlanCell({ value }: { value: string | null }) {
   return (
-    <ul className="flex flex-col gap-[18px]">
-      {PLAN_FEATURES.map(({ label, free, buddyPlus }) => {
-        const value = isBuddyPlus ? buddyPlus : free
-        const isIncluded = value !== null
-
-        return (
-          <li key={label} className="flex items-start gap-4">
-            <span
-              className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full ${isIncluded ? 'pricing-check' : 'pricing-lock'}`}
-            >
-              {isIncluded ? (
-                <Check aria-hidden className="size-3.5" />
-              ) : (
-                <LockKeyhole aria-hidden className="size-3" />
-              )}
-            </span>
-            <span className="flex min-w-0 flex-col gap-1">
-              <span className="text-body font-semibold text-card-foreground">{label}</span>
-              <span className="text-caption text-muted-foreground">
-                {value ?? 'Buddy+ only'}
-              </span>
-            </span>
-          </li>
-        )
-      })}
-    </ul>
+    <span className="flex flex-col items-center gap-1 text-center">
+      <span
+        className={`flex size-5 items-center justify-center rounded-full ${value === null ? 'pricing-lock' : 'pricing-check'}`}
+      >
+        {value === null ? (
+          <LockKeyhole aria-hidden className="size-3" />
+        ) : (
+          <Check aria-hidden className="size-3.5" />
+        )}
+      </span>
+      <span className="text-caption text-muted-foreground">{value ?? 'Not included'}</span>
+    </span>
   )
+}
+
+/**
+ * The side-by-side comparison: one row per feature, both columns always
+ * visible, so a member can see what Free does and does not include without
+ * switching anything. The column they are on is marked.
+ */
+function PlanComparison({ isBuddyPlus }: { isBuddyPlus: boolean }) {
+  return (
+    <section className="flex flex-col gap-4">
+      <h3 className="text-heading-3 font-bold text-foreground">Compare plans</h3>
+      <Card variant="subtle">
+        <CardContent className="p-0">
+          <table className="w-full table-fixed border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                <th scope="col" className="w-[52%] px-4 py-3 text-left text-label text-muted-foreground">
+                  Feature
+                </th>
+                <th scope="col" className="px-2 py-3 text-center text-label text-card-foreground">
+                  Free
+                  {!isBuddyPlus && (
+                    <span className="block text-caption font-normal text-primary">Your plan</span>
+                  )}
+                </th>
+                <th scope="col" className="px-2 py-3 text-center text-label text-card-foreground">
+                  Buddy+
+                  {isBuddyPlus && (
+                    <span className="block text-caption font-normal text-primary">Your plan</span>
+                  )}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {PLAN_FEATURES.map(({ label, detail, free, buddyPlus }) => (
+                <tr key={label} className="border-b border-border last:border-b-0">
+                  <th scope="row" className="px-4 py-3 text-left">
+                    <span className="flex flex-col gap-1">
+                      <span className="text-body-small font-semibold text-card-foreground">
+                        {label}
+                      </span>
+                      {/* Says what the row actually means: "2" on its own told
+                          nobody what was being counted, or when it resets. */}
+                      <span className="text-caption font-normal text-muted-foreground">
+                        {detail}
+                      </span>
+                    </span>
+                  </th>
+                  <td className="px-2 py-3 align-top">
+                    <PlanCell value={free} />
+                  </td>
+                  <td className="px-2 py-3 align-top">
+                    <PlanCell value={buddyPlus} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </section>
+  )
+}
+
+/**
+ * What makes one billing option different from the others, in our own words.
+ * The store's own `description` is often empty or identical across packages,
+ * which left three rows that looked the same apart from the price.
+ *
+ * Deliberately no numbers: prices and periods only ever come from RevenueCat's
+ * localized strings, so this can never contradict what the store charges.
+ */
+function describePackage(option: SubscriptionPackage): string {
+  const id = `${option.id} ${option.productId}`.toLowerCase()
+  if (id.includes('lifetime')) return 'One payment. Buddy+ stays on your account — nothing renews.'
+  if (id.includes('annual') || id.includes('year')) {
+    return 'Billed once a year. Cheaper per month than paying monthly, and one payment instead of twelve.'
+  }
+  if (id.includes('month')) return 'Billed every month. Cancel any time and keep it until the month ends.'
+  return option.description
 }
 
 function PackageOption({
@@ -117,7 +199,9 @@ function PackageOption({
     >
       <span className="flex min-w-0 flex-col items-start gap-0.5">
         <span className="text-title text-foreground">{option.title}</span>
-        <span className="text-caption text-muted-foreground">{option.description}</span>
+        <span className="text-caption break-words whitespace-normal text-muted-foreground">
+          {describePackage(option)}
+        </span>
       </span>
       <span className="shrink-0 text-body-small font-semibold text-primary">
         {isBusy
@@ -262,11 +346,11 @@ export function PaywallPage() {
     setError('')
     try {
       await presentCustomerCenter()
-    } catch (manageError) {
+    } catch {
+      // Store-backed screen: the RevenueCat Test Store has no Customer Center,
+      // so say where a real subscription is cancelled instead of an error code.
       setError(
-        manageError instanceof Error
-          ? manageError.message
-          : "We couldn't open subscription management.",
+        'Subscription management is only available in the store build. On a real purchase, cancel from the Play Store subscriptions page.',
       )
     } finally {
       setIsManaging(false)
@@ -292,11 +376,9 @@ export function PaywallPage() {
               Start free. Upgrade when you&apos;re ready to discover more, plan more and play more.
             </p>
           </div>
-          {isBuddyPlus && (
-            <StatusPill tone="success" icon={Check}>
-              Buddy+ active
-            </StatusPill>
-          )}
+          <StatusPill tone={isBuddyPlus ? 'success' : 'neutral'} icon={isBuddyPlus ? Check : undefined}>
+            {isBuddyPlus ? 'Your plan: Buddy+' : 'Your plan: Free'}
+          </StatusPill>
         </section>
 
         <section className="grid items-stretch gap-6 md:grid-cols-2">
@@ -315,12 +397,18 @@ export function PaywallPage() {
                   <span className="pb-1 text-body-small text-muted-foreground">forever</span>
                 </div>
                 <Button variant="outline" size="lg" disabled className="rounded-2xl">
-                  Current plan
+                  {isBuddyPlus ? 'Included in Buddy+' : 'Your current plan'}
                 </Button>
               </div>
-              <div className="flex flex-col gap-4 px-1 pb-1">
+              <div className="flex flex-col gap-2 px-1 pb-1">
                 <span className="text-heading-3 font-bold text-card-foreground">What&apos;s included</span>
-                <PlanFeatures isBuddyPlus={false} />
+                <p className="text-body-small text-muted-foreground">
+                  The whole app: Discover, chat, planning, confirmed sessions, QR check-in and
+                  your monthly recap. Free members can host{' '}
+                  {FREE_MAX_HOSTED_GROUP_ACTIVITIES} and join{' '}
+                  {FREE_MAX_JOINED_GROUP_ACTIVITIES} group activities at a time, and keep up to
+                  5 sports on their profile.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -361,10 +449,37 @@ export function PaywallPage() {
                   )}
                 </div>
                 {isBuddyPlus ? (
-                  <Button variant="outline" size="lg" className="h-[60px] rounded-2xl" disabled={isManaging} onClick={() => void openCustomerCenter()}>
-                    <Settings2 className="size-4" />
-                    {isManaging ? 'Opening…' : 'Manage subscription'}
-                  </Button>
+                  <>
+                    <StatusPill tone="success" icon={Check}>
+                      Your current plan
+                    </StatusPill>
+                    {/* `h-auto` + wrapping text: a fixed-height button with
+                        nowrap text clipped this label on a phone. */}
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="h-auto min-h-[60px] rounded-2xl px-4 py-3 text-center whitespace-normal"
+                      disabled={isManaging}
+                      onClick={() => void openCustomerCenter()}
+                    >
+                      <Settings2 className="size-4 shrink-0" />
+                      {isManaging ? 'Opening…' : 'Manage or cancel Buddy+'}
+                    </Button>
+                    {/*
+                      Shown up front, not only when the Customer Center fails:
+                      a subscription is cancelled at the STORE, and RevenueCat's
+                      Test Store has no cancel screen at all. Saying so beats
+                      opening a panel with no cancel button in it.
+                    */}
+                    <p className="text-caption text-muted-foreground">
+                      Buddy+ renews through the store that sold it. To cancel a real
+                      purchase: Play Store → your avatar → Payments &amp; subscriptions →
+                      Subscriptions → Sports Buddy → Cancel. Buddy+ stays active until the
+                      period you already paid for ends. A Test Store purchase (used while
+                      the app is in development) has no cancel screen — it expires by
+                      itself.
+                    </p>
+                  </>
                 ) : (
                   <Button size="lg" className="pricing-premium-cta pricing-cta-motion h-[60px] rounded-2xl font-bold text-primary-foreground" disabled={isPresentingPaywall} onClick={() => void openPaywall()}>
                     {isPresentingPaywall ? 'Opening…' : 'Upgrade to Buddy+'}
@@ -386,7 +501,11 @@ export function PaywallPage() {
 
               <div className="flex flex-col gap-4 px-1 pb-1">
                 <span className="text-heading-3 font-bold text-card-foreground">Everything in Free, plus</span>
-                <PlanFeatures isBuddyPlus />
+                <p className="text-body-small text-muted-foreground">
+                  Unlimited group activities to host and join, up to{' '}
+                  {MAX_BUDDY_PLUS_SPORTS} sports on your profile, and the{' '}
+                  {PREMIUM_FILTER_COPY.items.length} advanced Discover filters.
+                </p>
 
                 {feedback && (
                   <p role="status" className="text-body-small text-muted-foreground">
@@ -452,15 +571,15 @@ export function PaywallPage() {
                   </div>
                 )}
 
-                {!isBuddyPlus && (
-                  <Button variant="ghost" disabled={isRestoring} onClick={() => void doRestore()}>
-                    {isRestoring ? 'Restoring…' : 'Restore purchases'}
-                  </Button>
-                )}
+                <Button variant="ghost" disabled={isRestoring} onClick={() => void doRestore()}>
+                  {isRestoring ? 'Restoring…' : 'Restore purchases'}
+                </Button>
               </div>
             </CardContent>
           </Card>
         </section>
+
+        <PlanComparison isBuddyPlus={isBuddyPlus} />
       </PageContainer>
 
       <Dialog

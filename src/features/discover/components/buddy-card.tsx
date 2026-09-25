@@ -2,6 +2,7 @@ import { MapPin, MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { GenderLabel } from '@/components/profile/gender-label'
+import { SportBadges } from '@/components/profile/sport-badges'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConnectAction } from '@/features/connections/components/connect-action'
@@ -11,7 +12,6 @@ import {
   getAreaName,
   getIntentLabel,
   getSkillLabel,
-  getSportName,
 } from '@/lib/profile-format'
 import { buddyProfilePath, conversationPath } from '@/routes/routes'
 import type { DiscoverBuddy } from '@/types/discover'
@@ -49,33 +49,38 @@ export function BuddyCard({
   return (
     <article className="opportunity-card h-full">
       <div className="flex h-full flex-col gap-4 p-6">
+        {/*
+          The PERSON is the headline — their name, with the sports they play
+          above it. Sports you share are tinted; the rest are neutral, and
+          anything past the first few lives on their profile.
+        */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-col items-start gap-1.5">
-            <span className="truncate text-heading-3 text-card-foreground">
-              {headlineSport ? getSportName(headlineSport) : 'Sports buddy'}
+          <div className="flex min-w-0 flex-col items-start gap-2">
+            <SportBadges
+              sports={candidate.sports.map(({ sportId }) => sportId)}
+              sharedSports={compatibility.sharedSports}
+            />
+            <Link
+              to={buddyProfilePath(candidate.userId)}
+              className="max-w-full truncate rounded-lg text-heading-3 text-card-foreground transition-ui hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              {candidate.displayName}
+            </Link>
+            <span className="flex items-center gap-1.5 text-body-small text-muted-foreground">
+              <MapPin className="size-3.5 shrink-0" aria-hidden />
+              <span className="truncate">{getAreaName(candidate.area)}</span>
+              <GenderLabel gender={candidate.gender} />
+            </span>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <span
+              className="text-heading-2 text-primary"
+              aria-label={`${compatibility.score} percent compatible`}
+            >
+              {compatibility.score}%
             </span>
             <Badge variant="outline">{compatibility.label}</Badge>
           </div>
-          <span
-            className="shrink-0 text-heading-2 text-primary"
-            aria-label={`${compatibility.score} percent compatible`}
-          >
-            {compatibility.score}%
-          </span>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <Link
-            to={buddyProfilePath(candidate.userId)}
-            className="truncate rounded-lg text-title text-card-foreground transition-ui hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
-            {candidate.displayName}
-          </Link>
-          <span className="flex items-center gap-1.5 text-body-small text-muted-foreground">
-            <MapPin className="size-3.5 shrink-0" aria-hidden />
-            <span className="truncate">{getAreaName(candidate.area)}</span>
-            <GenderLabel gender={candidate.gender} />
-          </span>
         </div>
 
         {connectionState === 'pending-incoming' && (

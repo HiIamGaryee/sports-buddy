@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Sparkles } from 'lucide-react'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
@@ -21,11 +22,13 @@ import {
   MIN_GROUP_ACTIVITY_PARTICIPANTS,
   SKILL_PREFERENCE_OPTIONS,
 } from '@/constants/group-activities'
+import { FREE_MAX_HOSTED_GROUP_ACTIVITIES } from '@/constants/entitlements'
 import { SPORTS } from '@/constants/sports'
 import { useAuth } from '@/hooks/use-auth'
 import { useProfile } from '@/hooks/use-profile'
 import { useSubscription } from '@/hooks/use-subscription'
-import { toDraftFromGroupActivity } from '@/lib/group-activity'
+import { canHostAnotherGroupActivity } from '@/lib/capabilities'
+import { isUpcomingGroupActivity, toDraftFromGroupActivity } from '@/lib/group-activity'
 import { groupActivityService } from '@/services/group-activity/group-activity-service'
 import { groupActivityDetailPath, ROUTES } from '@/routes/routes'
 import type { GroupActivity, GroupActivityDraft } from '@/types/group-activity'
@@ -79,6 +82,43 @@ export function GroupActivityFormPage() {
   )
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
+  /**
+   * The free hosting cap, checked BEFORE the form is filled in. Finding out
+   * you are at the limit after writing five steps of detail is the worst
+   * possible moment, so creating is gated up front; the service still
+   * re-checks on save, because the limit is not the UI's to enforce.
+   */
+  const [hostLimit, setHostLimit] = useState<'checking' | 'allowed' | 'reached'>(
+    isEdit ? 'allowed' : 'checking',
+  )
+
+  useEffect(() => {
+    if (isEdit || !user) return
+    // Wait for the entitlement to resolve: 'loading' fails closed, which
+    // would otherwise gate a Buddy+ member out of their own feature.
+    if (subscriptionState === 'loading' || subscriptionState === 'unknown') return
+
+    let active = true
+    groupActivityService
+      .listMine(user.id)
+      .then((hosted) => {
+        if (!active) return
+        const now = new Date()
+        const activeHosted = hosted.filter((activity) => isUpcomingGroupActivity(activity, now))
+        setHostLimit(
+          canHostAnotherGroupActivity(subscriptionState, activeHosted.length)
+            ? 'allowed'
+            : 'reached',
+        )
+      })
+      .catch(() => {
+        // A failed count must not block hosting; the service re-checks on save.
+        if (active) setHostLimit('allowed')
+      })
+    return () => {
+      active = false
+    }
+  }, [isEdit, user, subscriptionState])
 
   useEffect(() => {
     if (!activityId || !user) return
@@ -156,12 +196,45 @@ export function GroupActivityFormPage() {
     />
   )
 
-  if (editState.status === 'loading') {
+  if (editState.status === 'loading' || hostLimit === 'checking') {
     return (
       <>
         {header}
         <PageContainer size="narrow">
           <Skeleton className="h-64 w-full rounded-2xl" />
+        </PageContainer>
+      </>
+    )
+  }
+
+  if (hostLimit === 'reached') {
+    return (
+      <>
+        {header}
+        <PageContainer size="narrow">
+          <Card variant="subtle">
+            <CardContent className="flex flex-col items-start gap-4">
+              <span className="text-heading-3 font-bold text-card-foreground">
+                You&apos;re hosting the maximum for a free plan
+              </span>
+              <p className="text-body-small text-muted-foreground">
+                Free members host {FREE_MAX_HOSTED_GROUP_ACTIVITIES} group activities at a time.
+                Once one of yours finishes, or if you remove one, a slot opens up again. Buddy+
+                removes the limit.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button asChild>
+                  <Link to={ROUTES.paywall}>
+                    <Sparkles className="size-4" aria-hidden />
+                    See Buddy+
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to={ROUTES.activities}>My activities</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </PageContainer>
       </>
     )

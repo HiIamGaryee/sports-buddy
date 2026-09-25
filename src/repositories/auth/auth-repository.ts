@@ -6,6 +6,12 @@ export interface AuthRepository {
   signInWithEmail(credentials: EmailCredentials): Promise<AuthUser>
   signInWithGoogle(): Promise<AuthUser>
   signOut(): Promise<void>
+  /**
+   * Sends a password-reset email. Resolves even when no account has that
+   * address: telling a caller which emails are registered would let anyone
+   * enumerate the member list.
+   */
+  sendPasswordReset(email: string): Promise<void>
   getCurrentUser(): Promise<AuthUser | null>
   /**
    * Best-effort rollback for a just-created account whose profile document

@@ -76,18 +76,25 @@ export function AppHeader({
           )}
           <MobileNavigationMenu />
           <div className="flex min-w-0 flex-col">
-            <h1 className="truncate text-heading-1 text-foreground md:text-display">
+            {/* Wraps to two lines on a phone rather than being cut off: page
+                titles like "Create a group activity" do not fit one 360px
+                line, and an ellipsis reads as a broken layout. */}
+            <h1 className="line-clamp-2 text-heading-1 text-foreground md:line-clamp-none md:text-display">
               {title}
             </h1>
             {subtitle && (
-              <p className="truncate text-body-small text-muted-foreground md:text-body">
+              /* Wraps to two lines rather than being clipped: a cut-off
+                 sentence reads as a layout bug, and there is room for it. */
+              <p className="line-clamp-2 text-body-small text-muted-foreground md:line-clamp-none md:text-body">
                 {subtitle}
               </p>
             )}
           </div>
         </div>
         {action && (
-          <div className="flex items-center py-3 md:py-6">{action}</div>
+          /* `shrink-0` so a long title can never push the page actions (the
+             refresh button on Discover) past the right edge of the screen. */
+          <div className="flex shrink-0 items-center py-3 md:py-6">{action}</div>
         )}
       </div>
     </header>

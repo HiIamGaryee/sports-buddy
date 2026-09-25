@@ -139,6 +139,14 @@ export const mockAuthRepository: AuthRepository = {
     setSession(null)
   },
 
+  /**
+   * Mock mode has no mail server, so this only pretends — and deliberately
+   * resolves whether or not the address exists, exactly as the real one does.
+   */
+  async sendPasswordReset() {
+    await delay(null, 300)
+  },
+
   async getCurrentUser() {
     return readSession()
   },

@@ -89,9 +89,9 @@ In the app:
    within a few seconds.
 3. Check the RevenueCat dashboard → Customers: your account should now appear.
 
-- [ ] App runs on phone/emulator
-- [ ] Test Store purchase unlocks Buddy+
-- [ ] Customer visible in RevenueCat dashboard
+- [done] App runs on phone/emulator
+- [done-using teststore/entitlement id] Test Store purchase unlocks Buddy+
+- [done] Customer visible in RevenueCat dashboard
 
 If no plans show up → the offering is missing. If it buys but nothing unlocks →
 sandbox access (above). First Gradle build is slow (5–15 min); keep the
@@ -113,22 +113,204 @@ anything after purchase. A judge who buys Buddy+ will look for each one.
 | Reliability-based discovery | ❌ No — `canUseReliabilityFilter` is never used |
 | Advanced recap trends | ❌ No — recap is the same for everyone (`canUseAdvancedAnalytics` never used) |
 
-Fix: keep only the ✅ rows on the paywall, and change the premium filter
-toolkit copy to describe the filters that really unlock. No new features.
+**Done 2026-09-23** (commit "Make Buddy+ honest"). What changed:
 
-- [ ] Paywall list trimmed to real benefits
-- [ ] Premium filter toolkit copy matches the real filters
+- `/buddy-plus` is now a **Free vs Buddy+ comparison table** — every row shows
+  ✓ / 🔒 for both plans, and only real benefits are listed (sports on profile,
+  group activities hosted/joined, advanced Discover filters). The four fake
+  rows are gone.
+- Both the paywall and Settings say **"Your plan: Free / Buddy+"**, and both
+  offer **Manage or cancel subscription** and **Restore purchases**. If the
+  Customer Center is unavailable (the Test Store has none), the app says where
+  a real subscription is cancelled instead of showing an error.
+- **Creating a group activity now checks the free host limit up front** — a
+  member at the cap sees "You're hosting the maximum for a free plan" with a
+  Buddy+ link, instead of filling in five steps and being refused at save.
+- **Google sign-in is hidden inside the Android app** (the Firebase web popup
+  cannot complete in a WebView) — email/password only there.
+- Premium filter copy now names the filters that really unlock (sport, skill,
+  intent, area, shared availability).
+
+`tsc`, oxlint, 551 unit tests and `npm run build` all pass.
+
+- [x] Paywall list trimmed to real benefits
+- [x] Premium filter toolkit copy matches the real filters
+- [x] Current plan visible, cancel + restore available
+- [x] Host limit shown before the form, not after
 
 ### B3. Free → Buddy+ test on the phone (do right after B)
 
 On a **free** account first, check each limit shows, then buy, then check it
 lifts — no app restart:
 
-- [ ] Free: can't add more sports than the free limit → Buddy+: can
-- [ ] Free: 4th group activity join / 3rd host is refused with an upgrade prompt → Buddy+: allowed
-- [ ] Free: Discover filters locked → Buddy+: filter sheet opens and filters work
-- [ ] Settings shows Buddy+ active + "Manage subscription" opens Customer Center
-- [ ] Restore Purchases works after reinstalling the app
+- [done] Free: can't add more sports than the free limit → Buddy+: can
+- [done] Free: 4th group activity join / 3rd host is refused with an upgrade prompt → Buddy+: allowed
+- [done] Free: Discover filters locked → Buddy+: Discover → **More filters** →
+      **Filters** opens the sheet and narrows the list (retest on the new build)
+- [done] Settings → Buddy+ shows "Your plan: Buddy+" + **Manage or cancel
+      subscription**. On the Test Store the Customer Center may not open; the
+      honest fallback message is expected, not a bug
+- [ ] Restore purchases (Settings or paywall). Note: Buddy+ is tied to your
+      account uid, so after a reinstall you should already be Buddy+ without
+      restoring
+
+### B4. Mobile pass — done 2026-09-23 (branch `mobile-test`, not pushed)
+
+- **Sideways scrolling fixed.** `html, body` now use `overflow-x: clip`, so no
+  single wide element can drag the page — and with it the fixed bottom
+  navigation — to the right. The real culprit on Discover was the three-way
+  view toggle: its labels ("Sports buddies / Open activities / Group
+  activities") do not wrap and were wider than a 390px phone. They are now
+  **Buddies / 1-to-1 / Groups**, and the row wraps.
+- **Post an activity now asks 1-to-1 or Group first**, so creating a group
+  activity no longer means knowing to switch Discover's view.
+- **Activities rebuilt as a Luma-style list**: one row per event, title first,
+  date and time under it, month/day block on the left, sorted by time. Each of
+  **Planned / Created / Past** has a **Group | 1-to-1** switch, so the six
+  stacked sections are gone. A 1-to-1 post reads as "1-to-1 badminton".
+- **Joined people link to their profile** on both card types.
+- **Buddy+ billing options** now explain how monthly / yearly / lifetime
+  differ (no hardcoded prices — those still come from RevenueCat).
+
+"Sessions you confirmed" (the old heading) meant: a session where you and one
+buddy agreed the sport, time, budget and venue in Plan Together and one of you
+pressed Confirm — or a 1-to-1 post whose single spot got taken. It does NOT
+mean anything was booked or paid. That heading is gone; those now appear in the
+list with a **Confirmed** pill.
+
+- [done] Rebuild and retest on the phone: no sideways scroll on Discover,
+      Buddy+ and Activities; bottom bar stays put; the Group/1-to-1 switches
+      show the right events
+
+### B5. Clarity pass — done 2026-09-23 (branch `mobile-test`, not pushed)
+
+- **Every row of the Buddy+ comparison table now explains itself.** A bare
+  "2" never said what was being counted or when the slot frees up again.
+- **A 1-to-1 activity is named after the sport and the person** — "Badminton
+  with Aina" — the same way a confirmed session is named. Until somebody has
+  the spot there is no name to use, so it shows the sport alone.
+- **Profile's Edit and Preview buttons now carry their words**, not just an
+  icon.
+- `tsc`, oxlint, 551 tests and the build pass.
+
+Also picked up in this commit (you had added them): the root `LICENSE` (MIT)
+and `SHIPATON-SUBMISSION-CHECKLIST.md`.
+
+- [ ] Retest on the phone after `npm run build && npx cap sync android`
+
+### B7. QR + layout + repo pass — done 2026-09-24 (branch `mobile-test`)
+
+- **Scanning should work now.** The decoder was handed the whole
+  multi-megapixel photo in one go, which mostly fails. It now retries the same
+  photo at several sizes plus a centre crop, attempts inverted codes, takes the
+  photo at full quality, and the organiser's QR is bigger, pixel-crisp and uses
+  the highest error correction.
+- **Check-in window**: open from the start time until **30 minutes after the
+  end** (or after an assumed 2 hours when no end time was given). Before this
+  there was no upper bound, so yesterday's session could still be "verified"
+  from home. Enforced in the pure rule, the UI and `firestore.rules`.
+- **🔴 `firestore.rules` changed — it must be deployed** before the live app
+  enforces the new window: `firebase deploy --only firestore:rules`
+- Discover's **refresh button can no longer be pushed off-screen** by the
+  title; **Manage or cancel Buddy+** fits its words on a phone.
+- Repo: `.claude/settings.local.json` and `/tmp` are gitignored,
+  `tmp/pdfs/shipaton-audit/` untracked and deleted, and the **README now leads
+  with the MIT licence badge, the demo link and the downloadable icon assets**
+  (`resources/icon-only.png` is the 1024×1024 one).
+- 555 unit tests, **216** emulator rules tests (3 new for the window), build OK.
+
+### B8. What "restore purchases" means
+
+Buddy+ is tied to your **account** (RevenueCat is configured with your Firebase
+uid as its App User ID), so signing in on a new device should already return
+your Buddy+ without touching anything. **Restore** is the store-side fallback:
+it asks the store "what has this Google account bought?" and re-applies the
+entitlement. It matters for someone who paid, reinstalled, and did not get
+their subscription back.
+
+To test it: buy Buddy+ → uninstall the app → reinstall → sign in. You should
+already be Buddy+. If not, Settings → **Restore purchases**. On the RevenueCat
+**Test Store** this can be a no-op, which is expected and not a bug. It is
+**not required** for the Shipaton submission.
+
+### B9. QR check-in on 1-to-1 activities — done 2026-09-24
+
+Check-in is no longer group-only.
+
+- A 1-to-1 post has its own code at `activityPosts/{postId}/checkIn/current`,
+  readable only by the post's author. The author sees **Show check-in code**;
+  whoever took the spot sees **Scan check-in code**.
+- Both kinds now share ONE rule through `CheckInSubject`, so the window and the
+  involvement check cannot drift apart. A 1-to-1 has no end time, so its window
+  is the assumed 2 hours plus the 30-minute grace.
+- A 1-to-1 only opens for check-in once somebody actually took the spot.
+- The Reliability Profile now counts 1-to-1 sessions too.
+- 8 new emulator rules tests (**224** total), 555 unit tests, build OK.
+- Full detail: `docs/attendance.md`.
+
+**🔴 Deploy the rules before testing this on the phone:**
+`firebase deploy --only firestore:rules`
+
+### B10. Typed check-in codes + Activities/sidebar polish — 2026-09-24
+
+- **Check-in is now a typed code, and the host sets it.** "Show check-in code"
+  lets the host save their own (e.g. `COURT7`, 4–24 letters/digits) and read it
+  out; everyone in the session taps **Enter check-in code** and types it. The
+  QR is still there behind "Show QR to scan" and carries the same code, so
+  scanning is just another route. Saving a new code kills the old one.
+  Validated in the form, the service AND the rules.
+- **Activities**: Created shows only what is still to come, soonest first;
+  everything whose time has passed is in Past (hosted and joined alike, newest
+  first), and both tabs keep the Group | 1-to-1 switch.
+- **Desktop sidebar narrowed** from 252px to 200px, so the page gets the space.
+- Map removed from the rail/sidebar (the map view is not finished).
+- 558 unit tests, 224 emulator rules tests, lint and build pass.
+
+**🔴 Deploy the rules — the code-shape check is new:**
+`firebase deploy --only firestore:rules`
+
+### B11. Tabs remember where you were + the Android install fix — 2026-09-24
+
+- **Activities tabs now survive navigation.** The tab and the Group | 1-to-1
+  choice live in the URL (`/activities?tab=past&kind=solo`), so opening an
+  event and pressing back returns to the tab you were reading instead of
+  resetting to Planned / Group.
+- **"Activity class … MainActivity does not exist" was a stale install**, not a
+  code problem. The app on the emulator was from **18 Sep** and its launcher
+  entry had gone bad. Fixed by uninstalling and installing today's APK:
+
+```bash
+adb uninstall com.sportsbuddy.app
+cd android && ./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+  (`adb` lives in `%LOCALAPPDATA%\Android\Sdk\platform-tools`.) Do this
+  whenever Android Studio refuses to launch after a signing or package change —
+  a debug-signed build cannot replace a release-signed one in place.
+- **The web login keeps "Continue with Google" on purpose.** It only fails
+  inside the Android WebView, so it is hidden there and kept on the web, where
+  it works.
+
+### B6. Still NOT done in the app — the honest list
+
+**Nothing here blocks the submission.** Judged on "meaningful progress toward a
+working app", the app is well past that bar. This is the gap list so nobody
+claims something that is not there.
+
+| Missing | Why it is acceptable now |
+| --- | --- |
+| Push notifications (the notification toggles save a preference but nothing is ever delivered) | No FCM/OneSignal account; out of scope |
+| In-app account deletion | A Play Store requirement, not a Shipaton one |
+| Native Google sign-in in the Android app | Hidden there; email/password works |
+| Reliability as a Discover filter | Needs a decision on putting a score in `publicProfiles` |
+| Advanced recap trends / analytics | Claim removed from the paywall, so nothing is oversold |
+| Sentry, Codemagic CI, Vercel, Android App Links | All optional extras |
+
+Still to *verify* by hand:
+
+- [ ] QR check-in with a real camera — see §3b
+- [ ] Restore purchases after a reinstall (optional, see B8)
 
 ### C. Make the repo public + add a license — 15 min
 
@@ -138,7 +320,8 @@ owner) must do the visibility step**.
 Already checked: no `.env`, keystore or other secret has ever been committed,
 so making it public is safe.
 
-- [ ] Add a `LICENSE` file at the repo root (MIT is the simple choice) and push to `main`
+- [x] `LICENSE` (MIT) at the repo root, and the README leads with the licence
+      badge plus the downloadable icon assets
 - [ ] Repo owner: GitHub → Settings → General → Danger Zone → **Change visibility → Public**
 - [ ] README top section says what the app is and how to run it (short is fine)
 
@@ -163,7 +346,8 @@ Suggested script (~1:50), recorded on the Android phone/emulator:
 
 ### E. Assets — 30 min
 
-- [ ] App icon 1024×1024 — **already exists**: `resources/icon-only.png`
+- [x] App icon 1024×1024 — `resources/icon-only.png`, linked from the README
+      so anyone can download it
 - [ ] At least one screenshot **1179×2556, no device frame** — take phone
       screenshots, then resize/pad to exactly 1179×2556
 
@@ -195,8 +379,50 @@ Say "not in this submission" if anyone asks.
   the claims instead (task B2)
 - Designing a RevenueCat hosted paywall (the built-in fallback list works)
 
-**QR check-in:** only test it if you have two phones and spare time. If not,
-leave it out of the video.
+---
+
+## 3b. How to test QR check-in (verified attendance)
+
+You do **not** need two phones. The QR is generated offline in the page, so
+the organiser's code can be shown on a **laptop browser** while the phone app
+scans it.
+
+What the rules require, so the test has to respect it:
+
+- the activity must have **already started** (`startAt` in the past),
+- the scanner must be **joined** to it (or be the organiser),
+- the code scanned must be the **current** one (it can be regenerated), and
+- each person can check in **once** — the record is immutable.
+
+The controls live on the **group activity detail page** (open the activity
+from Discover or Activities, not from the list row's own buttons).
+
+**Setup (about 15 min):**
+
+1. Two accounts: A (organiser) and B (the one checking in). Sign in as A in a
+   **laptop browser** (the web demo or `npm run dev`), and as B in the
+   **Android app** on your phone.
+2. As A, create a group activity starting in about 2 minutes, at any venue.
+3. As B, open it (Discover → Groups, or the share link) and **Join**.
+4. Wait for the start time to pass. Refresh both.
+5. As A, open the activity → **Show check-in code**. A QR appears on the
+   laptop screen.
+6. As B on the phone, open the same activity → **Scan check-in code** → allow
+   the camera → take ONE photo of the laptop screen, framing the QR.
+7. B should now read as checked in. Open B's **Profile** → the reliability
+   card shows "1 Verified Session" and a show-up rate.
+
+**Things worth showing in the demo video:** tap **Regenerate code** as A, then
+try scanning the OLD photo as B — it is refused, because the code rotates. That
+is the anti-screenshot protection, and it demonstrates the feature is real.
+
+**If the scan fails:** the photo needs the whole QR in frame and reasonably
+sharp; screen glare is the usual cause. Raise the laptop's brightness, or open
+the QR full-screen. "We couldn't read a code in that photo" means decoding
+failed, not that check-in was rejected.
+
+**Emulator note:** an emulator's fake camera shows a synthetic scene, so it
+cannot photograph a real QR. Use a physical phone for the scanning side.
 
 ---
 

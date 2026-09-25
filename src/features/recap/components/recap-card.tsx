@@ -16,10 +16,17 @@ import type { MonthlyRecap } from '@/types/recap'
 export function RecapCard({
   recap,
   memberName,
+  buddyNames,
   className,
 }: {
   recap: MonthlyRecap
   memberName: string
+  /**
+   * `userId → display name` for the people in `recap.buddies`. The recap
+   * itself stores ids only, so names are resolved by the caller from
+   * `publicProfiles`, like every other surface.
+   */
+  buddyNames?: ReadonlyMap<string, string>
   className?: string
 }) {
   const hasSessions = recap.totalSessions > 0
@@ -54,6 +61,29 @@ export function RecapCard({
           <p className="text-body text-muted-foreground">
             No sessions yet this month — go play something.
           </p>
+        )}
+
+        {hasSessions && recap.buddies.length > 0 && (
+          <div className="flex flex-col gap-2 border-t border-border pt-5">
+            <span className="text-caption text-muted-foreground uppercase">Played with</span>
+            <ul className="flex flex-col gap-1.5">
+              {recap.buddies.slice(0, 4).map((buddy) => (
+                <li key={buddy.userId} className="flex items-center justify-between gap-3">
+                  <span className="truncate text-body text-card-foreground">
+                    {buddyNames?.get(buddy.userId) ?? 'Sports buddy'}
+                  </span>
+                  <span className="shrink-0 text-body text-muted-foreground">
+                    {buddy.count}×
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {recap.buddies.length > 4 && (
+              <span className="text-caption text-muted-foreground">
+                and {recap.buddies.length - 4} more
+              </span>
+            )}
+          </div>
         )}
 
         {hasSessions && (
