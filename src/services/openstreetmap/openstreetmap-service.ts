@@ -145,10 +145,11 @@ export async function searchSportsVenues({
     nwr(around:${around})[name][sport~"(${sportTag})",i];
     nwr(around:${around})[name][leisure~"^(sports_centre|fitness_centre|pitch|stadium)$",i][sport~"(${sportTag})",i];
   );out center tags 20;`
-  let elements: OverpassElement[]
-  try {
-    elements = (await searchOverpass(query)).elements
-  } catch {
+  const elements = await searchOverpass(query)
+    .then((response) => response.elements)
+    .catch((): OverpassElement[] => [])
+
+  if (elements.length === 0) {
     const fallback = await searchNominatim(`${SPORT_SEARCH_TERMS[sportId]} ${locationQuery}`)
     return fallback.flatMap((place): SportsVenue[] => {
       const lat = Number(place.lat)

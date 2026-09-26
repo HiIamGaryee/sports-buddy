@@ -435,7 +435,7 @@ export function PostActivityPage() {
                     <DiscoverVenuePicker
                       key={`${draft.sportId}-${draft.areaId}`}
                       sportId={draft.sportId ?? SPORTS[0]?.id ?? 'badminton'}
-                      initialLocation={draft.venueName.trim() || getAreaName(draft.areaId)}
+                      initialLocation={getAreaName(draft.areaId)}
                       value={draft.venueName}
                       onSelectVenue={(venueName) => update({ venueName })}
                     />

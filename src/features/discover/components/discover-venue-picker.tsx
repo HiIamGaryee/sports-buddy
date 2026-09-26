@@ -1,5 +1,5 @@
 import { MapPin, Search } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -34,10 +34,6 @@ export function DiscoverVenuePicker({
     initialLocation,
     initialSportId: sportId,
   })
-
-  useEffect(() => {
-    setQuery(initialLocation)
-  }, [initialLocation])
 
   const runSearch = async () => {
     await search(query)
@@ -87,7 +83,7 @@ export function DiscoverVenuePicker({
                 type="button"
                 className="flex flex-col items-start gap-1 rounded-xl border border-border p-3 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 onClick={() => {
-                  onSelectVenue(venue.address ? `${venue.name}, ${venue.address}` : venue.name)
+                  onSelectVenue(venue.name)
                   setResultsOpen(false)
                 }}
               >
