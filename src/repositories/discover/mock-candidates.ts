@@ -13,6 +13,8 @@ export const MOCK_CANDIDATES = [
     gender: 'female',
     photoUrl: null,
     bio: 'Weekend badminton and the occasional easy run.',
+    instagramUsername: 'aina.plays',
+    linkedinUsername: 'aina-rahman',
     sports: [
       { sportId: 'badminton', skillLevel: 'intermediate' },
       { sportId: 'running', skillLevel: 'casual' },

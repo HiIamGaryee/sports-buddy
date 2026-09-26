@@ -26,6 +26,8 @@ function build(
     gender: profileGender(input.gender),
     photoUrl: meta.photoUrl,
     bio: input.bio,
+    instagramUsername: input.instagramUsername ?? '',
+    linkedinUsername: input.linkedinUsername ?? '',
     sports: input.sports,
     intents: input.intents,
     preferredIntensity: input.preferredIntensity,

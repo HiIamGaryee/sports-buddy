@@ -156,6 +156,8 @@ export function useConversation(conversationId: string | undefined) {
   const [buddy, setBuddy] = useState<{
     displayName: string
     photoUrl: string | null
+    instagramUsername?: string
+    linkedinUsername?: string
   } | null>(null)
 
   useEffect(() => {
@@ -169,6 +171,8 @@ export function useConversation(conversationId: string | undefined) {
           setBuddy({
             displayName: profile.displayName,
             photoUrl: profile.photoUrl,
+            instagramUsername: profile.instagramUsername,
+            linkedinUsername: profile.linkedinUsername,
           })
         }
       })
@@ -246,6 +250,8 @@ export function useConversation(conversationId: string | undefined) {
     buddyId,
     buddyName: buddy?.displayName ?? 'Sports buddy',
     buddyPhotoUrl: buddy?.photoUrl ?? null,
+    buddyInstagramUsername: buddy?.instagramUsername,
+    buddyLinkedinUsername: buddy?.linkedinUsername,
     /** False for a missing, pending or someone else's conversation alike. */
     isAuthorized,
     isResolvingAccess: isLoadingConnections || isLoadingSafety,

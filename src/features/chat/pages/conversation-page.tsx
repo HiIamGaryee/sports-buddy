@@ -39,6 +39,8 @@ export function ConversationPage() {
     currentUserId,
     buddyName,
     buddyPhotoUrl,
+    buddyInstagramUsername,
+    buddyLinkedinUsername,
     isAuthorized,
     isResolvingAccess,
     messages,
@@ -99,6 +101,8 @@ export function ConversationPage() {
     <ChatLayout
       title={buddyName}
       photoUrl={buddyPhotoUrl}
+      instagramUsername={buddyInstagramUsername}
+      linkedinUsername={buddyLinkedinUsername}
       action={
         conversation.buddyId && conversationId ? (
           <div className="flex items-center gap-2">

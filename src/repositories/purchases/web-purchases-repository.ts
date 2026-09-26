@@ -1,31 +1,10 @@
-import { MOCK_PREMIUM_ACCOUNT_ID, MOCK_STORAGE_KEYS } from '@/constants/app'
-import {
-  BUDDY_PLUS_ENTITLEMENT_ID,
-  MOCK_REDEEM_CODES,
-  isMockRedeemCodeFormat,
-  normalizeMockRedeemCode,
-} from '@/constants/entitlements'
-import { readStore, writeStore } from '@/repositories/mock-store'
+import { MOCK_PREMIUM_ACCOUNT_ID } from '@/constants/app'
+import { BUDDY_PLUS_ENTITLEMENT_ID } from '@/constants/entitlements'
 import type { PurchasesRepository } from '@/repositories/purchases/purchases-repository'
 import {
   PURCHASES_ERROR_CODES,
   purchasesRepositoryError,
 } from '@/services/purchases/purchases-error'
-
-type RedeemedCodeStore = Record<string, string>
-
-const isRedeemedCodeStore = (value: unknown): value is RedeemedCodeStore =>
-  Boolean(
-    value &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      Object.entries(value).every(
-        ([code, userId]) => typeof code === 'string' && typeof userId === 'string',
-      ),
-  )
-
-const readRedeemedCodes = () =>
-  readStore<RedeemedCodeStore>(MOCK_STORAGE_KEYS.redeemedCodes, {}, isRedeemedCodeStore)
 
 let configuredFor: string | null = null
 
@@ -35,8 +14,8 @@ const buddyPlusSnapshot = () => ({
 
 /**
  * The browser / mock-mode stand-in. There is no store transaction here, but
- * the seeded demo account and one-time local redeem codes can unlock Buddy+
- * for UI review. Real package purchases still throw a coded error instead of
+ * the seeded demo account unlocks Buddy+ for UI review (promo codes are
+ * handled separately, by `promoCodeService`). Real package purchases still throw a coded error instead of
  * pretending to charge someone. `getOffering()` returns `null` rather than
  * inventing prices.
  */
@@ -49,32 +28,13 @@ export const webPurchasesRepository: PurchasesRepository = {
     return null
   },
   async getEntitlements() {
-    const isDemoAccount = configuredFor === MOCK_PREMIUM_ACCOUNT_ID
-    const hasRedeemedCode = configuredFor
-      ? Object.values(readRedeemedCodes()).includes(configuredFor)
-      : false
-    return isDemoAccount || hasRedeemedCode ? buddyPlusSnapshot() : { activeEntitlementIds: [] }
+    // Promo codes are a separate, backend-checked grant (promo-code-service).
+    return configuredFor === MOCK_PREMIUM_ACCOUNT_ID
+      ? buddyPlusSnapshot()
+      : { activeEntitlementIds: [] }
   },
   async purchasePackage() {
     throw purchasesRepositoryError(PURCHASES_ERROR_CODES.webOnly)
-  },
-  async redeemCode(code) {
-    const normalized = normalizeMockRedeemCode(code)
-    const isKnownCode = (MOCK_REDEEM_CODES as readonly string[]).includes(normalized)
-    if (!configuredFor || !isMockRedeemCodeFormat(normalized) || !isKnownCode) {
-      throw purchasesRepositoryError(PURCHASES_ERROR_CODES.invalidRedeemCode)
-    }
-
-    const redeemedCodes = readRedeemedCodes()
-    if (redeemedCodes[normalized]) {
-      throw purchasesRepositoryError(PURCHASES_ERROR_CODES.redeemedCode)
-    }
-
-    writeStore(MOCK_STORAGE_KEYS.redeemedCodes, {
-      ...redeemedCodes,
-      [normalized]: configuredFor,
-    })
-    return { ...buddyPlusSnapshot(), completed: true }
   },
   async restorePurchases() {
     throw purchasesRepositoryError(PURCHASES_ERROR_CODES.webOnly)

@@ -168,7 +168,8 @@
   --safe-area-left: env(safe-area-inset-left, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
 
-  --bottom-navigation-height: 4.25rem;
+  --mobile-bottom-nav-height: 4.25rem;
+  --bottom-navigation-height: var(--mobile-bottom-nav-height);
   --bottom-navigation-space: calc(
     var(--bottom-navigation-height) + var(--safe-area-bottom)
   );

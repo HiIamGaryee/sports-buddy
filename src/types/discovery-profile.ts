@@ -21,6 +21,8 @@ export interface DiscoveryProfile {
   photoUrl: string | null
   gender: Gender | null
   bio: string
+  instagramUsername?: string
+  linkedinUsername?: string
   sports: UserSport[]
   intents: SportsIntent[]
   preferredIntensity: ActivityIntensity | null

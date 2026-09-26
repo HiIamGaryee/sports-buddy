@@ -5,6 +5,7 @@ import { BottomNavigation } from '@/components/layout/bottom-navigation'
 import { DesktopSidebar } from '@/components/layout/desktop-sidebar'
 import { NavigationRail } from '@/components/layout/navigation-rail'
 import { useUnreadConversationCount } from '@/features/chat/use-unread-conversation-count'
+import { cn } from '@/lib/utils'
 import { ROUTES } from '@/routes/routes'
 
 import type { NavigationBadges } from '@/config/navigation'
@@ -37,6 +38,7 @@ import type { NavigationBadges } from '@/config/navigation'
  */
 export function AppShell() {
   const isConversation = useMatch(ROUTES.conversation) !== null
+  const isEditingProfile = useMatch(ROUTES.profileEdit) !== null
   const unreadConversations = useUnreadConversationCount()
 
   // Computed once here, so all three navigation shells show the same thing.
@@ -46,11 +48,22 @@ export function AppShell() {
   )
 
   return (
-    <div className="flex min-h-dvh bg-background pl-safe-left pr-safe-right md:h-dvh md:overflow-hidden">
+    <div
+      className={cn(
+        'flex min-h-dvh bg-background pl-safe-left pr-safe-right md:h-dvh md:overflow-hidden',
+        isEditingProfile && 'h-dvh overflow-hidden',
+      )}
+    >
       <NavigationRail className="hidden md:flex lg:hidden" badges={badges} />
       <DesktopSidebar className="hidden lg:flex" badges={badges} />
 
-      <div className="relative flex min-w-0 flex-1 flex-col overflow-x-hidden md:h-dvh md:overflow-y-auto">
+      <div
+        className={cn(
+          'relative flex min-w-0 flex-1 flex-col overflow-x-hidden md:h-dvh md:overflow-y-auto',
+          isEditingProfile &&
+            'h-dvh overflow-y-auto scroll-pb-[calc(var(--mobile-bottom-nav-height,72px)+env(safe-area-inset-bottom)+24px)] md:scroll-pb-0',
+        )}
+      >
         <Outlet />
       </div>
 

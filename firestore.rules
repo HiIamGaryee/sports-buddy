@@ -122,6 +122,51 @@ service cloud.firestore {
       allow get, list, update, delete: if false;
     }
 
+    // BUDDY+ PROMO CODES. Written by the project owner only (console or an
+    // admin script) and never readable by a client, so the list of valid
+    // codes cannot be scraped. Fields: `active` (bool), `singleUse` (bool),
+    // optional `note` (who it was given to — the referral record).
+    match /promoCodes/{code} {
+      allow read, write: if false;
+    }
+
+    // One document per use of a code, created by the member redeeming it.
+    // The document id carries the limit: `{code}__{uid}` for a reusable
+    // referral code (once per account, unlimited accounts), `{code}` for a
+    // single-use code (once, ever — a second create is an update, denied).
+    match /promoRedemptions/{redemptionId} {
+      function codePath(code) {
+        return /databases/$(database)/documents/promoCodes/$(code);
+      }
+
+      function slotFor(code) {
+        return get(codePath(code)).data.get('singleUse', false) == true
+          ? code
+          : code + '__' + request.auth.uid;
+      }
+
+      // Your own redemptions, and a missing document (so the app can tell
+      // "never redeemed" from "not allowed"). Never anyone else's.
+      allow get: if request.auth != null
+        && (resource == null || resource.data.userId == request.auth.uid);
+      allow list: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['code', 'userId', 'redeemedAt'])
+        && request.resource.data.keys().hasAll(['code', 'userId', 'redeemedAt'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.redeemedAt == request.time
+        && request.resource.data.code is string
+        // Shape first: the code becomes a document path below.
+        && request.resource.data.code.matches('^BUDDY-[A-Z0-9]{4}-[A-Z0-9]{4}$')
+        && exists(codePath(request.resource.data.code))
+        && get(codePath(request.resource.data.code)).data.active == true
+        && redemptionId == slotFor(request.resource.data.code);
+
+      allow update, delete: if false;
+    }
+
     // DISCOVER — public activity posts ("badminton, Sat 5pm, Subang Jaya,
     // RM10–20"). Any signed-in member can browse them. The author creates,
     // edits and removes their own post; other members may only take or give
@@ -777,7 +822,7 @@ service cloud.firestore {
         return ['userId', 'displayName', 'photoUrl', 'bio', 'sports',
                 'intents', 'preferredIntensity', 'availability', 'area',
                 'budget', 'profileCompleteness', 'discoverable', 'updatedAt',
-                'gender'];
+                'gender', 'instagramUsername', 'linkedinUsername'];
       }
 
       function wellFormedProjection(data) {
@@ -785,6 +830,8 @@ service cloud.firestore {
           && boundedString(data.displayName, maxDisplayName())
           && boundedOptionalString(data, 'bio', maxBio())
           && validPhotoUrl(data)
+          && validSocialUsername(data, 'instagramUsername')
+          && validSocialUsername(data, 'linkedinUsername')
           && validGender(data)
           && (!('sports' in data) || data.sports.size() <= maxSports());
       }

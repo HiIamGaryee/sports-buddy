@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { SocialLinks } from '@/components/profile/social-links'
 import { getInitials } from '@/lib/initials'
 import { ROUTES } from '@/routes/routes'
 
@@ -24,6 +33,8 @@ export function ChatLayout({
   title,
   subtitle,
   photoUrl,
+  instagramUsername,
+  linkedinUsername,
   action,
   banner,
   scrollRef,
@@ -33,6 +44,8 @@ export function ChatLayout({
   title: string
   subtitle?: string
   photoUrl?: string | null
+  instagramUsername?: string
+  linkedinUsername?: string
   /** Header-right slot — the planning entry point lives here. */
   action?: React.ReactNode
   /** Pinned above the composer, so it stays visible as messages scroll. */
@@ -55,12 +68,12 @@ export function ChatLayout({
         >
           <ChevronLeft className="size-5" />
         </Button>
-        <Avatar className="size-9 shrink-0 md:size-10">
-          {photoUrl && <AvatarImage src={photoUrl} alt={title} />}
-          <AvatarFallback className="text-label">
-            {getInitials(title)}
-          </AvatarFallback>
-        </Avatar>
+        <ChatAvatar
+          title={title}
+          photoUrl={photoUrl}
+          instagramUsername={instagramUsername}
+          linkedinUsername={linkedinUsername}
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <h1 className="truncate text-title text-foreground md:text-heading-3">
             {title}
@@ -91,5 +104,55 @@ export function ChatLayout({
         </footer>
       )}
     </div>
+  )
+}
+
+function ChatAvatar({
+  title,
+  photoUrl,
+  instagramUsername,
+  linkedinUsername,
+}: {
+  title: string
+  photoUrl?: string | null
+  instagramUsername?: string
+  linkedinUsername?: string
+}) {
+  const avatar = (
+    <Avatar className="size-9 shrink-0 md:size-10">
+      {photoUrl && <AvatarImage src={photoUrl} alt={title} />}
+      <AvatarFallback className="text-label">
+        {getInitials(title)}
+      </AvatarFallback>
+    </Avatar>
+  )
+
+  if (!instagramUsername && !linkedinUsername) return avatar
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="shrink-0 rounded-full transition-opacity hover:opacity-85 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          aria-label={`View ${title}'s social profiles`}
+        >
+          {avatar}
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{title}&apos;s social profiles</DialogTitle>
+          <DialogDescription>
+            Open their profile in a new tab.
+          </DialogDescription>
+        </DialogHeader>
+        <SocialLinks
+          instagramUsername={instagramUsername}
+          linkedinUsername={linkedinUsername}
+          stacked
+        />
+      </DialogContent>
+    </Dialog>
   )
 }

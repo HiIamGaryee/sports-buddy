@@ -7,7 +7,11 @@
 /** Must match the entitlement identifier configured in the RevenueCat dashboard. */
 export const BUDDY_PLUS_ENTITLEMENT_ID = 'sportbuddy_pro'
 
-/** Public demo codes for the browser/mock subscription flow only. */
+/**
+ * MOCK MODE ONLY: stand-ins for the `promoCodes` Firestore collection, which
+ * is where Firebase mode checks codes (see `promo-code-repository.ts`).
+ * Single-use.
+ */
 export const MOCK_REDEEM_CODES = [
   'BUDDY-7K4M-2Q9P',
   'BUDDY-3F8N-6R2T',
@@ -19,6 +23,14 @@ export const MOCK_REDEEM_CODES = [
   'BUDDY-6V7C-2H9M',
   'BUDDY-1Q4W-8F6P',
   'BUDDY-9Z2D-3L5X',
+] as const
+
+/** MOCK MODE ONLY: reusable stand-ins (once per account, unlimited accounts). */
+export const MOCK_REUSABLE_REDEEM_CODES = [
+  'BUDDY-CEM2-W8MY',
+  'BUDDY-GMVY-6V5W',
+  'BUDDY-8CSJ-HP5C',
+  'BUDDY-9MMD-EYQL',
 ] as const
 
 export const MOCK_REDEEM_CODE_PATTERN = /^BUDDY-[A-Z0-9]{4}-[A-Z0-9]{4}$/

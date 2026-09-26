@@ -2345,6 +2345,19 @@ Not verified: the check-in flow on a physical/emulated Android device
 tests only, not end-to-end with a real camera), and monthly recap / sharing
 polish (still not built).
 
+## 20.1 Buddy+ promo codes (backend-checked)
+
+- `promoCodes/{code}` (`active`, `singleUse`, optional `note`) is written only
+  from the console/admin and is unreadable by clients. A member redeems by
+  creating `promoRedemptions/{id}`: `{code}__{uid}` for a reusable referral
+  code, `{code}` for a single-use one. The rules check the code exists, is
+  active, and that the id matches its limit; redemptions are frozen.
+- `promoCodeService` + `promoCodeRepository` (chosen by `env.dataSource`).
+  `SubscriptionProvider` ORs a promo grant with the RevenueCat entitlement
+  into ONE `SubscriptionState`, so every capability gate is unchanged. The
+  purchases repositories no longer redeem codes.
+- Mock mode uses the lists in `src/constants/entitlements.ts` instead.
+
 ## 21. Local development credentials (mock mode only)
 
 `VITE_DATA_SOURCE=mock` seeds one demo account. These are development-only

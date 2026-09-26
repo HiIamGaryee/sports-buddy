@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { isBuddyPlus as computeIsBuddyPlus } from '@/lib/capabilities'
 import { SubscriptionContext } from '@/providers/subscription-context'
 import { useAuth } from '@/hooks/use-auth'
+import { promoCodeService } from '@/services/purchases/promo-code-service'
 import { purchasesService } from '@/services/purchases/purchases-service'
 import type { PurchaseOutcome, SubscriptionOffering, SubscriptionState } from '@/types/subscription'
 
@@ -39,8 +40,22 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     initialOfferingState(userId),
   )
   const [offeringReloadToken, setOfferingReloadToken] = useState(0)
+  /** Buddy+ granted by a redeemed promo code, for THIS signed-in account. */
+  const [promo, setPromo] = useState({ userId, active: false })
 
   if (offeringState.userId !== userId) setOfferingState(initialOfferingState(userId))
+  if (promo.userId !== userId) setPromo({ userId, active: false })
+
+  useEffect(() => {
+    if (!userId) return
+    let active = true
+    void promoCodeService.hasRedemption(userId).then((hasPromo) => {
+      if (active && hasPromo) setPromo({ userId, active: true })
+    })
+    return () => {
+      active = false
+    }
+  }, [userId])
 
   useEffect(() => {
     if (!userId) {
@@ -111,11 +126,15 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     return result.outcome
   }, [])
 
-  const redeemCode = useCallback(async (code: string): Promise<PurchaseOutcome> => {
-    const result = await purchasesService.redeemCode(code)
-    setState(result.state)
-    return result.outcome
-  }, [])
+  const redeemCode = useCallback(
+    async (code: string): Promise<PurchaseOutcome> => {
+      if (!userId) throw new Error('You need to be signed in to redeem a code.')
+      await promoCodeService.redeem(userId, code)
+      setPromo({ userId, active: true })
+      return 'purchased'
+    },
+    [userId],
+  )
 
   const restore = useCallback(async () => {
     setState(await purchasesService.restore())
@@ -136,10 +155,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     setState(await purchasesService.getState())
   }, [])
 
+  // A promo grant counts exactly like a RevenueCat entitlement everywhere.
+  const effectiveState: SubscriptionState =
+    promo.active && promo.userId === userId ? 'buddy_plus' : state
+
   const value = useMemo(
     () => ({
-      state,
-      isBuddyPlus: computeIsBuddyPlus(state),
+      state: effectiveState,
+      isBuddyPlus: computeIsBuddyPlus(effectiveState),
       offering: offeringState.offering,
       isLoadingOffering: offeringState.isLoading,
       offeringError: offeringState.error,
@@ -150,7 +173,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       presentPaywall,
       presentCustomerCenter,
     }),
-    [state, offeringState, purchase, redeemCode, restore, refreshOffering, presentPaywall, presentCustomerCenter],
+    [effectiveState, offeringState, purchase, redeemCode, restore, refreshOffering, presentPaywall, presentCustomerCenter],
   )
 
   return (

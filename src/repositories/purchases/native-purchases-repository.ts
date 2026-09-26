@@ -2,7 +2,6 @@ import { LOG_LEVEL, Purchases, type PurchasesError, type PurchasesPackage } from
 import { PAYWALL_RESULT, RevenueCatUI } from '@revenuecat/purchases-capacitor-ui'
 
 import { env } from '@/config/env'
-import { PURCHASES_ERROR_CODES, purchasesRepositoryError } from '@/services/purchases/purchases-error'
 import {
   toEntitlementSnapshot,
   toSubscriptionOffering,
@@ -79,10 +78,6 @@ export const nativePurchasesRepository: PurchasesRepository = {
       }
       throw error
     }
-  },
-
-  async redeemCode() {
-    throw purchasesRepositoryError(PURCHASES_ERROR_CODES.redeemUnavailable)
   },
 
   async restorePurchases() {

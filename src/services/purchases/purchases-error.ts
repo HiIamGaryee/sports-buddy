@@ -15,12 +15,11 @@ export const PURCHASES_FALLBACK_MESSAGES = {
   redeem: "We couldn't redeem that code. Please try again.",
 } as const
 
-/** Raised by `web-purchases-repository` — there is no store to buy from. */
+/** Raised by the web purchases stand-in and the promo code repositories. */
 export const PURCHASES_ERROR_CODES = {
   webOnly: 'purchases/web-only',
   invalidRedeemCode: 'purchases/invalid-redeem-code',
   redeemedCode: 'purchases/redeem-code-used',
-  redeemUnavailable: 'purchases/redeem-unavailable',
 } as const
 
 export const purchasesRepositoryError = (code: string) =>
@@ -29,9 +28,8 @@ export const purchasesRepositoryError = (code: string) =>
 const WEB_ONLY_MESSAGE =
   'Buddy+ purchases are only available in the Sports Buddy Android app.'
 
-const INVALID_REDEEM_CODE_MESSAGE = 'That subscription code is invalid.'
-const REDEEMED_CODE_MESSAGE = 'That subscription code has already been used.'
-const REDEEM_UNAVAILABLE_MESSAGE = 'Subscription codes are available in the web demo only.'
+const INVALID_REDEEM_CODE_MESSAGE = 'That code is not valid.'
+const REDEEMED_CODE_MESSAGE = 'That code has already been used.'
 
 /** Only the RevenueCat codes worth a distinct sentence; everything else uses the fallback. */
 const MESSAGES: Partial<Record<PURCHASES_ERROR_CODE, string>> = {
@@ -68,9 +66,6 @@ export function toPurchasesError(error: unknown, fallback: string): PurchasesErr
   }
   if (code === PURCHASES_ERROR_CODES.redeemedCode) {
     return new PurchasesError(REDEEMED_CODE_MESSAGE)
-  }
-  if (code === PURCHASES_ERROR_CODES.redeemUnavailable) {
-    return new PurchasesError(REDEEM_UNAVAILABLE_MESSAGE)
   }
   if (isRevenueCatCode(code)) return new PurchasesError(MESSAGES[code as PURCHASES_ERROR_CODE] ?? fallback)
   return new PurchasesError(fallback)

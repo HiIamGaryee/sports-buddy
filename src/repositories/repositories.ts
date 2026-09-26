@@ -32,6 +32,8 @@ import { firebaseGroupActivityRepository } from '@/repositories/group-activity/f
 import { mockGroupActivityRepository } from '@/repositories/group-activity/mock-group-activity-repository'
 import { firebaseAttendanceRepository } from '@/repositories/attendance/firebase-attendance-repository'
 import { mockAttendanceRepository } from '@/repositories/attendance/mock-attendance-repository'
+import { firebasePromoCodeRepository } from '@/repositories/promo-code/firebase-promo-code-repository'
+import { mockPromoCodeRepository } from '@/repositories/promo-code/mock-promo-code-repository'
 import { firebaseRatingRepository } from '@/repositories/ratings/firebase-rating-repository'
 import { mockRatingRepository } from '@/repositories/ratings/mock-rating-repository'
 
@@ -110,6 +112,11 @@ export const venueRepository =
     : env.venueSource === 'openstreetmap'
       ? openStreetMapVenueRepository
       : mockVenueRepository
+
+/** Promo codes live in the BACKEND, so they follow the data source. */
+export const promoCodeRepository = useFirebase
+  ? firebasePromoCodeRepository
+  : mockPromoCodeRepository
 
 /**
  * Buddy+ purchases, chosen by PLATFORM rather than `env.dataSource` — a real

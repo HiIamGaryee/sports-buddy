@@ -38,6 +38,13 @@ const normalize = toSafeProfileInput
 const shouldPublish = (profile: SportsProfile) =>
   profile.onboardingCompleted && profile.preferences.privacy.discoverable
 
+const socialProjectionIsStale = (
+  profile: SportsProfile,
+  projection: { instagramUsername?: string; linkedinUsername?: string },
+) =>
+  (projection.instagramUsername ?? '') !== (profile.instagramUsername ?? '') ||
+  (projection.linkedinUsername ?? '') !== (profile.linkedinUsername ?? '')
+
 /**
  * Keeps `publicProfiles/{uid}` in step with the private document. Discovery
  * is opt-in: when the user is not discoverable the projection is deleted, so
@@ -128,7 +135,12 @@ export const profileService = {
 
     try {
       const projection = await projectionPromise
-      if (shouldPublish(profile) && !projection) await syncPublicProfile(profile)
+      if (
+        shouldPublish(profile) &&
+        (!projection || socialProjectionIsStale(profile, projection))
+      ) {
+        await syncPublicProfile(profile)
+      }
       if (!shouldPublish(profile) && projection) await syncPublicProfile(profile)
     } catch {
       // Never block sign-in on projection maintenance.

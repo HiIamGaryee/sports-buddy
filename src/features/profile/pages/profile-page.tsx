@@ -1,4 +1,4 @@
-import { SlidersHorizontal } from 'lucide-react'
+import { ChevronRight, SlidersHorizontal } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -12,6 +12,7 @@ import { ProfileSummary } from '@/components/profile/profile-summary'
 import { SocialLinks } from '@/components/profile/social-links'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ import { MonthlyRecapBanner } from '@/features/recap/components/monthly-recap-ba
 import { VerifiedCheckInsCard } from '@/features/profile/components/verified-check-ins-card'
 import { ReliabilityCard } from '@/features/ratings/components/reliability-card'
 import { SportSkillList } from '@/features/profile/components/sport-skill-list'
+import { SettingsRow } from '@/features/settings/components/settings-row'
 import { SettingsSection } from '@/features/settings/components/settings-section'
 import { useProfile } from '@/hooks/use-profile'
 import { toDiscoveryProfile } from '@/lib/discovery-profile'
@@ -335,6 +337,28 @@ export function ProfilePage() {
               {/* LAST section on the page: a recap is a reward, not profile
                   identity, so it never pushes who you are further down. */}
               <MonthlyRecapBanner />
+
+              {/* Moved here from Settings unchanged: the way into every month. */}
+              <Card>
+                <CardContent className="flex flex-col gap-4">
+                  <Link
+                    to={ROUTES.recap}
+                    className="-m-2 flex items-center gap-3 rounded-xl p-2 transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  >
+                    <SettingsRow
+                      label="Monthly recap"
+                      description="What you played each month, who you played with, and a card you can share."
+                      trailing={
+                        <ChevronRight
+                          aria-hidden
+                          className="mt-1 size-4 shrink-0 text-muted-foreground"
+                        />
+                      }
+                      className="flex-1"
+                    />
+                  </Link>
+                </CardContent>
+              </Card>
             </div>
           </div>
         )}

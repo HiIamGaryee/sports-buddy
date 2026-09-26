@@ -22,7 +22,7 @@ import {
   where,
   type Firestore,
 } from 'firebase/firestore'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { createConnectionId, sortConnectionPair } from '@/lib/connection'
 
@@ -1835,7 +1835,26 @@ describe('the public profile projection', () => {
 
   it('accepts the discovery allowlist from its owner', async () => {
     await assertSucceeds(
-      setDoc(doc(asUser(GARY), publicPath(GARY)), validProjection(GARY)),
+      setDoc(doc(asUser(GARY), publicPath(GARY)), {
+        ...validProjection(GARY),
+        instagramUsername: 'gary.plays',
+        linkedinUsername: 'gary-tan',
+      }),
+    )
+  })
+
+  it('refuses malformed social usernames in the public projection', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), publicPath(GARY)), {
+        ...validProjection(GARY),
+        instagramUsername: 'https://instagram.com/gary',
+      }),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), publicPath(GARY)), {
+        ...validProjection(GARY),
+        linkedinUsername: 'gary tan',
+      }),
     )
   })
 
@@ -3264,5 +3283,83 @@ describe('buddy ratings', () => {
     await assertSucceeds(setDoc(reference, rating))
     await assertFails(setDoc(reference, rating))
     await assertFails(updateDoc(reference, { note: 'Changed' }))
+  })
+})
+
+describe('promo codes', () => {
+  const REFERRAL = 'BUDDY-REFR-2026'
+  const SINGLE = 'BUDDY-ONCE-2026'
+  const RETIRED = 'BUDDY-GONE-2026'
+  const redemption = (uid: string, code: string) => ({
+    code,
+    userId: uid,
+    redeemedAt: serverTimestamp(),
+  })
+  const redeem = (uid: string, id: string, code: string) =>
+    setDoc(doc(asUser(uid), `promoRedemptions/${id}`), redemption(uid, code))
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = modular(context)
+      await setDoc(doc(db, `promoCodes/${REFERRAL}`), { active: true, singleUse: false })
+      await setDoc(doc(db, `promoCodes/${SINGLE}`), { active: true, singleUse: true })
+      await setDoc(doc(db, `promoCodes/${RETIRED}`), { active: false, singleUse: false })
+    })
+  })
+
+  it('never lets a member read or list the codes themselves', async () => {
+    await assertFails(getDoc(doc(asUser(GARY), `promoCodes/${REFERRAL}`)))
+    await assertFails(getDocs(collection(asUser(GARY), 'promoCodes')))
+    await assertFails(setDoc(doc(asUser(GARY), 'promoCodes/BUDDY-MINE-0001'), { active: true }))
+  })
+
+  it('lets every account redeem a referral code once', async () => {
+    await assertSucceeds(redeem(GARY, `${REFERRAL}__${GARY}`, REFERRAL))
+    await assertSucceeds(redeem(AINA, `${REFERRAL}__${AINA}`, REFERRAL))
+    await assertFails(redeem(GARY, `${REFERRAL}__${GARY}`, REFERRAL))
+  })
+
+  it('lets a single-use code be redeemed only once, by anyone', async () => {
+    await assertFails(redeem(GARY, `${SINGLE}__${GARY}`, SINGLE))
+    await assertSucceeds(redeem(GARY, SINGLE, SINGLE))
+    await assertFails(redeem(AINA, SINGLE, SINGLE))
+  })
+
+  it('refuses unknown, inactive and malformed codes', async () => {
+    await assertFails(redeem(GARY, `BUDDY-NOPE-0000__${GARY}`, 'BUDDY-NOPE-0000'))
+    await assertFails(redeem(GARY, `${RETIRED}__${GARY}`, RETIRED))
+    await assertFails(redeem(GARY, `bad__${GARY}`, 'bad'))
+  })
+
+  it('refuses redeeming for somebody else or forging the record', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), `promoRedemptions/${REFERRAL}__${AINA}`), redemption(AINA, REFERRAL)),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), `promoRedemptions/${REFERRAL}__${GARY}`), {
+        ...redemption(GARY, REFERRAL),
+        redeemedAt: new Date(0),
+      }),
+    )
+    await assertFails(
+      setDoc(doc(asUser(GARY), `promoRedemptions/${REFERRAL}__${GARY}`), {
+        ...redemption(GARY, REFERRAL),
+        months: 99,
+      }),
+    )
+  })
+
+  it('shows members only their own redemptions, and freezes them', async () => {
+    await redeem(GARY, `${REFERRAL}__${GARY}`, REFERRAL)
+    await assertSucceeds(
+      getDocs(query(collection(asUser(GARY), 'promoRedemptions'), where('userId', '==', GARY), limit(1))),
+    )
+    await assertFails(getDocs(collection(asUser(GARY), 'promoRedemptions')))
+    await assertFails(getDoc(doc(asUser(AINA), `promoRedemptions/${REFERRAL}__${GARY}`)))
+    await assertSucceeds(getDoc(doc(asUser(AINA), `promoRedemptions/${REFERRAL}__${AINA}`)))
+    await assertFails(deleteDoc(doc(asUser(GARY), `promoRedemptions/${REFERRAL}__${GARY}`)))
+    await assertFails(
+      updateDoc(doc(asUser(GARY), `promoRedemptions/${REFERRAL}__${GARY}`), { code: SINGLE }),
+    )
   })
 })

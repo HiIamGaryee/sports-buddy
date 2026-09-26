@@ -48,7 +48,10 @@ export function EditLayout({
           </div>
         }
       />
-      <PageContainer size="wide" className="gap-8 md:gap-10">
+      <PageContainer
+        size="wide"
+        className="gap-8 pb-[calc(var(--mobile-bottom-nav-height,72px)+env(safe-area-inset-bottom)+24px)] md:gap-10 md:pb-10"
+      >
         {children}
         {(error ?? hint) && (
           <p
@@ -64,7 +67,7 @@ export function EditLayout({
         )}
       </PageContainer>
 
-      <StickyActionBar className="md:hidden">
+      <StickyActionBar offset="nav" className="md:hidden">
         {error ? (
           <p role="alert" className="text-body-small text-destructive">
             {error}

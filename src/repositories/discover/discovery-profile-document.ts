@@ -27,6 +27,8 @@ export function toDiscoveryProfileDocument(
     gender: asGender(data.gender),
     photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : null,
     bio: asString(data.bio),
+    instagramUsername: asString(data.instagramUsername),
+    linkedinUsername: asString(data.linkedinUsername),
     sports: Array.isArray(data.sports) ? data.sports : [],
     intents: Array.isArray(data.intents) ? data.intents : [],
     preferredIntensity: data.preferredIntensity ?? null,

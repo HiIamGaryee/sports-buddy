@@ -596,7 +596,7 @@ export function PaywallPage() {
           <DialogHeader>
             <DialogTitle>Redeem Buddy+</DialogTitle>
             <DialogDescription>
-              Enter a valid demo subscription code to unlock Buddy+ on this browser.
+              Enter your Buddy+ code. It unlocks Buddy+ on your account, on every device.
             </DialogDescription>
           </DialogHeader>
           <form
