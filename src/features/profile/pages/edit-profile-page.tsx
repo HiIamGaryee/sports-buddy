@@ -93,7 +93,11 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
       onSave={() => void handleSave()}
       onCancel={close}
     >
-      <EditSection title="Profile photo">
+      {/* Desktop only: a 12-column grid pairing related sections 6 + 6.
+          Below `xl` the wrapper is `display: contents`, so phone and tablet
+          keep the single stacked column exactly as before. */}
+      <div className="contents xl:grid xl:grid-cols-12 xl:items-start xl:gap-x-8 xl:gap-y-10">
+      <EditSection title="Profile photo" className="xl:col-span-6">
         <ProfilePhotoField
           profile={profile}
           value={photo}
@@ -102,7 +106,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
         />
       </EditSection>
 
-      <EditSection title="Basic info">
+      <EditSection title="Basic info" className="xl:col-span-6">
         <FormField id="edit-name" label="Display name">
           <Input
             id="edit-name"
@@ -160,6 +164,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
       <EditSection
         title="Sports"
         description="Add or remove sports — removing one also clears its skill level."
+        className="xl:col-span-12"
       >
         <SportSelector
           selected={draft.sports.map((sport) => sport.sportId)}
@@ -171,7 +176,11 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
         />
       </EditSection>
 
-      <EditSection title="Skill levels" description="One level per sport.">
+      <EditSection
+        title="Skill levels"
+        description="One level per sport."
+        className="xl:col-span-6"
+      >
         <SkillSelector
           sports={draft.sports}
           onChange={(sportId, skillLevel) =>
@@ -180,7 +189,11 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
         />
       </EditSection>
 
-      <EditSection title="Sports goals" description="What you want from a buddy.">
+      <EditSection
+        title="Sports goals"
+        description="What you want from a buddy."
+        className="xl:col-span-6"
+      >
         <IntentSelector
           selected={draft.intents}
           onToggle={(intent) => dispatch({ type: 'toggle-intent', intent })}
@@ -190,7 +203,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
       {/* Two compact selectors that read fine side by side from `md`. The
           rest stay full width — fields are only paired where it genuinely
           helps, never to manufacture a second column. */}
-      <div className="flex flex-col gap-8 md:grid md:grid-cols-2 md:items-start md:gap-x-8">
+      <div className="flex flex-col gap-8 md:grid md:grid-cols-2 md:items-start md:gap-x-8 xl:col-span-12">
         <EditSection title="Playing style">
           <IntensitySelector
             value={draft.preferredIntensity}
@@ -211,7 +224,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
         </EditSection>
       </div>
 
-      <EditSection title="Availability">
+      <EditSection title="Availability" className="xl:col-span-6">
         <AvailabilitySelector
           availability={draft.availability}
           onToggle={(day, period) =>
@@ -220,7 +233,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
         />
       </EditSection>
 
-      <EditSection title="Location">
+      <EditSection title="Location" className="xl:col-span-6">
         <AreaSelector
           inputId="edit-area-search"
           value={draft.area}
@@ -236,6 +249,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
           Your exact location is never shown — only your general area.
         </p>
       </EditSection>
+      </div>
     </EditLayout>
   )
 }

@@ -25,7 +25,8 @@
   animation: activity-pill-shimmer 4.8s ease-in-out infinite;
 }
 
-.activity-pill--match > span {
+.activity-pill--match > span,
+.activity-pill--match > svg {
   position: relative;
   z-index: 1;
 }

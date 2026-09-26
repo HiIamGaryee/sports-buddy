@@ -61,6 +61,8 @@ export function toActivityPostDocument(
     authorId: data.authorId,
     sportId: data.sportId,
     startAt,
+    // `null` for a post written before end times existed.
+    endAt: toIsoOrNull(data.endAt),
     timeZone: data.timeZone,
     areaId: data.areaId,
     venueName: data.venueName,

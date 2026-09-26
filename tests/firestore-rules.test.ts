@@ -2140,11 +2140,15 @@ describe('activity posts', () => {
   const postPath = (id = 'post_1') => `activityPosts/${id}`
   const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000)
 
+  const hoursAfter = (date: unknown, hours: number) =>
+    new Date((date as Date).getTime() + hours * 60 * 60 * 1000)
+
   const newPost = (overrides: Record<string, unknown> = {}) => ({
     id: 'post_1',
     authorId: GARY,
     sportId: 'badminton',
     startAt: inDays(2),
+    endAt: hoursAfter(overrides.startAt ?? inDays(2), 2),
     timeZone: 'Asia/Kuala_Lumpur',
     areaId: 'subang-jaya',
     venueName: 'KL Sports City',
@@ -2224,6 +2228,7 @@ describe('activity posts', () => {
   const edit = (overrides: Record<string, unknown> = {}) => ({
     sportId: 'badminton',
     startAt: inDays(3),
+    endAt: hoursAfter(overrides.startAt ?? inDays(3), 2),
     timeZone: 'Asia/Kuala_Lumpur',
     areaId: 'petaling-jaya',
     venueName: 'Somewhere else',
@@ -2263,6 +2268,36 @@ describe('activity posts', () => {
     await assertFails(
       updateDoc(doc(asUser(GARY), postPath()), edit({ featured: true })),
     )
+  })
+
+  it('requires an end time 30 minutes to 12 hours after the start', async () => {
+    const start = inDays(2)
+    // A fresh id per attempt, so every write is a create.
+    const create = (id: string, endAt: unknown) =>
+      setDoc(doc(asUser(GARY), postPath(id)), newPost({ id, startAt: start, endAt }))
+
+    await assertFails(create('null_end', null))
+    await assertFails(create('before', hoursAfter(start, -1)))
+    await assertFails(create('same', start))
+    await assertFails(create('short', hoursAfter(start, 0.25)))
+    await assertFails(create('long', hoursAfter(start, 13)))
+    await assertSucceeds(create('shortest', hoursAfter(start, 0.5)))
+    await assertSucceeds(create('longest', hoursAfter(start, 12)))
+  })
+
+  it('refuses a new post with no end time at all', async () => {
+    const { endAt: _endAt, ...withoutEnd } = newPost()
+    await assertFails(setDoc(doc(asUser(GARY), postPath()), withoutEnd))
+  })
+
+  it('asks for an end time when a post from before end times is edited', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const { endAt: _endAt, ...legacy } = newPost()
+      await setDoc(doc(modular(context), postPath()), { ...legacy, createdAt: new Date() })
+    })
+    const { endAt: _endAt, ...editWithoutEnd } = edit()
+    await assertFails(updateDoc(doc(asUser(GARY), postPath()), editWithoutEnd))
+    await assertSucceeds(updateDoc(doc(asUser(GARY), postPath()), edit()))
   })
 
   it('can be removed only by its author', async () => {
@@ -2447,6 +2482,7 @@ describe('who can see an activity post', () => {
     authorId: GARY,
     sportId: 'badminton',
     startAt: inDays(2),
+    endAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
     timeZone: 'Asia/Kuala_Lumpur',
     areaId: 'subang-jaya',
     venueName: 'KL Sports City',
@@ -2585,6 +2621,7 @@ describe('who can see an activity post', () => {
       const edit = {
         venueName: 'Elsewhere',
         startAt: inDays(3),
+        endAt: new Date(inDays(3).getTime() + 2 * 60 * 60 * 1000),
         updatedAt: serverTimestamp(),
       }
       await assertSucceeds(updateDoc(doc(asUser(GARY), postPath), edit))

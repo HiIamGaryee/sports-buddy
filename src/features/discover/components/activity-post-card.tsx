@@ -10,7 +10,11 @@ import { ConnectAction } from '@/features/connections/components/connect-action'
 import { ShareActivityActions } from '@/features/discover/components/share-activity-actions'
 import { usePostActions } from '@/features/discover/use-post-actions'
 import { useConnections } from '@/hooks/use-connections'
-import { formatActivityDate, formatActivityTime } from '@/lib/activity-format'
+import {
+  formatActivityDate,
+  formatActivityTime,
+  formatActivityTimeRange,
+} from '@/lib/activity-format'
 import { getPostViewerState, isPostFull } from '@/lib/activity-post'
 import { getInitials } from '@/lib/initials'
 import {
@@ -262,7 +266,10 @@ export function ActivityPostCard({
             <dt className="sr-only">When</dt>
             <CalendarClock aria-hidden className="size-4 shrink-0 text-primary" />
             <dd className="text-body-small text-muted-foreground">
-              {formatActivityDate(post.startAt)} · {formatActivityTime(post.startAt)}
+              {formatActivityDate(post.startAt)} ·{' '}
+              {post.endAt
+                ? formatActivityTimeRange(post.startAt, post.endAt)
+                : formatActivityTime(post.startAt)}
             </dd>
           </div>
         </dl>

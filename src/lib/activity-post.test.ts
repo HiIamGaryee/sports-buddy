@@ -12,6 +12,7 @@ import {
   getActivityPostError,
   isUpcomingPost,
   toCreateActivityPostInput,
+  addMinutesToLocalDateTime,
   toDraftFromPost,
   toLocalDateTimeInZone,
 } from '@/lib/activity-post'
@@ -24,6 +25,7 @@ const NOW = new Date('2026-09-14T02:00:00.000Z')
 const draft = (overrides: Partial<ActivityPostDraft> = {}): ActivityPostDraft => ({
   sportId: SPORTS[0].id,
   localDateTime: '2026-09-15T17:00',
+  localEndDateTime: '2026-09-15T19:00',
   timeZone: ZONE,
   areaId: AREAS[0].id,
   venueName: 'KL Sports City',
@@ -57,8 +59,27 @@ describe('getActivityPostError', () => {
       'Choose a time in the future.',
     )
     expect(getActivityPostError(draft({ localDateTime: 'tomorrow' }), NOW)).toBe(
-      'Choose when you are playing.',
+      'Choose when you start playing.',
     )
+  })
+
+  it('requires an end time after the start, 30 minutes to 12 hours later', () => {
+    expect(getActivityPostError(draft({ localEndDateTime: '' }), NOW)).toBe(
+      'Choose when you finish.',
+    )
+    expect(getActivityPostError(draft({ localEndDateTime: '2026-09-15T17:00' }), NOW)).toBe(
+      'The end time must be after the start.',
+    )
+    expect(getActivityPostError(draft({ localEndDateTime: '2026-09-15T16:00' }), NOW)).toBe(
+      'The end time must be after the start.',
+    )
+    expect(getActivityPostError(draft({ localEndDateTime: '2026-09-15T17:20' }), NOW)).toBe(
+      'Make it at least 30 minutes long.',
+    )
+    expect(getActivityPostError(draft({ localEndDateTime: '2026-09-16T05:01' }), NOW)).toBe(
+      'Keep it under 12 hours.',
+    )
+    expect(getActivityPostError(draft({ localEndDateTime: '2026-09-15T17:30' }), NOW)).toBeNull()
   })
 
   it('rejects a time more than 90 days ahead', () => {
@@ -96,6 +117,7 @@ describe('toCreateActivityPostInput', () => {
     const input = toCreateActivityPostInput('author_1', draft(), NOW)
     // 17:00 in Kuala Lumpur is 09:00 UTC.
     expect(input?.startAt).toBe('2026-09-15T09:00:00.000Z')
+    expect(input?.endAt).toBe('2026-09-15T11:00:00.000Z')
     expect(input?.venueName).toBe('KL Sports City')
   })
 
@@ -107,7 +129,7 @@ describe('toCreateActivityPostInput', () => {
     const withExtra = { ...draft(), isAdmin: true } as ActivityPostDraft
     const input = toCreateActivityPostInput('author_1', withExtra, NOW)
     expect(Object.keys(input ?? {}).sort()).toEqual(
-      ['areaId', 'authorId', 'budget', 'invitedId', 'joinPolicy', 'sportId', 'startAt', 'timeZone', 'venueName', 'visibility'].sort(),
+      ['areaId', 'authorId', 'budget', 'endAt', 'invitedId', 'joinPolicy', 'sportId', 'startAt', 'timeZone', 'venueName', 'visibility'].sort(),
     )
   })
 })
@@ -118,6 +140,7 @@ describe('ordering and visibility', () => {
     authorId: 'a',
     sportId: SPORTS[0].id,
     startAt,
+    endAt: null,
     timeZone: ZONE,
     areaId: AREAS[0].id,
     venueName: 'Court',
@@ -168,6 +191,8 @@ describe('editing a post', () => {
       updatedAt: null,
     }
     expect(toDraftFromPost(post)).toEqual(draft())
+    // A post from before end times existed opens with the end left to pick.
+    expect(toDraftFromPost({ ...post, endAt: null }).localEndDateTime).toBe('')
   })
 
   it('returns null for a malformed instant or zone', () => {
@@ -185,6 +210,7 @@ describe('joining a 1v1 post', () => {
     authorId: AUTHOR,
     sportId: SPORTS[0].id,
     startAt: '2026-09-15T09:00:00.000Z',
+    endAt: '2026-09-15T11:00:00.000Z',
     timeZone: ZONE,
     areaId: AREAS[0].id,
     venueName: 'Court',
@@ -266,6 +292,7 @@ describe('link-only posts and private invites', () => {
     authorId: AUTHOR,
     sportId: SPORTS[0].id,
     startAt: '2026-09-15T09:00:00.000Z',
+    endAt: '2026-09-15T11:00:00.000Z',
     timeZone: ZONE,
     areaId: AREAS[0].id,
     venueName: 'Court',
@@ -322,5 +349,13 @@ describe('link-only posts and private invites', () => {
 
   it('turns an accepted invite into a joined session', () => {
     expect(getPostViewerState(post({ joinedIds: [BUDDY] }), BUDDY, NOW)).toBe('joined')
+  })
+})
+
+describe('addMinutesToLocalDateTime', () => {
+  it('adds wall-clock minutes, across midnight too', () => {
+    expect(addMinutesToLocalDateTime('2026-09-15T17:00', 120)).toBe('2026-09-15T19:00')
+    expect(addMinutesToLocalDateTime('2026-09-15T23:30', 120)).toBe('2026-09-16T01:30')
+    expect(addMinutesToLocalDateTime('nonsense', 120)).toBe('')
   })
 })

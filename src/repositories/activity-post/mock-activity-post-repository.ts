@@ -53,6 +53,7 @@ const normalize = (post: ActivityPost): ActivityPost => ({
       : NEW_POST_JOINS.capacity,
   joinedIds: asIds(post.joinedIds),
   pendingIds: asIds(post.pendingIds),
+  endAt: typeof post.endAt === 'string' ? post.endAt : null,
   updatedAt: post.updatedAt ?? null,
 })
 
@@ -122,6 +123,7 @@ export const mockActivityPostRepository: ActivityPostRepository = {
       authorId: input.authorId,
       sportId: input.sportId,
       startAt: input.startAt,
+      endAt: input.endAt,
       timeZone: input.timeZone,
       areaId: input.areaId,
       venueName: input.venueName,
@@ -153,6 +155,7 @@ export const mockActivityPostRepository: ActivityPostRepository = {
               ...post,
               sportId: input.sportId,
               startAt: input.startAt,
+              endAt: input.endAt,
               timeZone: input.timeZone,
               areaId: input.areaId,
               venueName: input.venueName,
