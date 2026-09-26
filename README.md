@@ -263,6 +263,9 @@ npm install
 npm run cap:sync
 npm run android:open
 ```
+```bash
+npm run android:apk
+```
 
 Android Studio can then run the app on an emulator or connected device. For a
 real RevenueCat Test Store purchase, configure `sportbuddy_pro` as documented in
