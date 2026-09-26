@@ -37,7 +37,7 @@ export function MessageBubble({
           // one short message must never stretch across a desktop screen.
           'flex max-w-[80%] min-w-0 flex-col gap-1 rounded-2xl px-3.5 py-2.5 md:max-w-[70%] lg:max-w-md',
           isOwn
-            ? 'rounded-br-md bg-primary text-primary-foreground'
+            ? 'rounded-br-md bg-chat-bg text-primary-foreground'
             : 'rounded-bl-md border border-border bg-card text-card-foreground',
         )}
       >
