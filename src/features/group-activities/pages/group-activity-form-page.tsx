@@ -4,7 +4,6 @@ import { Sparkles } from 'lucide-react'
 
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
-import { AreaSelector } from '@/components/profile/area-selector'
 import { BudgetSelector } from '@/components/profile/budget-selector'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField } from '@/components/common/form-field'
@@ -22,19 +21,22 @@ import {
   MIN_GROUP_ACTIVITY_PARTICIPANTS,
   SKILL_PREFERENCE_OPTIONS,
 } from '@/constants/group-activities'
+import { AREAS } from '@/constants/areas'
 import { FREE_MAX_HOSTED_GROUP_ACTIVITIES } from '@/constants/entitlements'
 import { SPORTS } from '@/constants/sports'
+import { DiscoverVenuePicker } from '@/features/discover/components/discover-venue-picker'
 import { useAuth } from '@/hooks/use-auth'
 import { useProfile } from '@/hooks/use-profile'
 import { useSubscription } from '@/hooks/use-subscription'
 import { canHostAnotherGroupActivity } from '@/lib/capabilities'
 import { isUpcomingGroupActivity, toDraftFromGroupActivity } from '@/lib/group-activity'
+import { getAreaName } from '@/lib/profile-format'
 import { groupActivityService } from '@/services/group-activity/group-activity-service'
 import { cn } from '@/lib/utils'
 import { groupActivityDetailPath, ROUTES } from '@/routes/routes'
 import type { GroupActivity, GroupActivityDraft } from '@/types/group-activity'
 import type { SkillPreference } from '@/types/group-activity'
-import type { SportId } from '@/types/sports-profile'
+import type { AreaId, SportId } from '@/types/sports-profile'
 
 const STEPS = ['Sport & title', 'Time', 'Budget', 'Venue', 'Players'] as const
 
@@ -360,14 +362,22 @@ export function GroupActivityFormPage() {
 
               {step === 3 && (
                 <div className="flex flex-col gap-5">
-                  <div className="flex flex-col gap-3">
-                    <span className="text-label text-foreground">Area</span>
-                    <AreaSelector
-                      value={draft.areaId}
-                      onChange={(areaId) => update({ areaId })}
-                      inputId="group-activity-area-search"
+                  <AppDropdown
+                    label="Area"
+                    value={draft.areaId ?? ''}
+                    onChange={(value) => update({ areaId: value as AreaId })}
+                    options={AREAS.map(({ id, name }) => ({ value: id, label: name }))}
+                    placeholder="Select an area"
+                  />
+                  {draft.areaId && (
+                    <DiscoverVenuePicker
+                      key={`${draft.sportId}-${draft.areaId}`}
+                      sportId={draft.sportId ?? SPORTS[0]?.id ?? 'badminton'}
+                      initialLocation={getAreaName(draft.areaId)}
+                      value={draft.venueName}
+                      onSelectVenue={(venueName) => update({ venueName })}
                     />
-                  </div>
+                  )}
                   <FormField
                     id="group-activity-venue"
                     label="Venue"
@@ -377,7 +387,7 @@ export function GroupActivityFormPage() {
                       id="group-activity-venue"
                       value={draft.venueName}
                       onChange={(event) => update({ venueName: event.target.value })}
-                      placeholder="e.g. KL Sports City"
+                      placeholder="Choose from OpenStreetMap or enter a venue"
                     />
                   </FormField>
                 </div>

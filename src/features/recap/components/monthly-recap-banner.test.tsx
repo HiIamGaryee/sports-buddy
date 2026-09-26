@@ -42,7 +42,7 @@ const hookResult = (recap: MonthlyRecap | null, isLoading = false, error = '') =
 const renderBanner = () =>
   render(
     <MemoryRouter>
-      <MonthlyRecapBanner />
+      <MonthlyRecapBanner displayName="Gary" />
     </MemoryRouter>,
   )
 
@@ -52,7 +52,7 @@ afterEach(() => {
 })
 
 describe('MonthlyRecapBanner', () => {
-  it('renders real recap values and routes both actions to the recap page', () => {
+  it('renders real recap values, opens the dialog, and links every month to the recap page', () => {
     vi.mocked(useMonthlyRecap).mockReturnValue(hookResult(RECAP))
 
     renderBanner()
@@ -65,7 +65,7 @@ describe('MonthlyRecapBanner', () => {
     expect(screen.getByText('4')).toBeTruthy()
     expect(screen.getByText('2')).toBeTruthy()
     expect(screen.getByText(/Complete/)).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'View & share' }).getAttribute('href')).toBe('/recap')
+    expect(screen.getByRole('button', { name: 'View & share' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'See every month' }).getAttribute('href')).toBe('/recap')
   })
 

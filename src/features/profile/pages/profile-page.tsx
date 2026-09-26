@@ -336,7 +336,7 @@ export function ProfilePage() {
 
               {/* LAST section on the page: a recap is a reward, not profile
                   identity, so it never pushes who you are further down. */}
-              <MonthlyRecapBanner />
+              <MonthlyRecapBanner displayName={profile.displayName} />
 
               {/* Moved here from Settings unchanged: the way into every month. */}
               <Card>
