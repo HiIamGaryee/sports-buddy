@@ -50,7 +50,7 @@ export function AppHeader({
     >
       <div
         className={cn(
-          'mx-auto flex h-18 w-full min-w-0 items-center gap-2 px-gutter',
+          'mx-auto flex min-h-18 w-full min-w-0 items-center gap-2 px-gutter py-3',
           getPageContainerSizeClass(size),
         )}
       >
@@ -67,9 +67,9 @@ export function AppHeader({
         {config.showMenu && <MobileNavigationMenu />}
 
         <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <h1 className="truncate text-heading-1 text-foreground">{title}</h1>
+          <h1 className="text-heading-1 break-words text-foreground">{title}</h1>
           {subtitle && (
-            <p className="truncate text-body-small text-muted-foreground">
+            <p className="text-body-small break-words text-muted-foreground">
               {subtitle}
             </p>
           )}
