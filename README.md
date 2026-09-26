@@ -16,8 +16,29 @@ Built for the **RevenueCat Shipaton 2026 — Next Gen Award**. The Android app i
 the primary product, while the responsive web build lets reviewers try the core
 experience without installing an APK.
 
+- Demo video: _coming soon_ <!-- TODO (manual): replace with the public YouTube/Vimeo link -->
 - Live web demo: <https://sportbuddy-4d596.web.app>
+- Android APK: [download `app-debug.apk`](https://github.com/HiIamGaryee/sports-buddy/releases/latest/download/app-debug.apk)
+  (latest [GitHub Release](https://github.com/HiIamGaryee/sports-buddy/releases/latest))
 - License: [MIT](LICENSE)
+
+## Screenshots
+
+<!--
+  TODO (manual): add product prototype screenshots here before submission.
+  Suggested shots, saved under docs/screenshots/ and referenced like:
+    ![Discover](docs/screenshots/discover.png)
+  - Onboarding
+  - Discover: buddy card with compatibility score and matching reasons
+  - Group activity: create and share
+  - Chat: private invite
+  - Activities: planned / created / past
+  - QR check-in and the profile reliability card
+  - Buddy+ paywall (RevenueCat), Free vs Buddy+
+  - Monthly recap share card
+-->
+
+_Screenshots coming soon._
 
 ## Why Sports Buddy
 
@@ -85,6 +106,26 @@ configuration.
 | Host active public activities | Up to 2 | Unlimited |
 | Reliability statistics and monthly recap | Included | Included |
 | Premium discovery controls | — | Included |
+
+### Try Buddy+
+
+No special account is needed. Register a new account, then:
+
+**Android app:** install the [APK](https://github.com/HiIamGaryee/sports-buddy/releases/latest/download/app-debug.apk),
+tap **Upgrade to Buddy+** and complete the purchase. It's a RevenueCat Test
+Store purchase, so no real payment is charged.
+
+**Web demo:** on the [live web demo](https://sportbuddy-4d596.web.app), open the
+upgrade screen and redeem one of these reusable referral codes. Every account
+may redeem each code once, so they never run out:
+
+- `BUDDY-CEM2-W8MY`
+- `BUDDY-GMVY-6V5W`
+- `BUDDY-8CSJ-HP5C`
+- `BUDDY-9MMD-EYQL`
+
+Like the one-time codes, they only unlock Buddy+ in that browser and are not
+RevenueCat purchases.
 
 ## Tech stack
 
@@ -161,25 +202,6 @@ npm run dev
 Vite prints the local URL, normally <http://localhost:5173>. Mock mode stores
 development data in the browser and needs no Firebase, maps, or RevenueCat
 credentials.
-
-### Reviewer and mock Buddy+ access
-
-Use this account only while `VITE_DATA_SOURCE=mock`:
-
-| Field | Value |
-| --- | --- |
-| Email | `super-tai@gmail.com` |
-| Password | `BuddyPlusDemo2026!` |
-| Subscription | Buddy+ active |
-
-The mock credentials are local test fixtures, not a Firebase or production
-account. They let reviewers explore the Buddy+ interface and premium features in
-the web demo, so a separate Firebase Buddy+ judge account is not required. The
-Android demo is the proof of the real RevenueCat SDK/Test Store purchase flow.
-
-A free mock user can also demonstrate the upgrade screen with one of the local
-codes defined in `src/constants/entitlements.ts`; no payment is processed on the
-web.
 
 ## Environment configuration
 
