@@ -47,6 +47,7 @@ const postsCollection = () =>
 const writableFields = (input: CreateActivityPostInput) => ({
   sportId: input.sportId,
   startAt: Timestamp.fromDate(new Date(input.startAt)),
+  endAt: Timestamp.fromDate(new Date(input.endAt)),
   timeZone: input.timeZone,
   areaId: input.areaId,
   venueName: input.venueName,

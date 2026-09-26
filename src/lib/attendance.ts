@@ -86,8 +86,8 @@ export function toCheckInSubjectFromPost(post: ActivityPost): CheckInSubject {
     hostId: post.authorId,
     participantIds: post.joinedIds,
     startAt: post.startAt,
-    // A post has no end time, so the window falls back to the assumed length.
-    endAt: null,
+    // Posts from before end times existed fall back to the assumed length.
+    endAt: post.endAt,
   }
 }
 

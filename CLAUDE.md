@@ -822,6 +822,11 @@ Discover page ← useActivityPosts() (one batch + ONE batched publicProfiles rea
   composes the two systems: joining (or requesting) also asks to connect with
   the author, and approving connects back, so once someone is in the two can
   chat. Neither service imports the other.
+- **A post has a start AND an end time** (`endAt`, 30 min – 12 h after the
+  start; `getPostTimeError()` in `src/lib/activity-post.ts`, mirrored in the
+  rules). Required on create and on every edit; posts from before end times
+  read `endAt: null`, show the start only, and ask for an end when edited.
+  The form suggests start + 2 h. Check-in uses the real end when present.
 - **The author can edit their post** (time, place, sport, budget), e.g. after
   someone asks in chat. The same form (`/discover/post-activity/:postId`),
   the same validation, a server `updatedAt`; identity fields never move.

@@ -4,6 +4,13 @@ export const MAX_VENUE_NAME_LENGTH = 80
 /** How far ahead a post may be scheduled. Mirrored in `firestore.rules`. */
 export const MAX_POST_HORIZON_DAYS = 90
 
+/** Shortest and longest a 1v1 session may run. Mirrored in `firestore.rules`. */
+export const MIN_POST_DURATION_MINUTES = 30
+export const MAX_POST_DURATION_HOURS = 12
+
+/** The end time suggested when a start is picked: a two-hour session. */
+export const DEFAULT_POST_DURATION_MINUTES = 120
+
 /** One batch of upcoming posts for Discover — no infinite scroll. */
 export const ACTIVITY_POST_BATCH_LIMIT = 30
 

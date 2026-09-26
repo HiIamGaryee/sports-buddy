@@ -131,16 +131,17 @@ service cloud.firestore {
     match /activityPosts/{postId} {
       /** Everything a post may contain. `updatedAt` appears after an edit. */
       function postFields() {
-        return ['id', 'authorId', 'sportId', 'startAt', 'timeZone', 'areaId',
-                'venueName', 'budget', 'joinPolicy', 'visibility', 'invitedId',
-                'capacity', 'joinedIds', 'pendingIds', 'createdAt', 'updatedAt'];
+        return ['id', 'authorId', 'sportId', 'startAt', 'endAt', 'timeZone',
+                'areaId', 'venueName', 'budget', 'joinPolicy', 'visibility',
+                'invitedId', 'capacity', 'joinedIds', 'pendingIds', 'createdAt',
+                'updatedAt'];
       }
 
       /** What a NEW post must contain. */
       function createFields() {
-        return ['id', 'authorId', 'sportId', 'startAt', 'timeZone', 'areaId',
-                'venueName', 'budget', 'joinPolicy', 'visibility', 'invitedId',
-                'capacity', 'joinedIds', 'pendingIds', 'createdAt'];
+        return ['id', 'authorId', 'sportId', 'startAt', 'endAt', 'timeZone',
+                'areaId', 'venueName', 'budget', 'joinPolicy', 'visibility',
+                'invitedId', 'capacity', 'joinedIds', 'pendingIds', 'createdAt'];
       }
 
       /** What every post must still contain (posts from before joins existed). */
@@ -188,6 +189,12 @@ service cloud.firestore {
           && data.startAt is timestamp
           && data.startAt > request.time
           && data.startAt < request.time + duration.value(90, 'd')
+          // Every post written now has an end: 30 minutes to 12 hours after
+          // the start. Posts from before end times only reach this check
+          // when their author edits them, and the form then asks for one.
+          && data.endAt is timestamp
+          && data.endAt >= data.startAt + duration.value(30, 'm')
+          && data.endAt <= data.startAt + duration.value(12, 'h')
           && validBudget(data.budget)
           && policyOf(data) in ['open', 'approval'];
       }

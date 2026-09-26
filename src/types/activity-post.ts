@@ -49,6 +49,11 @@ export interface ActivityPost {
   sportId: SportId
   /** Resolved instant (ISO), from the author's local date/time + zone. */
   startAt: string
+  /**
+   * When the session ends, resolved the same way. Required for every new or
+   * edited post; `null` only on posts written before end times existed.
+   */
+  endAt: string | null
   /** IANA zone the author posted from, e.g. `Asia/Kuala_Lumpur`. */
   timeZone: string
   areaId: AreaId
@@ -76,8 +81,10 @@ export interface ActivityPost {
 /** What the post form hands the service. */
 export interface ActivityPostDraft {
   sportId: SportId | null
-  /** `YYYY-MM-DDTHH:mm`, straight from `<input type="datetime-local">`. */
+  /** Start, `YYYY-MM-DDTHH:mm`, straight from `<input type="datetime-local">`. */
   localDateTime: string
+  /** End, same format and the same zone as the start. */
+  localEndDateTime: string
   timeZone: string
   areaId: AreaId | null
   venueName: string
@@ -92,6 +99,7 @@ export interface CreateActivityPostInput {
   authorId: string
   sportId: SportId
   startAt: string
+  endAt: string
   timeZone: string
   areaId: AreaId
   venueName: string

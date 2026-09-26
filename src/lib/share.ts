@@ -1,4 +1,8 @@
-import { formatActivityDate, formatActivityTime } from '@/lib/activity-format'
+import {
+  formatActivityDate,
+  formatActivityTime,
+  formatActivityTimeRange,
+} from '@/lib/activity-format'
 import { isValidDocumentId } from '@/lib/ids'
 import { getSportName } from '@/lib/profile-format'
 import type { ActivityPost } from '@/types/activity-post'
@@ -42,9 +46,9 @@ export function toShareOrigin(raw: string | undefined | null): string | null {
 
 /** The words that travel with a link, in a chat or a share sheet. */
 export const describeActivityForSharing = (
-  post: Pick<ActivityPost, 'sportId' | 'startAt' | 'venueName'>,
+  post: Pick<ActivityPost, 'sportId' | 'startAt' | 'endAt' | 'venueName'>,
 ) =>
-  `${getSportName(post.sportId)} · ${formatActivityDate(post.startAt)}, ${formatActivityTime(post.startAt)} at ${post.venueName}. Want to join?`
+  `${getSportName(post.sportId)} · ${formatActivityDate(post.startAt)}, ${post.endAt ? formatActivityTimeRange(post.startAt, post.endAt) : formatActivityTime(post.startAt)} at ${post.venueName}. Want to join?`
 
 export const describeGroupActivityForSharing = (
   activity: Pick<GroupActivity, 'title' | 'sportId' | 'startAt' | 'venueName'>,

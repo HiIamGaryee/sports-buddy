@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AREAS } from '@/constants/areas'
 import {
+  DEFAULT_POST_DURATION_MINUTES,
   JOIN_POLICY_OPTIONS,
   MAX_VENUE_NAME_LENGTH,
   VISIBILITY_OPTIONS,
@@ -24,7 +25,11 @@ import { useAuth } from '@/hooks/use-auth'
 import { useConnections } from '@/hooks/use-connections'
 import { useProfile } from '@/hooks/use-profile'
 import { useSafety } from '@/hooks/use-safety'
-import { toDraftFromPost } from '@/lib/activity-post'
+import {
+  addMinutesToLocalDateTime,
+  getPostTimeError,
+  toDraftFromPost,
+} from '@/lib/activity-post'
 import { validDocumentId } from '@/lib/ids'
 import { getAreaName } from '@/lib/profile-format'
 import { describeActivityForSharing } from '@/lib/share'
@@ -87,6 +92,7 @@ export function PostActivityPage() {
   const [draft, setDraft] = useState<ActivityPostDraft>(() => ({
     sportId: profile?.sports[0]?.sportId ?? SPORTS[0]?.id ?? null,
     localDateTime: '',
+    localEndDateTime: '',
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     // Most people post near home; they can change it.
     areaId: profile?.area ?? null,
@@ -159,9 +165,13 @@ export function PostActivityPage() {
   const isInviteForm = draft.visibility === 'invite'
   const steps = isInviteForm ? INVITE_STEPS : STEPS
   const isLastStep = step === steps.length - 1
+  // Only shown once both ends are filled in, so an empty field is not an error.
+  const timeError = getPostTimeError(draft, new Date())
+  const shownTimeError =
+    draft.localDateTime && draft.localEndDateTime ? timeError : null
   const canContinue = [
     Boolean(draft.sportId),
-    Boolean(draft.localDateTime),
+    timeError === null,
     Boolean(draft.budget),
     Boolean(draft.areaId && draft.venueName.trim()),
     Boolean(draft.joinPolicy),
@@ -357,17 +367,47 @@ export function PostActivityPage() {
               )}
 
               {step === 1 && (
-                <FormField id="post-when" label="When are you playing?">
-                  <Input
-                    id="post-when"
-                    type="datetime-local"
-                    min={toLocalInputValue(new Date())}
-                    value={draft.localDateTime}
-                    onChange={(event) =>
-                      update({ localDateTime: event.target.value })
-                    }
-                  />
-                </FormField>
+                <div className="flex flex-col gap-5">
+                  <FormField id="post-when" label="Start time">
+                    <Input
+                      id="post-when"
+                      type="datetime-local"
+                      min={toLocalInputValue(new Date())}
+                      value={draft.localDateTime}
+                      onChange={(event) => {
+                        const localDateTime = event.target.value
+                        // Suggest a two-hour session until an end is chosen
+                        // that still comes after the new start.
+                        const keepsEnd =
+                          draft.localEndDateTime > localDateTime
+                        update({
+                          localDateTime,
+                          localEndDateTime: keepsEnd
+                            ? draft.localEndDateTime
+                            : addMinutesToLocalDateTime(
+                                localDateTime,
+                                DEFAULT_POST_DURATION_MINUTES,
+                              ),
+                        })
+                      }}
+                    />
+                  </FormField>
+                  <FormField
+                    id="post-end"
+                    label="End time"
+                    error={shownTimeError ?? undefined}
+                  >
+                    <Input
+                      id="post-end"
+                      type="datetime-local"
+                      min={draft.localDateTime || toLocalInputValue(new Date())}
+                      value={draft.localEndDateTime}
+                      onChange={(event) =>
+                        update({ localEndDateTime: event.target.value })
+                      }
+                    />
+                  </FormField>
+                </div>
               )}
 
               {step === 2 && (

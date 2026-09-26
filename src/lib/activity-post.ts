@@ -3,7 +3,9 @@ import {
   JOIN_POLICY_OPTIONS,
   VISIBILITY_OPTIONS,
   MAX_POST_BUDGET_RM,
+  MAX_POST_DURATION_HOURS,
   MAX_POST_HORIZON_DAYS,
+  MIN_POST_DURATION_MINUTES,
   MAX_VENUE_NAME_LENGTH,
 } from '@/constants/activity-posts'
 import { AREAS } from '@/constants/areas'
@@ -46,6 +48,53 @@ export function resolvePostStart(
   })
 }
 
+const MINUTE_MS = 60 * 1000
+
+/**
+ * The time step on its own, so the form can check it before Continue and the
+ * full validation below says exactly the same thing.
+ */
+export function getPostTimeError(
+  draft: Pick<ActivityPostDraft, 'localDateTime' | 'localEndDateTime' | 'timeZone'>,
+  now: Date,
+): string | null {
+  const start = resolvePostStart(draft.localDateTime, draft.timeZone)
+  if (!start) return 'Choose when you start playing.'
+  if (start.getTime() <= now.getTime()) {
+    return 'Choose a time in the future.'
+  }
+  if (start.getTime() > now.getTime() + MAX_POST_HORIZON_DAYS * DAY_MS) {
+    return `Choose a time within the next ${MAX_POST_HORIZON_DAYS} days.`
+  }
+
+  const end = resolvePostStart(draft.localEndDateTime, draft.timeZone)
+  if (!end) return 'Choose when you finish.'
+  const minutes = (end.getTime() - start.getTime()) / MINUTE_MS
+  if (minutes <= 0) return 'The end time must be after the start.'
+  if (minutes < MIN_POST_DURATION_MINUTES) {
+    return `Make it at least ${MIN_POST_DURATION_MINUTES} minutes long.`
+  }
+  if (minutes > MAX_POST_DURATION_HOURS * 60) {
+    return `Keep it under ${MAX_POST_DURATION_HOURS} hours.`
+  }
+  return null
+}
+
+/**
+ * `YYYY-MM-DDTHH:mm` + minutes → `YYYY-MM-DDTHH:mm`, as wall-clock arithmetic.
+ * Only a suggestion for the end field, which the author can still change.
+ */
+export function addMinutesToLocalDateTime(
+  localDateTime: string,
+  minutes: number,
+): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(localDateTime)
+  if (!match) return ''
+  const [, y, mo, d, h, mi] = match.map(Number)
+  const date = new Date(Date.UTC(y, mo - 1, d, h, mi) + minutes * MINUTE_MS)
+  return date.toISOString().slice(0, 16)
+}
+
 export const isPostVisibility = (value: unknown): value is PostVisibility =>
   value === 'invite' || VISIBILITY_OPTIONS.some((option) => option.id === value)
 
@@ -73,14 +122,8 @@ export function getActivityPostError(
     return 'Choose a sport.'
   }
 
-  const start = resolvePostStart(draft.localDateTime, draft.timeZone)
-  if (!start) return 'Choose when you are playing.'
-  if (start.getTime() <= now.getTime()) {
-    return 'Choose a time in the future.'
-  }
-  if (start.getTime() > now.getTime() + MAX_POST_HORIZON_DAYS * DAY_MS) {
-    return `Choose a time within the next ${MAX_POST_HORIZON_DAYS} days.`
-  }
+  const timeError = getPostTimeError(draft, now)
+  if (timeError) return timeError
 
   if (!draft.budget || !isValidBudget(draft.budget)) {
     return 'Choose a budget per person.'
@@ -119,12 +162,14 @@ export function toCreateActivityPostInput(
 ): CreateActivityPostInput | null {
   if (getActivityPostError(draft, now)) return null
   const start = resolvePostStart(draft.localDateTime, draft.timeZone)
-  if (!start || !draft.sportId || !draft.areaId || !draft.budget) return null
+  const end = resolvePostStart(draft.localEndDateTime, draft.timeZone)
+  if (!start || !end || !draft.sportId || !draft.areaId || !draft.budget) return null
 
   return {
     authorId,
     sportId: draft.sportId,
     startAt: start.toISOString(),
+    endAt: end.toISOString(),
     timeZone: draft.timeZone,
     areaId: draft.areaId,
     venueName: normalizeSingleLine(draft.venueName),
@@ -170,6 +215,10 @@ export function toDraftFromPost(post: ActivityPost): ActivityPostDraft {
   return {
     sportId: post.sportId,
     localDateTime: toLocalDateTimeInZone(post.startAt, post.timeZone) ?? '',
+    // A post from before end times existed opens with the end still to pick.
+    localEndDateTime: post.endAt
+      ? (toLocalDateTimeInZone(post.endAt, post.timeZone) ?? '')
+      : '',
     timeZone: post.timeZone,
     areaId: post.areaId,
     venueName: post.venueName,

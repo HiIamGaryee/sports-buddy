@@ -1,3 +1,6 @@
+import { Heart } from 'lucide-react'
+import { useState } from 'react'
+
 import { Badge } from '@/components/ui/badge'
 import { getSportName } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
@@ -24,10 +27,11 @@ export function SportBadges({
   max?: number
   className?: string
 }) {
+  const [isExpanded, setIsExpanded] = useState(false)
   if (sports.length === 0) return null
 
-  const shown = sports.slice(0, max)
-  const hidden = sports.length - shown.length
+  const shown = isExpanded ? sports : sports.slice(0, max)
+  const hidden = sports.length - Math.min(sports.length, max)
 
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
@@ -39,12 +43,27 @@ export function SportBadges({
             variant={isMatch ? 'outline' : 'secondary'}
             className={isMatch ? styles['activity-pill--match'] : undefined}
           >
-            <span>{getSportName(sportId)}</span>
+            {isMatch && (
+              <Heart data-icon="inline-start" aria-hidden className="fill-current" />
+            )}
+            <span>
+              {isMatch && <span className="sr-only">You like this too: </span>}
+              {getSportName(sportId)}
+            </span>
           </Badge>
         )
       })}
       {hidden > 0 && (
-        <span className="text-caption text-muted-foreground">+{hidden} more</span>
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+          // The label is caption-sized; the invisible ::after gives it a
+          // 44px touch target without making the row any taller.
+          className="relative rounded-md text-caption text-muted-foreground transition-ui after:absolute after:-inset-3 after:content-[''] hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          {isExpanded ? 'Show less' : `+${hidden} more`}
+        </button>
       )}
     </div>
   )
