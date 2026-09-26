@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import shirtIcon from '@/assets/svg/shirt-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
+import { PullToRefresh } from '@/components/common/pull-to-refresh'
 import { AppHeader } from '@/components/layout/app-header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -23,7 +24,7 @@ const SKELETON_ROWS = [0, 1, 2]
  * messaged still appears. Pending connections are absent by construction.
  */
 export function MessagesListPane({ selectedId }: { selectedId?: string | null }) {
-  const { items, isLoading, error } = useConversations()
+  const { items, isLoading, error, refresh } = useConversations()
 
   return (
     <>
@@ -33,59 +34,61 @@ export function MessagesListPane({ selectedId }: { selectedId?: string | null })
         size="full"
       />
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-gutter pt-5 pb-bottom-nav-space md:gap-5 md:px-3 md:pt-3 md:pb-4">
-        {isLoading && (
-          <Card className="py-0 md:border-0 md:bg-transparent md:shadow-none">
-            {SKELETON_ROWS.map((key) => (
-              <div key={key}>
-                {key > 0 && <Separator className="md:hidden" />}
-                <div className="flex items-center gap-3 p-4 md:px-3">
-                  <Skeleton className="size-11 shrink-0 rounded-full" />
-                  <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-full max-w-40" />
+        <PullToRefresh onRefresh={refresh} className="gap-6 md:gap-5">
+          {isLoading && (
+            <Card className="py-0 md:border-0 md:bg-transparent md:shadow-none">
+              {SKELETON_ROWS.map((key) => (
+                <div key={key}>
+                  {key > 0 && <Separator className="md:hidden" />}
+                  <div className="flex items-center gap-3 p-4 md:px-3">
+                    <Skeleton className="size-11 shrink-0 rounded-full" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-3 w-full max-w-40" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </Card>
-        )}
+              ))}
+            </Card>
+          )}
 
-        {!isLoading && error && (
-          <EmptyState
-            icon={MessageCircle}
-            title={error}
-            description="Something went wrong on our side, not yours."
-          />
-        )}
-
-        {!isLoading && !error && items.length === 0 && (
-          <div className="flex flex-col gap-4">
+          {!isLoading && error && (
             <EmptyState
-              illustration={shirtIcon}
-              title="No sports buddies yet."
-              description="Connect with someone in Discover and your conversations show up here."
+              icon={MessageCircle}
+              title={error}
+              description="Something went wrong on our side, not yours."
             />
-            <Button size="lg" variant="outline" asChild>
-              <Link to={ROUTES.discover}>Find a Buddy</Link>
-            </Button>
-          </div>
-        )}
+          )}
 
-        {!isLoading && !error && items.length > 0 && (
-          // A card on a phone; on the workspace pane the divider IS the pane
-          // border, so the extra frame is dropped.
-          <Card className="overflow-hidden py-0 md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
-            {items.map((item, index) => (
-              <div key={item.conversationId}>
-                {index > 0 && <Separator className="md:hidden" />}
-                <ConversationListItem
-                  item={item}
-                  isSelected={item.conversationId === selectedId}
-                />
-              </div>
-            ))}
-          </Card>
-        )}
+          {!isLoading && !error && items.length === 0 && (
+            <div className="flex flex-col gap-4">
+              <EmptyState
+                illustration={shirtIcon}
+                title="No sports buddies yet."
+                description="Connect with someone in Discover and your conversations show up here."
+              />
+              <Button size="lg" variant="outline" asChild>
+                <Link to={ROUTES.discover}>Find a Buddy</Link>
+              </Button>
+            </div>
+          )}
+
+          {!isLoading && !error && items.length > 0 && (
+            // A card on a phone; on the workspace pane the divider IS the pane
+            // border, so the extra frame is dropped.
+            <Card className="overflow-hidden py-0 md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
+              {items.map((item, index) => (
+                <div key={item.conversationId}>
+                  {index > 0 && <Separator className="md:hidden" />}
+                  <ConversationListItem
+                    item={item}
+                    isSelected={item.conversationId === selectedId}
+                  />
+                </div>
+              ))}
+            </Card>
+          )}
+        </PullToRefresh>
       </div>
     </>
   )

@@ -6,6 +6,7 @@ import compassIllustration from '@/assets/svg/compas-svgrepo-com.svg'
 import calendarIcon from '@/assets/svg/calendar-svgrepo-com.svg'
 import peopleNearbyIcon from '@/assets/svg/people-nearby-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
+import { PullToRefresh } from '@/components/common/pull-to-refresh'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { AppDropdown } from '@/components/ui/AppDropdown'
@@ -224,210 +225,212 @@ export function DiscoverPage() {
           </div>
         }
       />
-      <PageContainer size="wide" className="gap-5 md:gap-6">
-        {/* One compact filter row instead of a full-width filter panel. */}
-        <div className="flex flex-wrap items-center gap-3">
-          <AppDropdown
-            value={area}
-            onChange={setArea}
-            options={AREA_OPTIONS}
-            ariaLabel="Location"
-            className="w-full sm:w-56"
-          />
-          <AppDropdown
-            value={sport}
-            onChange={setSport}
-            options={SPORT_OPTIONS}
-            ariaLabel="Activity"
-            className="w-full sm:w-56"
-          />
-          {hasFilters && (
+      <PullToRefresh onRefresh={refreshAll}>
+        <PageContainer size="wide" className="gap-5 md:gap-6">
+          {/* One compact filter row instead of a full-width filter panel. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <AppDropdown
+              value={area}
+              onChange={setArea}
+              options={AREA_OPTIONS}
+              ariaLabel="Location"
+              className="w-full sm:w-56"
+            />
+            <AppDropdown
+              value={sport}
+              onChange={setSport}
+              options={SPORT_OPTIONS}
+              ariaLabel="Activity"
+              className="w-full sm:w-56"
+            />
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-body-small text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                Clear filters
+              </button>
+            )}
             <button
               type="button"
-              onClick={clearFilters}
-              className="text-body-small text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              onClick={() => setIsToolkitOpen((open) => !open)}
+              aria-expanded={isToolkitOpen}
+              className="ml-auto text-body-small text-primary underline-offset-4 hover:underline"
             >
-              Clear filters
+              {isToolkitOpen ? 'Hide search tools' : 'More filters'}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setIsToolkitOpen((open) => !open)}
-            aria-expanded={isToolkitOpen}
-            className="ml-auto text-body-small text-primary underline-offset-4 hover:underline"
-          >
-            {isToolkitOpen ? 'Hide search tools' : 'More filters'}
-          </button>
-        </div>
+          </div>
 
-        {isToolkitOpen && (
-          <PremiumDiscoverFilters
-            subscriptionState={subscriptionState}
-            filters={people.filters}
-            onApply={people.setFilters}
-            onReset={people.resetFilters}
-          />
-        )}
-
-        <hr className="border-border" />
-
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <span className="flex items-center gap-2 text-body text-muted-foreground">
-            <img src={peopleNearbyIcon} alt="" className="size-5" />
-            {current.isLoading
-              ? 'Looking for matches…'
-              : `${current.count} ${current.count === 1 ? 'match' : 'matches'}`}
-          </span>
-          {/* Wraps on a phone: the count, the post button and the three-way
-              toggle do not fit on one 390px line. */}
-          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            {/* No posting buttons here: the header action opens the one
-                chooser (1-to-1 or group), so this row is just the filter
-                summary and the view switch. */}
-            <SegmentedToggle
-              options={VIEWS}
-              value={view}
-              onChange={setView}
-              className="h-11 w-full sm:w-auto"
+          {isToolkitOpen && (
+            <PremiumDiscoverFilters
+              subscriptionState={subscriptionState}
+              filters={people.filters}
+              onApply={people.setFilters}
+              onReset={people.resetFilters}
             />
-          </div>
-        </div>
+          )}
 
-        {current.isLoading && <CardSkeletons />}
+          <hr className="border-border" />
 
-        {!current.isLoading && current.error && (
-          <EmptyState
-            title={current.error}
-            action={
-              <Button variant="outline" onClick={current.retry}>
-                Try again
-              </Button>
-            }
-          />
-        )}
-
-        {isEmpty && view === 'people' && (
-          <EmptyState
-            size="compact"
-            illustration={compassIllustration}
-            title="No sports buddies found"
-            description={
-              hasFilters
-                ? 'Try another location or activity.'
-                : 'Check back soon, or review your discovery settings.'
-            }
-            action={
-              hasFilters ? (
-                <Button variant="outline" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : undefined
-            }
-          />
-        )}
-
-        {isEmpty && view === 'activities' && (
-          <EmptyState
-            size="compact"
-            illustration={compassIllustration}
-            title={
-              hasFilters
-                ? 'No activities match these filters'
-                : 'No open activities yet'
-            }
-            description={
-              hasFilters
-                ? 'Try another location or activity.'
-                : 'Be the first — post a session and let people join you.'
-            }
-            action={
-              hasFilters ? (
-                <Button variant="outline" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : (
-                <Button asChild>
-                  <Link to={ROUTES.postActivity}>Post an activity</Link>
-                </Button>
-              )
-            }
-          />
-        )}
-
-        {isEmpty && view === 'groups' && (
-          <EmptyState
-            size="compact"
-            illustration={compassIllustration}
-            title={
-              hasFilters
-                ? 'No group activities match these filters'
-                : 'No group activities yet'
-            }
-            description={
-              hasFilters
-                ? 'Try another location or activity.'
-                : 'Be the first — create one and let people join.'
-            }
-            action={
-              hasFilters ? (
-                <Button variant="outline" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : (
-                <Button asChild>
-                  <Link to={ROUTES.createGroupActivity}>Create activity</Link>
-                </Button>
-              )
-            }
-          />
-        )}
-
-        {!current.isLoading && !current.error && view === 'people' && (
-          <div className={CARD_GRID}>
-            {/* Incoming requests lead the grid and ignore the filters. */}
-            {people.incoming.map((buddy) => (
-              <BuddyCard key={buddy.profile.userId} buddy={buddy} />
-            ))}
-            {visibleBuddies.map((buddy) => (
-              <BuddyCard
-                key={buddy.profile.userId}
-                buddy={buddy}
-                onDismiss={people.dismiss}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <span className="flex items-center gap-2 text-body text-muted-foreground">
+              <img src={peopleNearbyIcon} alt="" className="size-5" />
+              {current.isLoading
+                ? 'Looking for matches…'
+                : `${current.count} ${current.count === 1 ? 'match' : 'matches'}`}
+            </span>
+            {/* Wraps on a phone: the count, the post button and the three-way
+                toggle do not fit on one 390px line. */}
+            <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+              {/* No posting buttons here: the header action opens the one
+                  chooser (1-to-1 or group), so this row is just the filter
+                  summary and the view switch. */}
+              <SegmentedToggle
+                options={VIEWS}
+                value={view}
+                onChange={setView}
+                className="h-11 w-full sm:w-auto"
               />
-            ))}
+            </div>
           </div>
-        )}
 
-        {!current.isLoading && !current.error && view === 'activities' && (
-          <div className={CARD_GRID}>
-            {orderedPosts.map((post) => (
-              <ActivityPostCard
-                key={post.id}
-                post={post}
-                people={activities.people}
-                now={now}
-                onChanged={activities.refresh}
-                onRemove={activities.remove}
-              />
-            ))}
-          </div>
-        )}
+          {current.isLoading && <CardSkeletons />}
 
-        {!current.isLoading && !current.error && view === 'groups' && (
-          <div className={CARD_GRID}>
-            {visibleGroupActivities.map((activity) => (
-              <GroupActivityCard
-                key={activity.id}
-                activity={activity}
-                people={groupActivities.people}
-                now={now}
-                onChanged={groupActivities.refresh}
-                onRemove={removeGroupActivity}
-              />
-            ))}
-          </div>
-        )}
-      </PageContainer>
+          {!current.isLoading && current.error && (
+            <EmptyState
+              title={current.error}
+              action={
+                <Button variant="outline" onClick={current.retry}>
+                  Try again
+                </Button>
+              }
+            />
+          )}
+
+          {isEmpty && view === 'people' && (
+            <EmptyState
+              size="compact"
+              illustration={compassIllustration}
+              title="No sports buddies found"
+              description={
+                hasFilters
+                  ? 'Try another location or activity.'
+                  : 'Check back soon, or review your discovery settings.'
+              }
+              action={
+                hasFilters ? (
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                ) : undefined
+              }
+            />
+          )}
+
+          {isEmpty && view === 'activities' && (
+            <EmptyState
+              size="compact"
+              illustration={compassIllustration}
+              title={
+                hasFilters
+                  ? 'No activities match these filters'
+                  : 'No open activities yet'
+              }
+              description={
+                hasFilters
+                  ? 'Try another location or activity.'
+                  : 'Be the first — post a session and let people join you.'
+              }
+              action={
+                hasFilters ? (
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                ) : (
+                  <Button asChild>
+                    <Link to={ROUTES.postActivity}>Post an activity</Link>
+                  </Button>
+                )
+              }
+            />
+          )}
+
+          {isEmpty && view === 'groups' && (
+            <EmptyState
+              size="compact"
+              illustration={compassIllustration}
+              title={
+                hasFilters
+                  ? 'No group activities match these filters'
+                  : 'No group activities yet'
+              }
+              description={
+                hasFilters
+                  ? 'Try another location or activity.'
+                  : 'Be the first — create one and let people join.'
+              }
+              action={
+                hasFilters ? (
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                ) : (
+                  <Button asChild>
+                    <Link to={ROUTES.createGroupActivity}>Create activity</Link>
+                  </Button>
+                )
+              }
+            />
+          )}
+
+          {!current.isLoading && !current.error && view === 'people' && (
+            <div className={CARD_GRID}>
+              {/* Incoming requests lead the grid and ignore the filters. */}
+              {people.incoming.map((buddy) => (
+                <BuddyCard key={buddy.profile.userId} buddy={buddy} />
+              ))}
+              {visibleBuddies.map((buddy) => (
+                <BuddyCard
+                  key={buddy.profile.userId}
+                  buddy={buddy}
+                  onDismiss={people.dismiss}
+                />
+              ))}
+            </div>
+          )}
+
+          {!current.isLoading && !current.error && view === 'activities' && (
+            <div className={CARD_GRID}>
+              {orderedPosts.map((post) => (
+                <ActivityPostCard
+                  key={post.id}
+                  post={post}
+                  people={activities.people}
+                  now={now}
+                  onChanged={activities.refresh}
+                  onRemove={activities.remove}
+                />
+              ))}
+            </div>
+          )}
+
+          {!current.isLoading && !current.error && view === 'groups' && (
+            <div className={CARD_GRID}>
+              {visibleGroupActivities.map((activity) => (
+                <GroupActivityCard
+                  key={activity.id}
+                  activity={activity}
+                  people={groupActivities.people}
+                  now={now}
+                  onChanged={groupActivities.refresh}
+                  onRemove={removeGroupActivity}
+                />
+              ))}
+            </div>
+          )}
+        </PageContainer>
+      </PullToRefresh>
     </>
   )
 }

@@ -6,6 +6,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import clipboardIllustration from '@/assets/svg/clipboard-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
+import { PullToRefresh } from '@/components/common/pull-to-refresh'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
 import { Button } from '@/components/ui/button'
@@ -149,6 +150,12 @@ export function ActivitiesPage() {
   const myPosts = useMyActivityPosts(now)
   const myGroups = useMyGroupActivities(now)
   const viewerId = user?.id ?? null
+  const refreshAll = () => {
+    upcoming.refresh()
+    past.refresh()
+    myPosts.refresh()
+    myGroups.refresh()
+  }
   /*
    * Which tab and which kind are NAVIGATION state, so they belong to the
    * router rather than to component state: opening an event and pressing back
@@ -267,92 +274,94 @@ export function ActivitiesPage() {
         size="wide"
         variant="list"
       />
-      <PageContainer size="wide">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="planned" className="flex-1 sm:flex-none sm:px-6">
-              Planned
-            </TabsTrigger>
-            <TabsTrigger value="created" className="flex-1 sm:flex-none sm:px-6">
-              Created
-            </TabsTrigger>
-            <TabsTrigger value="past" className="flex-1 sm:flex-none sm:px-6">
-              Past
-            </TabsTrigger>
-          </TabsList>
+      <PullToRefresh onRefresh={refreshAll}>
+        <PageContainer size="wide">
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="planned" className="flex-1 sm:flex-none sm:px-6">
+                Planned
+              </TabsTrigger>
+              <TabsTrigger value="created" className="flex-1 sm:flex-none sm:px-6">
+                Created
+              </TabsTrigger>
+              <TabsTrigger value="past" className="flex-1 sm:flex-none sm:px-6">
+                Past
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="planned" className="flex flex-col gap-5 pt-5">
-            <SegmentedToggle options={KINDS} value={kind} onChange={setKind} />
-            <EventList
-              items={planned[kind]}
-              isLoading={isLoadingPlanned}
-              error={kind === 'group' ? groupError : soloError}
-              onRetry={kind === 'group' ? myGroups.refresh : myPosts.refresh}
-              emptyIllustration={clipboardIllustration}
-              emptyTitle={
-                kind === 'group'
-                  ? 'No group activities planned.'
-                  : 'No 1-to-1 activities planned.'
-              }
-              emptyDescription="Join something on Discover, or post your own activity."
-              emptyAction={
-                <Button variant="outline" asChild className="px-8">
-                  <Link to={ROUTES.discover}>Go to Discover</Link>
+            <TabsContent value="planned" className="flex flex-col gap-5 pt-5">
+              <SegmentedToggle options={KINDS} value={kind} onChange={setKind} />
+              <EventList
+                items={planned[kind]}
+                isLoading={isLoadingPlanned}
+                error={kind === 'group' ? groupError : soloError}
+                onRetry={kind === 'group' ? myGroups.refresh : myPosts.refresh}
+                emptyIllustration={clipboardIllustration}
+                emptyTitle={
+                  kind === 'group'
+                    ? 'No group activities planned.'
+                    : 'No 1-to-1 activities planned.'
+                }
+                emptyDescription="Join something on Discover, or post your own activity."
+                emptyAction={
+                  <Button variant="outline" asChild className="px-8">
+                    <Link to={ROUTES.discover}>Go to Discover</Link>
+                  </Button>
+                }
+              />
+            </TabsContent>
+
+            <TabsContent value="created" className="flex flex-col gap-5 pt-5">
+              <SegmentedToggle options={KINDS} value={kind} onChange={setKind} />
+              <EventList
+                items={created[kind]}
+                isLoading={isLoadingPlanned}
+                error={kind === 'group' ? groupError : soloError}
+                onRetry={kind === 'group' ? myGroups.refresh : myPosts.refresh}
+                emptyIllustration={clipboardIllustration}
+                emptyTitle={
+                  kind === 'group'
+                    ? "You haven't created a group activity yet."
+                    : "You haven't posted a 1-to-1 activity yet."
+                }
+                emptyDescription="Post an activity and let people find it on Discover."
+                emptyAction={
+                  <Button variant="outline" asChild className="px-8">
+                    <Link to={ROUTES.postActivity}>Post an activity</Link>
+                  </Button>
+                }
+              />
+            </TabsContent>
+
+            <TabsContent value="past" className="flex flex-col gap-5 pt-5">
+              <SegmentedToggle options={KINDS} value={kind} onChange={setKind} />
+              <EventList
+                items={pastEvents[kind]}
+                isLoading={past.isLoading || myGroups.isLoading || myPosts.isLoading}
+                error={kind === 'group' ? groupError : past.error || myPosts.error}
+                onRetry={kind === 'group' ? myGroups.refresh : past.refresh}
+                emptyIcon={History}
+                emptyTitle={
+                  kind === 'group' ? 'No past group activities.' : 'No past 1-to-1 activities.'
+                }
+                /* Careful wording: an activity lands here because its end time
+                   passed, which says nothing about whether anyone went. */
+                emptyDescription="Activities appear here after their scheduled time."
+              />
+              {kind === 'solo' && past.hasMore && (
+                <Button
+                  variant="outline"
+                  onClick={past.loadMore}
+                  disabled={past.isLoadingMore}
+                  className="self-center px-8"
+                >
+                  {past.isLoadingMore ? 'Loading…' : 'Load more'}
                 </Button>
-              }
-            />
-          </TabsContent>
-
-          <TabsContent value="created" className="flex flex-col gap-5 pt-5">
-            <SegmentedToggle options={KINDS} value={kind} onChange={setKind} />
-            <EventList
-              items={created[kind]}
-              isLoading={isLoadingPlanned}
-              error={kind === 'group' ? groupError : soloError}
-              onRetry={kind === 'group' ? myGroups.refresh : myPosts.refresh}
-              emptyIllustration={clipboardIllustration}
-              emptyTitle={
-                kind === 'group'
-                  ? "You haven't created a group activity yet."
-                  : "You haven't posted a 1-to-1 activity yet."
-              }
-              emptyDescription="Post an activity and let people find it on Discover."
-              emptyAction={
-                <Button variant="outline" asChild className="px-8">
-                  <Link to={ROUTES.postActivity}>Post an activity</Link>
-                </Button>
-              }
-            />
-          </TabsContent>
-
-          <TabsContent value="past" className="flex flex-col gap-5 pt-5">
-            <SegmentedToggle options={KINDS} value={kind} onChange={setKind} />
-            <EventList
-              items={pastEvents[kind]}
-              isLoading={past.isLoading || myGroups.isLoading || myPosts.isLoading}
-              error={kind === 'group' ? groupError : past.error || myPosts.error}
-              onRetry={kind === 'group' ? myGroups.refresh : past.refresh}
-              emptyIcon={History}
-              emptyTitle={
-                kind === 'group' ? 'No past group activities.' : 'No past 1-to-1 activities.'
-              }
-              /* Careful wording: an activity lands here because its end time
-                 passed, which says nothing about whether anyone went. */
-              emptyDescription="Activities appear here after their scheduled time."
-            />
-            {kind === 'solo' && past.hasMore && (
-              <Button
-                variant="outline"
-                onClick={past.loadMore}
-                disabled={past.isLoadingMore}
-                className="self-center px-8"
-              >
-                {past.isLoadingMore ? 'Loading…' : 'Load more'}
-              </Button>
-            )}
-          </TabsContent>
-        </Tabs>
-      </PageContainer>
+              )}
+            </TabsContent>
+          </Tabs>
+        </PageContainer>
+      </PullToRefresh>
     </>
   )
 }

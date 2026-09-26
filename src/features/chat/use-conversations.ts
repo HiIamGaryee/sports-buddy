@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useAuth } from '@/hooks/use-auth'
 import { useConnections } from '@/hooks/use-connections'
@@ -66,7 +66,8 @@ export function useConversations() {
   const { conversations, error } = useConversationsFeed()
 
   // One batched query, re-run only when the set of connected buddies changes.
-  const profilesKey = buddyIds.join(',')
+  const [reloadToken, setReloadToken] = useState(0)
+  const profilesKey = `${reloadToken}|${buddyIds.join(',')}`
   const [profileState, setProfileState] = useState<ProfilesState>({
     key: '',
     profiles: [],
@@ -141,10 +142,13 @@ export function useConversations() {
       .sort(compareRows)
   }, [connections, conversations, profiles, userId, readAt, blockedIds])
 
+  const refresh = useCallback(() => setReloadToken((token) => token + 1), [])
+
   return {
     items,
     isLoading: isLoadingConnections || isLoadingProfiles,
     error,
+    refresh,
   }
 }
 
