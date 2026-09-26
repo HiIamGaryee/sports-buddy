@@ -14,7 +14,7 @@ import { useGroupActivityActions } from '@/features/group-activities/use-group-a
 import { markCheckedIn, useMyCheckIns } from '@/features/group-activities/use-my-check-ins'
 import { CHECK_IN_GRACE_MINUTES } from '@/constants/attendance'
 import { isCheckInOpen, toCheckInSubject } from '@/lib/attendance'
-import { formatActivityDate, formatActivityTime } from '@/lib/activity-format'
+import { formatActivityDate, formatActivityTimeRange } from '@/lib/activity-format'
 import {
   getGroupActivityViewerState,
   groupActivitySpotsLeft,
@@ -187,7 +187,7 @@ export function GroupActivityCard({
             <dt className="sr-only">When</dt>
             <CalendarClock aria-hidden className="size-4 shrink-0 text-primary" />
             <dd className="text-body-small text-muted-foreground">
-              {formatActivityDate(activity.startAt)} · {formatActivityTime(activity.startAt)}
+              {formatActivityDate(activity.startAt)} · {formatActivityTimeRange(activity.startAt, activity.endAt)}
             </dd>
           </div>
         </dl>

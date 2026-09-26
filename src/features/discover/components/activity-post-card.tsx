@@ -12,7 +12,6 @@ import { usePostActions } from '@/features/discover/use-post-actions'
 import { useConnections } from '@/hooks/use-connections'
 import {
   formatActivityDate,
-  formatActivityTime,
   formatActivityTimeRange,
 } from '@/lib/activity-format'
 import { getPostViewerState, isPostFull } from '@/lib/activity-post'
@@ -266,10 +265,7 @@ export function ActivityPostCard({
             <dt className="sr-only">When</dt>
             <CalendarClock aria-hidden className="size-4 shrink-0 text-primary" />
             <dd className="text-body-small text-muted-foreground">
-              {formatActivityDate(post.startAt)} ·{' '}
-              {post.endAt
-                ? formatActivityTimeRange(post.startAt, post.endAt)
-                : formatActivityTime(post.startAt)}
+              {formatActivityDate(post.startAt)} · {formatActivityTimeRange(post.startAt, post.endAt)}
             </dd>
           </div>
         </dl>

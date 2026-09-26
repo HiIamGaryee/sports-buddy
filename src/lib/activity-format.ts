@@ -49,15 +49,15 @@ export const formatActivityTime = (iso: string) => {
   return date ? timeFormat.format(date) : ''
 }
 
-/** "5:00 PM – 7:00 PM" */
-export const formatActivityTimeRange = (startIso: string, endIso: string) => {
+/** "5:00 PM – 7:00 PM", or "5:00 PM – -" when there is no end time. */
+export const formatActivityTimeRange = (startIso: string, endIso: string | null) => {
   const start = formatActivityTime(startIso)
-  const end = formatActivityTime(endIso)
-  return start && end ? `${start} – ${end}` : start || end
+  const end = endIso ? formatActivityTime(endIso) : ''
+  return start ? `${start} – ${end || '-'}` : end
 }
 
 /** "Sat, 12 Sep · 5:00 PM – 7:00 PM" */
-export const formatActivityDateTime = (startIso: string, endIso: string) => {
+export const formatActivityDateTime = (startIso: string, endIso: string | null) => {
   const date = formatActivityShortDate(startIso)
   const range = formatActivityTimeRange(startIso, endIso)
   return date && range ? `${date} · ${range}` : date || range

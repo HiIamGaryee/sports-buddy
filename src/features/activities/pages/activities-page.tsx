@@ -61,6 +61,7 @@ interface EventItem {
   to: string
   title: string
   startAt: string
+  endAt: string | null
   meta: string
   pill?: { label: string; tone: Tone }
 }
@@ -78,6 +79,7 @@ function fromGroupActivity(
     to: groupActivityDetailPath(activity.id),
     title: activity.title,
     startAt: activity.startAt,
+    endAt: activity.endAt,
     meta: joinPart(getSportName(activity.sportId), activity.venueName, getAreaName(activity.areaId), spots),
     pill,
   }
@@ -106,6 +108,7 @@ function fromActivityPost(
     to: activityPostPath(post.id),
     title: otherName ? `${sport} with ${otherName}` : `${sport} (1-to-1)`,
     startAt: post.startAt,
+    endAt: post.endAt,
     meta: joinPart(post.venueName, getAreaName(post.areaId)),
     pill,
   }
@@ -117,6 +120,7 @@ function fromSession(item: ActivityWithBuddy): EventItem {
     to: activityPath(item.activity.id),
     title: `${getSportName(item.activity.sportId)} with ${item.buddyName}`,
     startAt: item.activity.startAt,
+    endAt: item.activity.endAt,
     meta: joinPart(item.activity.venue.name),
     pill: { label: 'Confirmed', tone: 'success' },
   }
@@ -407,6 +411,7 @@ function EventList({
           to={item.to}
           title={item.title}
           startAt={item.startAt}
+          endAt={item.endAt}
           meta={item.meta}
           pill={item.pill}
         />

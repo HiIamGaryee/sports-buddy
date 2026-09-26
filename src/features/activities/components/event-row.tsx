@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatusPill } from '@/components/ui/status-pill'
 import {
   formatActivityShortDate,
-  formatActivityTime,
+  formatActivityTimeRange,
   formatDateBlock,
 } from '@/lib/activity-format'
 
@@ -21,6 +21,7 @@ export function EventRow({
   to,
   title,
   startAt,
+  endAt,
   meta,
   pill,
   trailing,
@@ -29,6 +30,8 @@ export function EventRow({
   title: string
   /** ISO instant. The date and time under the title come from this. */
   startAt: string
+  /** ISO instant, or null when the event has no end time. */
+  endAt: string | null
   /** One short line under the time: venue, area, who it is with. */
   meta?: string
   pill?: { label: string; tone: 'neutral' | 'pending' | 'success' | 'active' }
@@ -51,7 +54,7 @@ export function EventRow({
               {pill && <StatusPill tone={pill.tone}>{pill.label}</StatusPill>}
             </span>
             <span className="text-body-small text-muted-foreground">
-              {formatActivityShortDate(startAt)} · {formatActivityTime(startAt)}
+              {formatActivityShortDate(startAt)} · {formatActivityTimeRange(startAt, endAt)}
             </span>
             {meta && <span className="text-caption text-muted-foreground">{meta}</span>}
           </span>
