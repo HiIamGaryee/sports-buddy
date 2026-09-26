@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 
 import compassIllustration from '@/assets/svg/compas-svgrepo-com.svg'
 import calendarIcon from '@/assets/svg/calendar-svgrepo-com.svg'
+import peopleNearbyIcon from '@/assets/svg/people-nearby-svgrepo-com.svg'
 import { EmptyState } from '@/components/common/empty-state'
 import { AppHeader } from '@/components/layout/app-header'
 import { PageContainer } from '@/components/layout/page-container'
@@ -194,6 +195,7 @@ export function DiscoverPage() {
         title="Discover"
         subtitle="Find people and places to play near you."
         size="wide"
+        variant="list"
         action={
           <div className="flex items-center gap-1">
             <Button
@@ -270,7 +272,8 @@ export function DiscoverPage() {
         <hr className="border-border" />
 
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <span className="text-body text-muted-foreground">
+          <span className="flex items-center gap-2 text-body text-muted-foreground">
+            <img src={peopleNearbyIcon} alt="" className="size-5" />
             {current.isLoading
               ? 'Looking for matches…'
               : `${current.count} ${current.count === 1 ? 'match' : 'matches'}`}

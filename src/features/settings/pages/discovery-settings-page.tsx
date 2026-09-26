@@ -118,7 +118,7 @@ function DiscoverySettingsForm({ profile }: { profile: SportsProfile }) {
         title="Discovery"
         subtitle="Find your perfect sports buddy"
         size="full"
-        showBack
+        variant="detail"
         action={
           <div className="hidden items-center gap-2 md:flex">
             <Button variant="outline" onClick={close} className="rounded-full">

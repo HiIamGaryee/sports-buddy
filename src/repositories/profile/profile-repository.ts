@@ -18,6 +18,8 @@ export interface ProfileRepository {
    * complete. Used by onboarding completion and by profile editing.
    */
   saveProfile(userId: string, input: SaveProfileInput): Promise<SportsProfile>
+  /** Merges the profile photo only; `null` removes it. */
+  setPhotoUrl(userId: string, photoUrl: string | null): Promise<SportsProfile>
   /** Merges preferences only, leaving profile fields untouched. */
   updatePreferences(
     userId: string,

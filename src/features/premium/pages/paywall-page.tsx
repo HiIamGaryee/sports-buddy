@@ -363,7 +363,7 @@ export function PaywallPage() {
         title="Buddy+"
         subtitle="Find better-matched people. Play more. Plan without limits."
         size="wide"
-        showBack
+        variant="detail"
       />
       <PageContainer size="wide" className="pricing-page gap-10 pt-8 pb-bottom-nav-space md:gap-14 md:pt-10 md:pb-16">
         <section className="pricing-reveal flex flex-col items-center gap-4 text-center">

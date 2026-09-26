@@ -5,7 +5,7 @@ import { ProfileContext } from '@/providers/profile-context'
 import { profileService } from '@/services/profile/profile-service'
 import type { UserPreferences } from '@/types/preferences'
 import type { SaveProfileInput } from '@/types/sports-profile'
-import type { SportsProfile } from '@/types/user'
+import type { ProfilePhotoChange, SportsProfile } from '@/types/user'
 import type { Gender } from '@/types/gender'
 
 interface ProfileState {
@@ -60,7 +60,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   )
 
   const updateProfile = useCallback(
-    async (input: SaveProfileInput, maxSports?: number) => {
+    async (
+      input: SaveProfileInput,
+      maxSports?: number,
+      photo?: ProfilePhotoChange,
+    ) => {
       if (!user || !state.profile) {
         throw new Error('You need to be signed in to edit your profile.')
       }
@@ -69,6 +73,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         input,
         state.profile.preferences,
         maxSports,
+        photo,
       )
       setState({ userId: user.id, profile, isLoading: false })
     },

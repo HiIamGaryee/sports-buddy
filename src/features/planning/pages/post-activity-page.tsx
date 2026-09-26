@@ -32,6 +32,7 @@ import { activityPostService } from '@/services/activity-post/activity-post-serv
 import { chatService } from '@/services/chat/chat-service'
 import { discoverService } from '@/services/discover/discover-service'
 import { shareService } from '@/services/share/share-service'
+import { cn } from '@/lib/utils'
 import { activityPostPath, conversationPath, ROUTES } from '@/routes/routes'
 import type { ActivityPost, ActivityPostDraft } from '@/types/activity-post'
 import type { AreaId, SportId } from '@/types/sports-profile'
@@ -219,7 +220,7 @@ export function PostActivityPage() {
             : 'Invite someone to play. Share it, or let people find it on Discover.'
       }
       size="wide"
-      showBack
+      variant="detail"
     />
   )
 
@@ -306,6 +307,8 @@ export function PostActivityPage() {
       ? 'Send invite'
       : 'Post activity'
   const savingLabel = isEdit ? 'Saving…' : isInviteRoute ? 'Sending…' : 'Posting…'
+
+  const showSave = isEdit && !isLastStep
 
   return (
     <>
@@ -468,9 +471,13 @@ export function PostActivityPage() {
                 </p>
               )}
 
-              <div className="flex justify-between gap-3">
+              {/* Phone: two buttons per row, so with Save showing,
+                  Continue drops to its own full-width row. From `sm`
+                  it is one row again, Cancel/Back on the left. */}
+              <div className="grid grid-cols-2 gap-3 sm:flex">
                 <Button
                   variant="outline"
+                  className="sm:mr-auto"
                   disabled={isSaving}
                   onClick={() =>
                     step > 0
@@ -482,31 +489,30 @@ export function PostActivityPage() {
                 >
                   {step === 0 ? 'Cancel' : 'Back'}
                 </Button>
-                <div className="flex gap-3">
-                  {isEdit && !isLastStep && (
-                    <Button
-                      variant="outline"
-                      disabled={isSaving}
-                      onClick={() => void save()}
-                    >
-                      {isSaving ? savingLabel : saveLabel}
-                    </Button>
-                  )}
+                {showSave && (
                   <Button
-                    disabled={!canContinue || isSaving}
-                    onClick={() =>
-                      isLastStep
-                        ? void save()
-                        : setStep((current) => current + 1)
-                    }
+                    variant="outline"
+                    disabled={isSaving}
+                    onClick={() => void save()}
                   >
-                    {isLastStep
-                      ? isSaving
-                        ? savingLabel
-                        : saveLabel
-                      : 'Continue'}
+                    {isSaving ? savingLabel : saveLabel}
                   </Button>
-                </div>
+                )}
+                <Button
+                  className={cn(showSave && 'col-span-2')}
+                  disabled={!canContinue || isSaving}
+                  onClick={() =>
+                    isLastStep
+                      ? void save()
+                      : setStep((current) => current + 1)
+                  }
+                >
+                  {isLastStep
+                    ? isSaving
+                      ? savingLabel
+                      : saveLabel
+                    : 'Continue'}
+                </Button>
               </div>
             </CardContent>
           </Card>

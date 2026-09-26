@@ -155,6 +155,18 @@ export const firebaseProfileRepository: ProfileRepository = {
     return saved
   },
 
+  async setPhotoUrl(userId: string, photoUrl: string | null) {
+    await setDoc(
+      userDoc(userId),
+      { photoUrl, updatedAt: serverTimestamp() },
+      { merge: true },
+    )
+
+    const saved = await getByUserId(userId)
+    if (!saved) throw new Error('Photo was saved but could not be read back.')
+    return saved
+  },
+
   async updatePreferences(userId: string, preferences: UserPreferences) {
     await setDoc(
       userDoc(userId),

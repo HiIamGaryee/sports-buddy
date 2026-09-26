@@ -60,6 +60,19 @@
     var(--primary-gradient-fill);
   --primary-accent-background: var(--primary-background);
   --chat-bg: #ffb700;
+  --chat-reply-bg: #a5edff;
+  --chat-reply-foreground: #15171a;
+  --activity-pill-match-background: linear-gradient(
+    135deg,
+    #fff4cf,
+    #f6dda0
+  );
+  --activity-pill-match-border: #a66d00;
+  --activity-pill-match-foreground: #4a3000;
+  --activity-pill-match-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.85),
+    0 0 12px -4px rgb(189 125 0 / 0.72);
+  --activity-pill-match-shimmer: rgb(255 255 255 / 0.82);
 
   /* Both ends keep the near-black primary foreground legible. */
   --primary-gradient-start: #ffd45c;
@@ -296,6 +309,19 @@
   --primary-background: var(--primary);
   --primary-accent-background: var(--primary-gradient-fill);
   --chat-bg: var(--primary);
+  --chat-reply-bg: #a5edff;
+  --chat-reply-foreground: #15171a;
+  --activity-pill-match-background: linear-gradient(
+    135deg,
+    #2b1b1c,
+    #3a2420
+  );
+  --activity-pill-match-border: #f2c761;
+  --activity-pill-match-foreground: #ffe29a;
+  --activity-pill-match-shadow:
+    inset 0 1px 0 rgb(255 235 178 / 0.18),
+    0 0 14px -4px rgb(242 199 97 / 0.72);
+  --activity-pill-match-shimmer: rgb(255 230 158 / 0.58);
 
   /* Dark is the primary brand presentation, so the gradient carries a little
      more range. Both ends stay light, so near-black text stays >13:1. */
@@ -444,6 +470,8 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-chat-bg: var(--chat-bg);
+  --color-chat-reply-bg: var(--chat-reply-bg);
+  --color-chat-reply-foreground: var(--chat-reply-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);

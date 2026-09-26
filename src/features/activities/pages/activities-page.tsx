@@ -261,6 +261,7 @@ export function ActivitiesPage() {
         title="Activities"
         subtitle="What you have planned, created and played."
         size="wide"
+        variant="list"
       />
       <PageContainer size="wide">
         <Tabs value={tab} onValueChange={setTab}>

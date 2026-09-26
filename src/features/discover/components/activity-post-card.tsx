@@ -87,6 +87,7 @@ export function ActivityPostCard({
   now,
   onChanged,
   onRemove,
+  showFullAddress = false,
 }: {
   post: ActivityPost
   /** Public profiles for the author, the joiner and anyone waiting. */
@@ -95,6 +96,7 @@ export function ActivityPostCard({
   /** Reload whatever list this card sits in, after any change. */
   onChanged: () => void
   onRemove?: (postId: string) => Promise<void>
+  showFullAddress?: boolean
 }) {
   const { viewerId, join, leave, approve, decline } = usePostActions(onChanged)
   const { getConnectionState } = useConnections()
@@ -210,7 +212,14 @@ export function ActivityPostCard({
             <dt className="sr-only">Location</dt>
             <MapPin aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
             <dd className="min-w-0 text-body text-card-foreground">
-              <span className="block truncate">{post.venueName}</span>
+              <span
+                className={cn(
+                  'block',
+                  showFullAddress ? 'break-words whitespace-normal' : 'truncate',
+                )}
+              >
+                {post.venueName}
+              </span>
               <span className="block text-body-small text-muted-foreground">
                 {getAreaName(post.areaId)}
               </span>

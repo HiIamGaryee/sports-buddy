@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Avatar as AvatarPrimitive } from "radix-ui"
 
-import { safeImageUrl } from "@/lib/safe-url"
+import { isLocalPreviewUrl, safeImageUrl } from "@/lib/safe-url"
 import { cn } from "@/lib/utils"
 
 function Avatar({
@@ -38,7 +38,8 @@ function AvatarImage({
   src,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
-  const safeSrc = safeImageUrl(src)
+  // A local preview of a picked file is allowed too; see `isLocalPreviewUrl`.
+  const safeSrc = safeImageUrl(src) ?? (isLocalPreviewUrl(src) ? src : null)
   if (!safeSrc) return null
 
   return (

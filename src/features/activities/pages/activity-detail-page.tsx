@@ -39,7 +39,7 @@ export function ActivityDetailPage() {
   if (isLoading) {
     return (
       <>
-        <AppHeader title="Activity" size="wide" showBack />
+        <AppHeader title="Activity" size="wide" variant="detail" />
         <PageContainer size="wide">
           <Skeleton className="h-32 w-full rounded-2xl" />
           <Skeleton className="h-48 w-full rounded-2xl" />
@@ -52,8 +52,8 @@ export function ActivityDetailPage() {
     // Deliberately generic: it must not reveal whether the activity exists.
     return (
       <>
-        <AppHeader title="Activity" size="default" showBack />
-        <PageContainer size="default">
+        <AppHeader title="Activity" size="wide" variant="detail" />
+        <PageContainer size="wide">
           <div className="flex flex-col items-start gap-4">
             <p role="alert" className="text-title text-foreground">
               {error || 'This activity is unavailable.'}
@@ -79,7 +79,7 @@ export function ActivityDetailPage() {
         title={`${getSportName(activity.sportId)} with ${buddyName}`}
         subtitle={formatActivityDate(activity.startAt)}
         size="wide"
-        showBack
+        variant="detail"
       />
       <PageContainer size="wide">
         {/* Details on the left from `lg`, venue beside them — so a desktop

@@ -1,0 +1,104 @@
+.luxuryCard {
+  position: relative;
+  isolation: isolate;
+  border-color: color-mix(
+    in oklch,
+    var(--activity-pill-match-border) 68%,
+    var(--border)
+  );
+  background:
+    radial-gradient(
+      circle at 88% 8%,
+      color-mix(in oklch, var(--activity-pill-match-border) 18%, transparent),
+      transparent 34%
+    ),
+    linear-gradient(
+      145deg,
+      var(--surface-raised),
+      color-mix(
+        in oklch,
+        var(--activity-pill-match-border) 9%,
+        var(--surface-raised)
+      )
+    );
+  box-shadow:
+    inset 0 1px 0
+      color-mix(in oklch, var(--activity-pill-match-shimmer) 64%, transparent),
+    0 18px 48px -30px
+      color-mix(in oklch, var(--activity-pill-match-border) 72%, transparent);
+}
+
+.luxuryCard::after {
+  position: absolute;
+  z-index: 0;
+  top: -35%;
+  bottom: -35%;
+  left: 0;
+  width: 32%;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--activity-pill-match-shimmer) 60%, transparent),
+    transparent
+  );
+  transform: translateX(-180%) skewX(-18deg);
+  animation: recap-card-shimmer 6.5s ease-in-out infinite;
+}
+
+.luxuryCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.goldRail {
+  background: linear-gradient(
+    90deg,
+    var(--activity-pill-match-foreground),
+    var(--activity-pill-match-border),
+    var(--activity-pill-match-shimmer),
+    var(--activity-pill-match-border),
+    var(--activity-pill-match-foreground)
+  );
+  box-shadow: 0 0 18px
+    color-mix(in oklch, var(--activity-pill-match-border) 52%, transparent);
+}
+
+.goldText {
+  width: fit-content;
+  background: linear-gradient(
+    105deg,
+    var(--activity-pill-match-foreground),
+    var(--activity-pill-match-border),
+    var(--activity-pill-match-foreground)
+  );
+  background-clip: text;
+  color: transparent;
+}
+
+.goldMetric {
+  color: var(--activity-pill-match-foreground);
+  text-shadow: 0 0 18px
+    color-mix(in oklch, var(--activity-pill-match-border) 32%, transparent);
+}
+
+@keyframes recap-card-shimmer {
+  0%,
+  58% {
+    transform: translateX(-180%) skewX(-18deg);
+  }
+
+  86%,
+  100% {
+    transform: translateX(420%) skewX(-18deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxuryCard::after {
+    animation: none;
+    opacity: 0.35;
+    transform: translateX(210%) skewX(-18deg);
+  }
+}

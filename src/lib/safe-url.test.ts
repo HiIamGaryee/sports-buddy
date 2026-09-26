@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  isCloudinaryImageUrl,
   isSafeImageUrl,
   isSafeLinkUrl,
   isTrustedOpenStreetMapUrl,
@@ -79,5 +80,24 @@ describe('isTrustedOpenStreetMapUrl', () => {
 
   it.each(HOSTILE_URLS)('rejects %s', (url) => {
     expect(isTrustedOpenStreetMapUrl(url)).toBe(false)
+  })
+})
+
+describe('isCloudinaryImageUrl', () => {
+  it('accepts an image in the configured cloud', () => {
+    expect(
+      isCloudinaryImageUrl('https://res.cloudinary.com/demo/image/upload/v1/a.jpg', 'demo'),
+    ).toBe(true)
+  })
+
+  it.each([
+    'https://res.cloudinary.com/other/image/upload/v1/a.jpg',
+    'http://res.cloudinary.com/demo/image/upload/v1/a.jpg',
+    'https://res.cloudinary.com/demo/raw/upload/v1/a.html',
+    'https://res.cloudinary.com.evil.com/demo/image/upload/a.jpg',
+    'javascript:alert(1)',
+    null,
+  ])('refuses %s', (url) => {
+    expect(isCloudinaryImageUrl(url, 'demo')).toBe(false)
   })
 })

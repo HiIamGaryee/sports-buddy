@@ -30,6 +30,16 @@ service cloud.firestore {
         || data.gender in ['male', 'female'];
     }
 
+    // A profile photo is null, an image in a Cloudinary cloud's upload path,
+    // or an auth provider's Google photo. Every member renders it, so it is
+    // never an arbitrary host (a tracking pixel) or a non-https URL.
+    function validPhotoUrl(data) {
+      return !('photoUrl' in data) || data.photoUrl == null
+        || (data.photoUrl is string
+          && data.photoUrl.size() <= 500
+          && data.photoUrl.matches('^https://(res[.]cloudinary[.]com/[A-Za-z0-9_-]+/image/upload/|[A-Za-z0-9-]+[.]googleusercontent[.]com/)[^ ]+$'));
+    }
+
     function validSocialUsername(data, key) {
       return !(key in data) || data[key] == null || data[key] == ''
         || (data[key] is string
@@ -714,6 +724,7 @@ service cloud.firestore {
         return data.keys().hasOnly(userFields())
           && boundedOptionalString(data, 'displayName', maxDisplayName())
           && boundedOptionalString(data, 'bio', maxBio())
+          && validPhotoUrl(data)
           && validSocialUsername(data, 'instagramUsername')
           && validSocialUsername(data, 'linkedinUsername')
           && validGender(data)
@@ -766,6 +777,7 @@ service cloud.firestore {
         return data.keys().hasOnly(discoveryFields())
           && boundedString(data.displayName, maxDisplayName())
           && boundedOptionalString(data, 'bio', maxBio())
+          && validPhotoUrl(data)
           && validGender(data)
           && (!('sports' in data) || data.sports.size() <= maxSports());
       }

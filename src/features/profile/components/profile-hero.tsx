@@ -1,7 +1,6 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { GenderLabel } from '@/components/profile/gender-label'
-import { getInitials } from '@/lib/initials'
+import { ProfileAvatar } from '@/components/profile/profile-avatar'
 import { formatRadius, getAreaName } from '@/lib/profile-format'
 import type { SportsProfile } from '@/types/user'
 
@@ -16,14 +15,11 @@ export function ProfileHero({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-5 md:gap-6">
-        <Avatar className="size-24 md:size-32">
-          {profile.photoUrl && (
-            <AvatarImage src={profile.photoUrl} alt={profile.displayName} />
-          )}
-          <AvatarFallback className="text-heading-1">
-            {getInitials(profile.displayName, profile.email)}
-          </AvatarFallback>
-        </Avatar>
+        <ProfileAvatar
+          photoUrl={profile.photoUrl}
+          displayName={profile.displayName}
+          email={profile.email}
+        />
         <div className="flex min-w-0 flex-col gap-1">
             <span className="truncate text-heading-1 text-foreground md:text-display">
             {profile.displayName}

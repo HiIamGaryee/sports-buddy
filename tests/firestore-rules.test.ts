@@ -1789,6 +1789,22 @@ describe('the private profile document', () => {
     )
   })
 
+  it('accepts a Cloudinary or Google photo and nothing else', async () => {
+    const withPhoto = (photoUrl: string) =>
+      setDoc(doc(asUser(GARY), userPath(GARY)), { ...validProfile(GARY), photoUrl })
+
+    await assertSucceeds(
+      withPhoto('https://res.cloudinary.com/demo/image/upload/c_fill,w_320/v1/a.jpg'),
+    )
+    await assertSucceeds(withPhoto('https://lh3.googleusercontent.com/a/abc=s96-c'))
+    await assertFails(withPhoto('https://evil.example.com/pixel.gif'))
+    await assertFails(withPhoto('http://res.cloudinary.com/demo/image/upload/a.jpg'))
+    await assertFails(withPhoto('https://res.cloudinary.com/demo/raw/upload/a.html'))
+    await assertFails(
+      withPhoto(`https://res.cloudinary.com/demo/image/upload/${'a'.repeat(500)}`),
+    )
+  })
+
   it('still refuses another user entirely', async () => {
     await assertFails(
       setDoc(doc(asUser(AINA), userPath(GARY)), validProfile(GARY)),
@@ -1842,6 +1858,15 @@ describe('the public profile projection', () => {
       setDoc(doc(asUser(GARY), publicPath(GARY)), {
         ...validProjection(GARY),
         preferences: { privacy: { discoverable: true } },
+      }),
+    )
+  })
+
+  it('refuses a photo from an arbitrary host', async () => {
+    await assertFails(
+      setDoc(doc(asUser(GARY), publicPath(GARY)), {
+        ...validProjection(GARY),
+        photoUrl: 'https://evil.example.com/pixel.gif',
       }),
     )
   })

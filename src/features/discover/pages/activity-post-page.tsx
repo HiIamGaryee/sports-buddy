@@ -90,7 +90,7 @@ export function ActivityPostPage() {
     setState({ status: 'unavailable' })
   }, [])
 
-  const header = <AppHeader title="Activity" size="default" showBack />
+  const header = <AppHeader title="Activity" size="default" variant="detail" />
 
   const unavailable = (
     <EmptyState
@@ -128,6 +128,7 @@ export function ActivityPostPage() {
         now={now}
         onChanged={refresh}
         onRemove={remove}
+        showFullAddress
       />
     )
   }

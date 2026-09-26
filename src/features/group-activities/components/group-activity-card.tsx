@@ -48,6 +48,7 @@ export function GroupActivityCard({
   onChanged,
   onRemove,
   linkToDetail = true,
+  surface = 'adaptive',
 }: {
   activity: GroupActivity
   people: ReadonlyMap<string, DiscoveryProfile>
@@ -56,6 +57,7 @@ export function GroupActivityCard({
   onRemove?: (activityId: string) => Promise<void>
   /** The title links to the detail page everywhere except the detail page itself. */
   linkToDetail?: boolean
+  surface?: 'adaptive' | 'discover'
 }) {
   const { viewerId, join, leave, removeParticipant } = useGroupActivityActions(onChanged)
   const [busy, setBusy] = useState<Busy>('idle')
@@ -118,9 +120,9 @@ export function GroupActivityCard({
         // `ActivityCard` gives a past confirmed session, so a past group
         // activity you joined and a past confirmed session look like one
         // system.
-        isEnded
-          ? 'min-h-72 rounded-[1.875rem] border border-border bg-surface-subtle shadow-none'
-          : 'opportunity-card',
+        surface === 'discover' || !isEnded
+          ? 'opportunity-card'
+          : 'min-h-72 rounded-[1.875rem] border border-border bg-surface-subtle shadow-none',
       )}
     >
       <div className="flex h-full flex-col gap-4 p-5">

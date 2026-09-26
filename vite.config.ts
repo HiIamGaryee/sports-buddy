@@ -28,6 +28,6 @@ export default defineConfig({
   // Unit tests only. Firestore rules tests need the emulator and run from
   // vitest.rules.config.ts via `npm run test:rules`.
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 })

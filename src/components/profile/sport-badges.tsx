@@ -3,50 +3,43 @@ import { getSportName } from '@/lib/profile-format'
 import { cn } from '@/lib/utils'
 import type { SportId } from '@/types/sports-profile'
 
+import styles from './sport-badges.module.css'
+
 /** How many sports a card shows before "+n"; the rest are on the profile. */
 export const MAX_SPORTS_ON_CARD = 3
 
 /**
- * A member's sports, with the ones YOU also play set apart.
- *
- * A shared sport is the reason to care about this person, so it is tinted with
- * the primary colour; everything else keeps the neutral chip. Both use the
- * theme's own tokens — the tint is the single `/12` value the design system
- * allows, never a hand-picked shade.
+ * A member's API-ordered sports, with activities that match the viewer's
+ * saved preferences set apart. Everything else keeps the neutral chip.
  */
 export function SportBadges({
   sports,
-  sharedSports = [],
+  matchingSports = [],
   max = MAX_SPORTS_ON_CARD,
   className,
 }: {
   sports: readonly SportId[]
-  /** Sports the VIEWER also plays, from the compatibility result. */
-  sharedSports?: readonly SportId[]
+  /** Candidate sports that also match the viewer's activity preferences. */
+  matchingSports?: readonly SportId[]
   max?: number
   className?: string
 }) {
   if (sports.length === 0) return null
 
-  // Shared sports lead: if only three fit, they should be the useful three.
-  const ordered = [
-    ...sports.filter((sportId) => sharedSports.includes(sportId)),
-    ...sports.filter((sportId) => !sharedSports.includes(sportId)),
-  ]
-  const shown = ordered.slice(0, max)
-  const hidden = ordered.length - shown.length
+  const shown = sports.slice(0, max)
+  const hidden = sports.length - shown.length
 
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
       {shown.map((sportId) => {
-        const isShared = sharedSports.includes(sportId)
+        const isMatch = matchingSports.includes(sportId)
         return (
           <Badge
             key={sportId}
-            variant={isShared ? 'outline' : 'secondary'}
-            className={isShared ? 'border-primary/30 bg-primary/12 text-primary' : undefined}
+            variant={isMatch ? 'outline' : 'secondary'}
+            className={isMatch ? styles['activity-pill--match'] : undefined}
           >
-            {getSportName(sportId)}
+            <span>{getSportName(sportId)}</span>
           </Badge>
         )
       })}

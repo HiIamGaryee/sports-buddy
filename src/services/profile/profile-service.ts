@@ -8,16 +8,22 @@ import {
   profileRepository,
   publicProfileRepository,
 } from '@/repositories/repositories'
+import {
+  getAvatarFileError,
+  uploadAvatar,
+} from '@/services/profile/avatar-upload'
+import { isSafeImageUrl, safeImageUrl } from '@/lib/safe-url'
 import { toSafeProfileInput } from '@/services/profile/profile-schema'
 import { validateProfileInput } from '@/services/profile/profile-validation'
 import type { AuthUser } from '@/types/auth'
 import type { UserPreferences } from '@/types/preferences'
 import type { SaveProfileInput } from '@/types/sports-profile'
-import type { SportsProfile } from '@/types/user'
+import type { ProfilePhotoChange, SportsProfile } from '@/types/user'
 import { isGender } from '@/types/gender'
 import type { Gender } from '@/types/gender'
 
 const SAVE_FAILED_MESSAGE = "We couldn't save your profile. Please try again."
+const PHOTO_FAILED_MESSAGE = "We couldn't update your photo. Please try again."
 const PREFERENCES_FAILED_MESSAGE =
   "We couldn't update your preferences. Please try again."
 
@@ -69,6 +75,39 @@ async function saveValidated(
 
   await syncPublicProfile(saved)
   return saved
+}
+
+/**
+ * Removing a custom photo restores the provider's (e.g. Google) photo;
+ * removing the provider photo itself falls through to initials.
+ */
+export function getPhotoUrlAfterRemove(
+  currentPhotoUrl: string | null,
+  providerPhotoUrl: string | null,
+): string | null {
+  const provider = safeImageUrl(providerPhotoUrl)
+  return provider && provider !== currentPhotoUrl ? provider : null
+}
+
+/** Upload (when it is a file) → persist the URL. Throws a user-safe message. */
+async function savePhoto(userId: string, photo: ProfilePhotoChange) {
+  let photoUrl: string | null
+  if ('file' in photo) {
+    const problem = await getAvatarFileError(photo.file)
+    if (problem) throw new Error(problem)
+    photoUrl = await uploadAvatar(photo.file)
+  } else {
+    if (photo.url !== null && !isSafeImageUrl(photo.url)) {
+      throw new Error(PHOTO_FAILED_MESSAGE)
+    }
+    photoUrl = photo.url
+  }
+
+  try {
+    await profileRepository.setPhotoUrl(userId, photoUrl)
+  } catch {
+    throw new Error(PHOTO_FAILED_MESSAGE)
+  }
 }
 
 export const profileService = {
@@ -127,20 +166,28 @@ export const profileService = {
     input: SaveProfileInput,
     preferences: UserPreferences,
     maxSports = MAX_SPORTS,
+    photo?: ProfilePhotoChange,
   ): Promise<SportsProfile> {
     const { gender: _gender, ...editableInput } = input
-    return saveValidated(
-      userId,
-      {
-        ...editableInput,
-        preferences: reconcileDiscoveryPreferences(
-          preferences,
-          input.sports,
-          input.intents,
-        ),
-      },
-      maxSports,
-    )
+    const next: SaveProfileInput = {
+      ...editableInput,
+      preferences: reconcileDiscoveryPreferences(
+        preferences,
+        input.sports,
+        input.intents,
+      ),
+    }
+
+    if (photo) {
+      // Refuse an invalid form BEFORE uploading, so a rejected save never
+      // leaves a new photo behind. The re-projection in `saveValidated`
+      // then publishes the photo and the fields together.
+      const problem = validateProfileInput(normalize(next), { maxSports })
+      if (problem) throw new Error(problem)
+      await savePhoto(userId, photo)
+    }
+
+    return saveValidated(userId, next, maxSports)
   },
 
   /** Also re-projects: flipping `discoverable` publishes or deletes it. */

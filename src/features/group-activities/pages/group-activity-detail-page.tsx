@@ -87,7 +87,7 @@ export function GroupActivityDetailPage() {
     setState({ status: 'unavailable' })
   }, [])
 
-  const header = <AppHeader title="Activity" size="default" showBack />
+  const header = <AppHeader title="Activity" size="default" variant="detail" />
 
   const unavailable = (
     <EmptyState
@@ -119,6 +119,7 @@ export function GroupActivityDetailPage() {
         onChanged={refresh}
         onRemove={remove}
         linkToDetail={false}
+        surface="discover"
       />
     )
   }

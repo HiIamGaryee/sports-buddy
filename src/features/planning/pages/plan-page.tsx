@@ -94,7 +94,7 @@ export function PlanPage() {
   if (isResolvingAccess || (isLoading && isAuthorized && !error)) {
     return (
       <>
-        <AppHeader title="Plan a session" size="wide" showBack />
+        <AppHeader title="Plan a session" size="wide" variant="detail" />
         <PageContainer size="wide">
           <Skeleton className="h-12 w-full rounded-xl" />
           <Skeleton className="h-40 w-full rounded-2xl" />
@@ -108,7 +108,7 @@ export function PlanPage() {
     // Deliberately generic: it must not reveal whether a plan exists.
     return (
       <>
-        <AppHeader title="Plan a session" size="default" showBack />
+        <AppHeader title="Plan a session" size="default" variant="detail" />
         <PageContainer size="default">
           <div className="flex flex-col items-start gap-4">
             <p role="alert" className="text-title text-foreground">
@@ -140,7 +140,7 @@ export function PlanPage() {
         title="Plan a session"
         subtitle={`Planning with ${buddyName}`}
         size="wide"
-        showBack
+        variant="detail"
         action={
           <Button variant="outline" size="sm" asChild>
             <Link to={backToChat}>Back to chat</Link>

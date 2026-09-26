@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConnectAction } from '@/features/connections/components/connect-action'
 import { useConnections } from '@/hooks/use-connections'
+import { useProfile } from '@/hooks/use-profile'
 import {
   formatBudget,
   getAreaName,
@@ -37,6 +38,7 @@ export function BuddyCard({
 }) {
   const { profile: candidate, compatibility, connectionState } = buddy
   const { connections } = useConnections()
+  const { profile: currentUser } = useProfile()
   const conversationId = connections.get(candidate.userId)?.id
   // The sport this pairing is actually about — the engine already picked it.
   const bestSport = compatibility.bestSportMatch
@@ -45,6 +47,17 @@ export function BuddyCard({
     ({ sportId }) => sportId === headlineSport,
   )?.skillLevel
   const intents = candidate.intents.slice(0, MAX_TAGS_SHOWN)
+  const currentUserSports =
+    currentUser?.sports.map(({ sportId }) => sportId) ?? []
+  const preferredSports =
+    currentUser?.preferences.discovery.preferredSports ?? []
+  const matchingSports = candidate.sports
+    .map(({ sportId }) => sportId)
+    .filter(
+      (sportId) =>
+        currentUserSports.includes(sportId) &&
+        (preferredSports.length === 0 || preferredSports.includes(sportId)),
+    )
 
   return (
     <article className="opportunity-card h-full">
@@ -58,7 +71,7 @@ export function BuddyCard({
           <div className="flex min-w-0 flex-col items-start gap-2">
             <SportBadges
               sports={candidate.sports.map(({ sportId }) => sportId)}
-              sharedSports={compatibility.sharedSports}
+              matchingSports={matchingSports}
             />
             <Link
               to={buddyProfilePath(candidate.userId)}

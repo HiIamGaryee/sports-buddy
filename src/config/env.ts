@@ -36,6 +36,15 @@ export const env = {
      */
     androidApiKey: import.meta.env.VITE_REVENUECAT_ANDROID_API_KEY,
   },
+  cloudinary: {
+    /**
+     * Profile photo uploads. An UNSIGNED upload preset is public by design;
+     * its restrictions (folder, formats, size) live in the Cloudinary
+     * dashboard. Both missing means photo upload is not offered at all.
+     */
+    cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME,
+    uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
+  },
   firebase: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,

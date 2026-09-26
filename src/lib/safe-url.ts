@@ -64,6 +64,40 @@ export const safeImageUrl = (raw: unknown): string | null =>
   isSafeImageUrl(raw) ? (raw as string) : null
 
 /**
+ * A `blob:` URL created by THIS page (a file-picker preview). Blob URLs only
+ * resolve inside the document that made them, so one arriving in somebody
+ * else's data points at nothing; the origin check keeps it to our own.
+ */
+export const isLocalPreviewUrl = (raw: unknown): raw is string => {
+  const url = parse(raw)
+  return (
+    url !== null &&
+    url.protocol === 'blob:' &&
+    typeof window !== 'undefined' &&
+    url.origin === window.location.origin
+  )
+}
+
+/**
+ * A photo this app uploaded: https on Cloudinary's delivery host, inside the
+ * configured cloud's image path. Anything else — another cloud, another host,
+ * a raw upload endpoint — is refused before it can reach `users/{uid}` or the
+ * public projection every member reads.
+ */
+export const isCloudinaryImageUrl = (
+  raw: unknown,
+  cloudName: string,
+): raw is string => {
+  const url = parse(raw)
+  return (
+    url !== null &&
+    url.protocol === 'https:' &&
+    url.hostname === 'res.cloudinary.com' &&
+    url.pathname.startsWith(`/${cloudName}/image/upload/`)
+  )
+}
+
+/**
  * Only OpenStreetMap links may be carried in an agreed venue snapshot.
  */
 const OPENSTREETMAP_HOSTS: readonly string[] = [

@@ -35,7 +35,7 @@ export function EditLayout({
         title={title}
         subtitle={subtitle}
         size="wide"
-        showBack
+        variant="detail"
         onBack={onCancel}
         action={
           <div className="hidden items-center gap-2 md:flex">

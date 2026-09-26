@@ -93,3 +93,9 @@ export const BUDGET_OPTIONS = [
 }[]
 
 export const MAX_BIO_LENGTH = 160
+
+/** Profile photo upload limits, shared by the picker and the service. */
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024
+export const AVATAR_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+/** Cloudinary delivery transform: a face-centred square, auto format/quality. */
+export const AVATAR_TRANSFORMATION = 'c_fill,g_face,w_320,h_320,f_auto,q_auto'

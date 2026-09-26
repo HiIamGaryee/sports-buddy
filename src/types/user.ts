@@ -24,3 +24,10 @@ export interface UserRecord {
 export interface SportsProfile extends UserRecord, SportsProfileFields {
   preferences: UserPreferences
 }
+
+/**
+ * A pending photo edit, saved together with the rest of the profile: a new
+ * file to upload, or an existing URL (a provider photo, or `null` for
+ * initials) to switch to.
+ */
+export type ProfilePhotoChange = { file: File } | { url: string | null }

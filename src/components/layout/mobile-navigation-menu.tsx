@@ -15,7 +15,7 @@ export function MobileNavigationMenu() {
         <button
           type="button"
           aria-label="Open navigation menu"
-          className="-ml-2 inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-foreground transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none md:hidden"
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-foreground transition-ui hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none md:hidden"
         >
           <Menu className="size-5" />
         </button>

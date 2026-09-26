@@ -15,6 +15,10 @@ import { SkillSelector } from '@/components/profile/skill-selector'
 import { SportSelector } from '@/components/profile/sport-selector'
 import { Input } from '@/components/ui/input'
 import { EditSection } from '@/features/profile/components/edit-section'
+import {
+  ProfilePhotoField,
+  type PhotoDraft,
+} from '@/features/profile/components/profile-photo-field'
 import { useProfile } from '@/hooks/use-profile'
 import { useSubscription } from '@/hooks/use-subscription'
 import {
@@ -42,13 +46,15 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
   const maxSports = getMaxProfileSports(subscriptionState)
   const initialDraft = useMemo(() => profileToDraft(profile), [profile])
   const [draft, dispatch] = useReducer(profileDraftReducer, initialDraft)
+  const [photo, setPhoto] = useState<PhotoDraft | null>(null)
   const [saveError, setSaveError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
 
   const input = toSaveInput(draft, { includeGender: false })
   const problem = validateProfileInput(input, { maxSports })
-  const isDirty = JSON.stringify(draft) !== JSON.stringify(initialDraft)
+  const isDirty =
+    photo !== null || JSON.stringify(draft) !== JSON.stringify(initialDraft)
 
   function close() {
     navigate(ROUTES.profile)
@@ -59,7 +65,7 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
     setSaveError('')
     setIsSaving(true)
     try {
-      await updateProfile(input, maxSports)
+      await updateProfile(input, maxSports, photo ?? undefined)
       setIsSaved(true)
       // Brief confirmation, then back to the profile with the new values.
       setTimeout(close, 500)
@@ -87,6 +93,15 @@ function EditProfileForm({ profile }: { profile: SportsProfile }) {
       onSave={() => void handleSave()}
       onCancel={close}
     >
+      <EditSection title="Profile photo">
+        <ProfilePhotoField
+          profile={profile}
+          value={photo}
+          onChange={setPhoto}
+          disabled={isSaving || isSaved}
+        />
+      </EditSection>
+
       <EditSection title="Basic info">
         <FormField id="edit-name" label="Display name">
           <Input

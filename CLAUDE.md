@@ -885,8 +885,16 @@ Discover page ← useActivityPosts() (one batch + ONE batched publicProfiles rea
 - Account deletion is **not** implemented and shows no button: deleting the
   Firebase Auth user without clearing `users/{uid}` (and, later, connections
   and messages) would leave orphaned data. Required before production.
-- Photo upload is **not** implemented (it needs Firebase Storage): the
-  provider photo URL is used when present, otherwise initials.
+- Profile photo upload goes to **Cloudinary** (unsigned preset,
+  `VITE_CLOUDINARY_CLOUD_NAME` / `VITE_CLOUDINARY_UPLOAD_PRESET`), not
+  Firebase Storage. `ProfileAvatar` is the one owner avatar on `/profile`
+  and `/profile/edit`. `ProfilePhotoField` only PREVIEWS a pick (a local
+  `blob:` URL, revoked on replace/unmount); the photo is uploaded and stored
+  on the form's Save through `profileService.updateProfile(..., photo)` →
+  `profileRepository.setPhotoUrl()` → re-projection, and Cancel changes
+  nothing. Component tests run in jsdom (`*.test.tsx`). Only a URL in our cloud
+  (`isCloudinaryImageUrl`) is stored; the rules accept null, Cloudinary
+  `image/upload` or `googleusercontent.com` only. Unconfigured → no control.
 
 ### Onboarding (STEP 4)
 
@@ -1300,8 +1308,8 @@ completed by onboarding. Full schema and field semantics:
   be added without an explicit step that designs it.
 - Do not collect phone numbers, ids, relationship status, orientation, dating
   preferences, weight or health data.
-- Profile photo upload is not implemented (it would pull in Firebase
-  Storage). Use the provider photo URL when present, otherwise initials.
+- Profile photos: Cloudinary upload or the provider photo URL, otherwise
+  initials. No other host may be stored.
 
 ### Future: Discover must not read `users/{uid}`
 

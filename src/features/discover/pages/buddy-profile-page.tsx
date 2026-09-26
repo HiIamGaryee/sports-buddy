@@ -98,7 +98,7 @@ export function BuddyProfilePage() {
         title={candidate?.displayName ?? 'Sports buddy'}
         subtitle="Sports Buddy profile"
         size="wide"
-        showBack
+        variant="detail"
       />
       <PageContainer size="wide">
         {isLoading ? (

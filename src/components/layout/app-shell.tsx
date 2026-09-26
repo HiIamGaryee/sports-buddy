@@ -50,7 +50,7 @@ export function AppShell() {
       <NavigationRail className="hidden md:flex lg:hidden" badges={badges} />
       <DesktopSidebar className="hidden lg:flex" badges={badges} />
 
-      <div className="relative flex min-w-0 flex-1 flex-col md:h-dvh md:overflow-y-auto">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-x-hidden md:h-dvh md:overflow-y-auto">
         <Outlet />
       </div>
 

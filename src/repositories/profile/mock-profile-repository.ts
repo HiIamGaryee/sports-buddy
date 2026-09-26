@@ -144,6 +144,21 @@ export const mockProfileRepository: ProfileRepository = {
     return saved
   },
 
+  async setPhotoUrl(userId: string, photoUrl: string | null) {
+    await delay(null, 150)
+    const profiles = readProfiles()
+    const existing = profiles.find((entry) => entry.id === userId)
+    if (!existing) throw new Error(`No profile document for ${userId}.`)
+
+    const saved = normalize({
+      ...existing,
+      photoUrl,
+      updatedAt: new Date().toISOString(),
+    })
+    writeProfiles(profiles.map((entry) => (entry.id === userId ? saved : entry)))
+    return saved
+  },
+
   async updatePreferences(userId: string, preferences: UserPreferences) {
     await delay(null, 150)
     const profiles = readProfiles()
