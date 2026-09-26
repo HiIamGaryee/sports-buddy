@@ -14,9 +14,9 @@
     "test:rules": "firebase emulators:exec --project demo-sports-buddy --only firestore \"vitest run --config vitest.rules.config.ts\"",
     "cap:assets": "capacitor-assets generate --android --assetPath resources",
     "android:open": "cap open android",
-    "android:apk": "npm run cap:sync && android/gradlew -p android assembleDebug",
-    "android:aab": "npm run cap:sync && android/gradlew -p android bundleRelease",
-    "android:apk:release": "npm run cap:sync && android/gradlew -p android assembleRelease",
+    "android:apk": "npm run cap:sync && JAVA_HOME=$(/usr/libexec/java_home -v 21) android/gradlew -p android assembleDebug",
+    "android:aab": "npm run cap:sync && JAVA_HOME=$(/usr/libexec/java_home -v 21) android/gradlew -p android bundleRelease",
+    "android:apk:release": "npm run cap:sync && JAVA_HOME=$(/usr/libexec/java_home -v 21) android/gradlew -p android assembleRelease",
     "cap:assets:logo": "python3 scripts/make-app-assets.py && npm run cap:assets"
   },
   "dependencies": {

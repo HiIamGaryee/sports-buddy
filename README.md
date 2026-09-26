@@ -252,7 +252,7 @@ For Google Maps, set `VITE_VENUE_SOURCE=google` and provide a browser-restricted
 
 In addition to Node.js, Android builds require:
 
-- JDK 17 or newer
+- JDK 21 (the `android:*` scripts pick it on macOS via `/usr/libexec/java_home -v 21`)
 - Android Studio and Android SDK Platform 36
 - A local `android/local.properties` containing your Android SDK path
 
@@ -288,6 +288,21 @@ Outputs:
 
 - Debug APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 - Release AAB: `android/app/build/outputs/bundle/release/app-release.aab`
+
+### Wrong Node version
+
+The Capacitor CLI requires Node.js 22 or newer. If `node -v` prints an older
+version (`cap sync` fails with `The Capacitor CLI requires NodeJS >=22.0.0`),
+switch with [nvm](https://github.com/nvm-sh/nvm) — `.nvmrc` already pins 22:
+
+```bash
+nvm install 22
+nvm use 22
+
+node -v
+npm install
+npx cap sync
+```
 
 ### Build a signed release AAB
 
