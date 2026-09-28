@@ -16,7 +16,7 @@ Built for the **RevenueCat Shipaton 2026 — Next Gen Award**. The Android app i
 the primary product, while the responsive web build lets reviewers try the core
 experience without installing an APK.
 
-- Demo video: _coming soon_ <!-- TODO (manual): replace with the public YouTube/Vimeo link -->
+- Demo video: <https://www.youtube.com/watch?v=xESiX2eGy-A>
 - Live web demo: <https://sportbuddy-4d596.web.app>
 - Android APK: [download `app-debug.apk`](https://github.com/HiIamGaryee/sports-buddy/releases/latest/download/app-debug.apk)
   (latest [GitHub Release](https://github.com/HiIamGaryee/sports-buddy/releases/latest))
